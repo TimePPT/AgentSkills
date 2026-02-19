@@ -1,0 +1,4 @@
+interface:
+  display_name: "Docs SoR Maintainer"
+  short_description: "Maintain docs as source of record"
+  default_prompt: "Use $docs-sor-maintainer to audit and safely maintain docs from codebase facts."
