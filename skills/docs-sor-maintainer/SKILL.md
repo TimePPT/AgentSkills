@@ -13,21 +13,36 @@ Manifest behavior is adaptive by default: if `docs/.doc-manifest.json` is missin
 
 ## Path Conventions
 
-- Always define repository root and skill root first:
+- Always define repository root first, then resolve skill root with fallback:
 
 ```bash
 REPO_ROOT="/absolute/path/to/repo"
-SKILL_DIR="$REPO_ROOT/.agents/skills/docs-sor-maintainer"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
-command -v "$PYTHON_BIN" >/dev/null
+command -v "$PYTHON_BIN" >/dev/null || { echo "python not found: $PYTHON_BIN" >&2; exit 2; }
+CODEX_HOME_RESOLVED="${CODEX_HOME:-$HOME/.codex}"
+
+if [ -n "${SKILL_DIR:-}" ]; then
+  [ -d "$SKILL_DIR/scripts" ] || {
+    echo "invalid SKILL_DIR: $SKILL_DIR (expected scripts/ under this path)" >&2
+    exit 2
+  }
+elif [ -d "$REPO_ROOT/.agents/skills/docs-sor-maintainer/scripts" ]; then
+  SKILL_DIR="$REPO_ROOT/.agents/skills/docs-sor-maintainer"
+elif [ -d "$CODEX_HOME_RESOLVED/skills/docs-sor-maintainer/scripts" ]; then
+  SKILL_DIR="$CODEX_HOME_RESOLVED/skills/docs-sor-maintainer"
+else
+  echo "docs-sor-maintainer not found. Set SKILL_DIR or install under .agents/skills or \$HOME/.codex/skills." >&2
+  exit 2
+fi
 ```
 
+- Resolution priority: explicit `SKILL_DIR` -> `"$REPO_ROOT/.agents/skills/docs-sor-maintainer"` -> `"${CODEX_HOME:-$HOME/.codex}/skills/docs-sor-maintainer"`.
 - Always execute scripts with `"$PYTHON_BIN" "$SKILL_DIR/scripts/<script>.py"`.
 - Do not use relative script paths unless current directory is the skill folder.
 - Before running workflow commands, verify path resolution:
 
 ```bash
-"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_plan.py" --help
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_plan.py" --help >/dev/null
 ```
 
 ## Language Behavior
@@ -105,9 +120,8 @@ Load only the reference file needed by the current task:
 - Policy boundaries, language lock, metadata governance: `references/doc_policy_schema.md`.
 - Target docs shape, additive evolution, archive rules: `references/doc_manifest_schema.md`.
 - Executable command recipes for bootstrap/migration/CI/gardening: `references/workflow_examples.md`.
-- Release-quality evidence and acceptance records: `docs/skills/docs-sor-maintainer/quality/trigger_test_matrix.md` and `docs/skills/docs-sor-maintainer/quality/acceptance_report.md`.
 
-Do not load release-quality evidence files for routine runtime operations unless user asks for trigger/acceptance review.
+Release-quality evidence is maintainer-only process data and should live outside the runtime skill folder (for example CI artifacts or maintainer workspace docs).
 
 ## Required Guardrails
 
@@ -138,8 +152,6 @@ Do not load release-quality evidence files for routine runtime operations unless
 - `references/doc_policy_schema.md`: policy contract.
 - `references/doc_manifest_schema.md`: target structure contract.
 - `references/workflow_examples.md`: bootstrap/migration/CI examples.
-- `docs/skills/docs-sor-maintainer/quality/trigger_test_matrix.md`: trigger contract verification matrix (release gate evidence).
-- `docs/skills/docs-sor-maintainer/quality/acceptance_report.md`: functional/failure/efficiency acceptance evidence (release gate evidence).
 
 ## Examples
 
@@ -150,20 +162,15 @@ Example intents:
 2. Bootstrap with explicit English: "初始化 docs，并把主描述语言改成英文。"
 3. CI drift gate: "把文档漂移作为 PR 的必过检查。"
 
-## Release Validation
+## Maintainer Release Validation (Out of Runtime Scope)
 
-Record release-quality evidence outside the skill runtime folder:
+Run this protocol before publishing or updating the skill. Store evidence outside the runtime skill folder (for example CI artifacts or maintainer workspace documentation).
 
-- `docs/skills/docs-sor-maintainer/quality/trigger_test_matrix.md`
-- `docs/skills/docs-sor-maintainer/quality/acceptance_report.md`
-
-Run this protocol before publishing or updating the skill.
-
-1. Trigger matrix gate: update `docs/skills/docs-sor-maintainer/quality/trigger_test_matrix.md`, keep at least 20 cases across positive/negative/paraphrase, and require zero `FAIL`.
-2. Functional gate: record bootstrap baseline, bootstrap with explicit language, and one-command `doc_garden.py` runs in `docs/skills/docs-sor-maintainer/quality/acceptance_report.md`.
+1. Trigger matrix gate: keep at least 20 cases across positive/negative/paraphrase and require zero `FAIL`.
+2. Functional gate: record bootstrap baseline, bootstrap with explicit language, and one-command `doc_garden.py` runs.
 3. Failure-path gate: record missing plan file failure, invalid plan parse failure, and drift gate failure (`doc_garden --apply-mode none --fail-on-drift`).
 4. Efficiency gate: compare `with skill` vs `without skill` on same repository class and record `command_count`, `retries`, `clarification_turns`, `completion_turns`, `wall_time_seconds`.
-5. Release decision: mark accepted only when trigger/functional/failure/efficiency are all `PASS` in `docs/skills/docs-sor-maintainer/quality/acceptance_report.md`.
+5. Release decision: mark accepted only when trigger/functional/failure/efficiency are all `PASS`.
 
 ## Troubleshooting
 

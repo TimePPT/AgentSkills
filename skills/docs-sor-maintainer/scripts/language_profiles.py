@@ -403,10 +403,25 @@ AGENTS_MD_TEMPLATES = {
 
 ```bash
 REPO_ROOT="/absolute/path/to/repo"
-SKILL_DIR="$REPO_ROOT/.agents/skills/docs-sor-maintainer"
-python "$SKILL_DIR/scripts/repo_scan.py" --root "$REPO_ROOT" --output "$REPO_ROOT/docs/.repo-facts.json"
-python "$SKILL_DIR/scripts/doc_plan.py" --root "$REPO_ROOT" --mode audit --facts "$REPO_ROOT/docs/.repo-facts.json" --output "$REPO_ROOT/docs/.doc-plan.json"
-python "$SKILL_DIR/scripts/doc_validate.py" --root "$REPO_ROOT" --fail-on-drift --fail-on-freshness
+PYTHON_BIN="${PYTHON_BIN:-python3}"
+command -v "$PYTHON_BIN" >/dev/null || { echo "python not found: $PYTHON_BIN" >&2; exit 2; }
+CODEX_HOME_RESOLVED="${CODEX_HOME:-$HOME/.codex}"
+if [ -n "${SKILL_DIR:-}" ]; then
+  [ -d "$SKILL_DIR/scripts" ] || {
+    echo "invalid SKILL_DIR: $SKILL_DIR (expected scripts/ under this path)" >&2
+    exit 2
+  }
+elif [ -d "$REPO_ROOT/.agents/skills/docs-sor-maintainer/scripts" ]; then
+  SKILL_DIR="$REPO_ROOT/.agents/skills/docs-sor-maintainer"
+elif [ -d "$CODEX_HOME_RESOLVED/skills/docs-sor-maintainer/scripts" ]; then
+  SKILL_DIR="$CODEX_HOME_RESOLVED/skills/docs-sor-maintainer"
+else
+  echo 'docs-sor-maintainer not found. Set SKILL_DIR or install under .agents/skills or $HOME/.codex/skills.' >&2
+  exit 2
+fi
+"$PYTHON_BIN" "$SKILL_DIR/scripts/repo_scan.py" --root "$REPO_ROOT" --output "$REPO_ROOT/docs/.repo-facts.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_plan.py" --root "$REPO_ROOT" --mode audit --facts "$REPO_ROOT/docs/.repo-facts.json" --output "$REPO_ROOT/docs/.doc-plan.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_validate.py" --root "$REPO_ROOT" --fail-on-drift --fail-on-freshness
 ```
 
 ## Guardrails
@@ -431,10 +446,25 @@ Treat `docs/` as the repository system of record.
 
 ```bash
 REPO_ROOT="/absolute/path/to/repo"
-SKILL_DIR="$REPO_ROOT/.agents/skills/docs-sor-maintainer"
-python "$SKILL_DIR/scripts/repo_scan.py" --root "$REPO_ROOT" --output "$REPO_ROOT/docs/.repo-facts.json"
-python "$SKILL_DIR/scripts/doc_plan.py" --root "$REPO_ROOT" --mode audit --facts "$REPO_ROOT/docs/.repo-facts.json" --output "$REPO_ROOT/docs/.doc-plan.json"
-python "$SKILL_DIR/scripts/doc_validate.py" --root "$REPO_ROOT" --fail-on-drift --fail-on-freshness
+PYTHON_BIN="${PYTHON_BIN:-python3}"
+command -v "$PYTHON_BIN" >/dev/null || { echo "python not found: $PYTHON_BIN" >&2; exit 2; }
+CODEX_HOME_RESOLVED="${CODEX_HOME:-$HOME/.codex}"
+if [ -n "${SKILL_DIR:-}" ]; then
+  [ -d "$SKILL_DIR/scripts" ] || {
+    echo "invalid SKILL_DIR: $SKILL_DIR (expected scripts/ under this path)" >&2
+    exit 2
+  }
+elif [ -d "$REPO_ROOT/.agents/skills/docs-sor-maintainer/scripts" ]; then
+  SKILL_DIR="$REPO_ROOT/.agents/skills/docs-sor-maintainer"
+elif [ -d "$CODEX_HOME_RESOLVED/skills/docs-sor-maintainer/scripts" ]; then
+  SKILL_DIR="$CODEX_HOME_RESOLVED/skills/docs-sor-maintainer"
+else
+  echo 'docs-sor-maintainer not found. Set SKILL_DIR or install under .agents/skills or $HOME/.codex/skills.' >&2
+  exit 2
+fi
+"$PYTHON_BIN" "$SKILL_DIR/scripts/repo_scan.py" --root "$REPO_ROOT" --output "$REPO_ROOT/docs/.repo-facts.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_plan.py" --root "$REPO_ROOT" --mode audit --facts "$REPO_ROOT/docs/.repo-facts.json" --output "$REPO_ROOT/docs/.doc-plan.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_validate.py" --root "$REPO_ROOT" --fail-on-drift --fail-on-freshness
 ```
 
 ## Guardrails

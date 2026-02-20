@@ -4,10 +4,23 @@
 
 ```bash
 REPO_ROOT="/repo"
-SKILL_DIR="$REPO_ROOT/.agents/skills/docs-sor-maintainer"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
-command -v "$PYTHON_BIN" >/dev/null
-"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_plan.py" --help
+command -v "$PYTHON_BIN" >/dev/null || { echo "python not found: $PYTHON_BIN" >&2; exit 2; }
+CODEX_HOME_RESOLVED="${CODEX_HOME:-$HOME/.codex}"
+if [ -n "${SKILL_DIR:-}" ]; then
+  [ -d "$SKILL_DIR/scripts" ] || {
+    echo "invalid SKILL_DIR: $SKILL_DIR (expected scripts/ under this path)" >&2
+    exit 2
+  }
+elif [ -d "$REPO_ROOT/.agents/skills/docs-sor-maintainer/scripts" ]; then
+  SKILL_DIR="$REPO_ROOT/.agents/skills/docs-sor-maintainer"
+elif [ -d "$CODEX_HOME_RESOLVED/skills/docs-sor-maintainer/scripts" ]; then
+  SKILL_DIR="$CODEX_HOME_RESOLVED/skills/docs-sor-maintainer"
+else
+  echo "docs-sor-maintainer not found. Set SKILL_DIR or install under .agents/skills or \$HOME/.codex/skills." >&2
+  exit 2
+fi
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_plan.py" --help >/dev/null
 ```
 
 ## Example A: bootstrap empty repo (adaptive minimal baseline, default Chinese)
