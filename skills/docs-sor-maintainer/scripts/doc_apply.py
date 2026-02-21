@@ -14,6 +14,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 import doc_capabilities as dc  # noqa: E402
+import doc_agents  # noqa: E402
 import doc_metadata as dm  # noqa: E402
 import language_profiles as lp  # noqa: E402
 
@@ -141,6 +142,102 @@ def append_missing_sections(
     write_text(path, updated.rstrip() + "\n", dry_run)
     labels = [lp.get_section_heading(rel, section_id, template_profile) for section_id in missing_sections]
     return True, labels
+
+
+def section_exists(
+    text: str,
+    rel_path: str,
+    section_id: str,
+    template_profile: str,
+    heading_override: str | None = None,
+) -> bool:
+    markers = lp.get_section_markers(rel_path, section_id)
+    if any(marker in text for marker in markers):
+        return True
+    heading = heading_override or lp.get_section_heading(rel_path, section_id, template_profile)
+    return bool(heading and heading in text)
+
+
+def upsert_section(
+    rel_path: str,
+    path: Path,
+    section_id: str,
+    dry_run: bool,
+    template_profile: str,
+    section_heading: str | None = None,
+) -> bool:
+    rel = normalize(rel_path)
+    if not isinstance(section_id, str) or not section_id.strip():
+        return False
+    section_id = section_id.strip()
+    section_text = lp.get_section_text(rel, section_id, template_profile).strip()
+    resolved_heading = (
+        section_heading.strip()
+        if isinstance(section_heading, str) and section_heading.strip()
+        else lp.get_section_heading(rel, section_id, template_profile).strip()
+    )
+    if not resolved_heading:
+        resolved_heading = section_id
+    if not section_text:
+        heading_line = resolved_heading if resolved_heading.startswith("#") else f"## {resolved_heading}"
+        body = "TODO: 补充本节内容。" if template_profile == "zh-CN" else "TODO: Add section content."
+        section_text = f"{heading_line}\n\n{body}"
+
+    if not path.exists():
+        base = lp.get_managed_template(rel, template_profile).rstrip()
+        if section_exists(base, rel, section_id, template_profile, heading_override=resolved_heading):
+            write_text(path, base + "\n", dry_run)
+            return True
+        write_text(path, base + "\n\n" + section_text + "\n", dry_run)
+        return True
+
+    text = path.read_text(encoding="utf-8")
+    if section_exists(text, rel, section_id, template_profile, heading_override=resolved_heading):
+        return False
+
+    updated = text.rstrip() + "\n\n" + section_text + "\n"
+    write_text(path, updated, dry_run)
+    return True
+
+
+def upsert_claim_todo(
+    rel_path: str,
+    path: Path,
+    section_id: str,
+    claim_id: str,
+    required_evidence_types: list[str],
+    dry_run: bool,
+    template_profile: str,
+) -> bool:
+    if not isinstance(claim_id, str) or not claim_id.strip():
+        return False
+    claim_id = claim_id.strip()
+
+    upsert_section(rel_path, path, section_id, dry_run, template_profile)
+    if not path.exists():
+        return False
+
+    text = path.read_text(encoding="utf-8")
+    token = f"TODO(claim:{claim_id})"
+    if token in text:
+        return False
+
+    evidence_types = ", ".join(required_evidence_types) if required_evidence_types else "UNKNOWN"
+    if template_profile == "zh-CN":
+        todo_line = (
+            f"- {token}: 在 section `{section_id}` 补充证据类型 `{evidence_types}`，"
+            "并更新对应段落。"
+        )
+    else:
+        todo_line = (
+            f"- {token}: Add evidence types `{evidence_types}` for section `{section_id}` "
+            "and update the related content."
+        )
+
+    heading = "### Claim Follow-ups" if template_profile != "zh-CN" else "### Claim 待补项"
+    updated = text.rstrip() + "\n\n" + heading + "\n\n" + todo_line + "\n"
+    write_text(path, updated, dry_run)
+    return True
 
 
 def upsert_module_inventory(path: Path, modules: list[str], dry_run: bool, template_profile: str) -> bool:
@@ -292,6 +389,72 @@ def apply_action(
                 result["details"] = "no update required"
             return result
 
+        if action_type == "update_section":
+            section_id = action.get("section_id")
+            section_heading = action.get("section_heading")
+            changed = upsert_section(
+                rel_path,
+                abs_path,
+                section_id,
+                dry_run,
+                template_profile,
+                section_heading=section_heading if isinstance(section_heading, str) else None,
+            )
+            if changed:
+                result["status"] = "applied"
+                heading = section_heading or lp.get_section_heading(
+                    rel_path, str(section_id), template_profile
+                )
+                result["details"] = f"section upserted: {heading}"
+            else:
+                result["details"] = "section already present or unsupported section_id"
+            return result
+
+        if action_type == "fill_claim":
+            section_id = action.get("section_id")
+            claim_id = action.get("claim_id")
+            required_evidence_types = action.get("required_evidence_types") or []
+            if not isinstance(required_evidence_types, list):
+                required_evidence_types = []
+            required_evidence_types = [str(v) for v in required_evidence_types if isinstance(v, str)]
+            changed = upsert_claim_todo(
+                rel_path,
+                abs_path,
+                str(section_id),
+                str(claim_id),
+                required_evidence_types,
+                dry_run,
+                template_profile,
+            )
+            if changed:
+                result["status"] = "applied"
+                result["details"] = f"claim TODO appended: {claim_id}"
+            else:
+                result["details"] = "claim TODO already exists or invalid claim metadata"
+            return result
+
+        if action_type == "refresh_evidence":
+            evidence_types = action.get("evidence_types") or []
+            if isinstance(evidence_types, list) and evidence_types:
+                details = f"evidence refresh delegated to scan step: {', '.join(str(v) for v in evidence_types)}"
+            else:
+                details = "evidence refresh delegated to scan step"
+            result["status"] = "applied"
+            result["details"] = details
+            return result
+
+        if action_type == "quality_repair":
+            failed_checks = action.get("failed_checks") or []
+            if isinstance(failed_checks, list) and failed_checks:
+                details = "quality gate requires repair: " + ", ".join(
+                    str(v) for v in failed_checks
+                )
+            else:
+                details = "quality gate requires repair"
+            result["status"] = "applied"
+            result["details"] = details
+            return result
+
         if action_type == "archive":
             source_rel = normalize(action.get("source_path", ""))
             if not source_rel:
@@ -439,6 +602,73 @@ def main() -> int:
         for action in actions
     ]
 
+    plan_meta = plan.get("meta") if isinstance(plan.get("meta"), dict) else {}
+    agents_settings = doc_agents.resolve_agents_settings(effective_policy)
+    manifest_changed = bool(plan_meta.get("manifest_changed", False))
+    sync_manifest_applied = any(
+        r.get("type") == "sync_manifest" and r.get("status") == "applied"
+        for r in results
+    )
+    agents_add_applied = any(
+        r.get("type") == "add"
+        and normalize(str(r.get("path", ""))) == "AGENTS.md"
+        and r.get("status") == "applied"
+        for r in results
+    )
+    agents_missing = not (root / "AGENTS.md").exists()
+    should_generate_agents = (
+        agents_settings.get("enabled", False)
+        and (
+            args.mode == "bootstrap"
+            or agents_add_applied
+            or agents_missing
+            or (
+                agents_settings.get("sync_on_manifest_change", True)
+                and (manifest_changed or sync_manifest_applied)
+            )
+        )
+    )
+
+    agents_generation_report: dict[str, Any] | None = None
+    if should_generate_agents:
+        manifest_data = (
+            plan_meta.get("manifest_effective")
+            if isinstance(plan_meta.get("manifest_effective"), dict)
+            else load_json_mapping(root / "docs/.doc-manifest.json")
+        ) or {}
+        facts_data = load_json_mapping(root / "docs/.repo-facts.json") or {}
+        try:
+            _, agents_generation_report = doc_agents.generate_agents_artifacts(
+                root=root,
+                policy=effective_policy,
+                manifest=manifest_data,
+                facts=facts_data,
+                output_path=root / "AGENTS.md",
+                report_path=root / "docs/.agents-report.json",
+                dry_run=args.dry_run,
+                force=False,
+            )
+            if agents_generation_report.get("status") == "generated":
+                results.append(
+                    {
+                        "id": "AGENTS",
+                        "type": "agents_generate",
+                        "path": "AGENTS.md",
+                        "status": "applied",
+                        "details": "AGENTS generated from policy/manifest/index/facts",
+                    }
+                )
+        except Exception as exc:  # noqa: BLE001
+            results.append(
+                {
+                    "id": "AGENTS",
+                    "type": "agents_generate",
+                    "path": "AGENTS.md",
+                    "status": "error",
+                    "details": f"agents generation failed: {exc}",
+                }
+            )
+
     summary = {
         "total_actions": len(results),
         "applied": sum(1 for r in results if r["status"] == "applied"),
@@ -460,6 +690,12 @@ def main() -> int:
         },
         "summary": summary,
         "results": results,
+        "agents_generation": agents_generation_report
+        or {
+            "status": "skipped",
+            "enabled": agents_settings.get("enabled", False),
+            "triggered": should_generate_agents,
+        },
     }
 
     json_path = (

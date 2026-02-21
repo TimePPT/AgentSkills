@@ -1,0 +1,180 @@
+{
+  "generated_at": "2026-02-21T13:02:39.889558+00:00",
+  "root": "/Users/tompoet/AgentSkills",
+  "passed": true,
+  "fail_on_drift": true,
+  "fail_on_freshness": true,
+  "metrics": {
+    "errors": 0,
+    "warnings": 0,
+    "checked_links": 7,
+    "drift_action_count": 0,
+    "facts_loaded": true,
+    "metadata_checked_docs": 5,
+    "metadata_missing_fields": 0,
+    "metadata_invalid_fields": 0,
+    "metadata_stale_docs": 0,
+    "doc_spec_exists": true,
+    "doc_spec_errors": 0,
+    "doc_spec_warnings": 0,
+    "doc_quality_enabled": true,
+    "doc_quality_failed": false,
+    "agents_validate_enabled": true,
+    "agents_validate_failed": false
+  },
+  "errors": [],
+  "warnings": [],
+  "drift": {
+    "has_drift": false,
+    "actions": []
+  },
+  "doc_spec": {
+    "path": "docs/.doc-spec.json",
+    "exists": true,
+    "errors": [],
+    "warnings": []
+  },
+  "doc_quality": {
+    "generated_at": "2026-02-21T13:02:39.887137+00:00",
+    "root": "/Users/tompoet/AgentSkills",
+    "enabled": true,
+    "doc_spec": {
+      "errors": [],
+      "warnings": []
+    },
+    "metrics": {
+      "total_claims": 4,
+      "supported_claims": 4,
+      "unknown_claims": 0,
+      "missing_claims": 0,
+      "unknown_text": 0,
+      "unresolved_todo": 0,
+      "evidence_coverage": 1.0,
+      "conflicts": 0,
+      "citation_issues": 0,
+      "facts_age_days": 0
+    },
+    "conflicts": [],
+    "citation_issues": [],
+    "gate": {
+      "status": "passed",
+      "failed_checks": [],
+      "thresholds": {
+        "min_evidence_coverage": 1.0,
+        "max_conflicts": 0,
+        "max_unknown_claims": 0,
+        "max_unresolved_todo": 0,
+        "max_stale_metrics_days": 7
+      }
+    }
+  },
+  "doc_metadata": {
+    "policy": {
+      "enabled": true,
+      "require_owner": true,
+      "require_last_reviewed": true,
+      "require_review_cycle_days": true,
+      "default_owner": "docs-maintainer",
+      "default_review_cycle_days": 90,
+      "ignore_paths": [
+        "docs/archive/**"
+      ],
+      "stale_warning_enabled": true
+    },
+    "findings": [
+      {
+        "path": "docs/architecture.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-21",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 0
+      },
+      {
+        "path": "docs/exec-plans/active/docs-sor-roadmap-v2.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-21",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 0
+      },
+      {
+        "path": "docs/index.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-21",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 0
+      },
+      {
+        "path": "docs/references/doc_spec_schema.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-21",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 0
+      },
+      {
+        "path": "docs/runbook.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-21",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 0
+      }
+    ]
+  },
+  "agents": {
+    "generated_at": "2026-02-21T13:02:39.887623+00:00",
+    "root": "/Users/tompoet/AgentSkills",
+    "enabled": true,
+    "settings": {
+      "enabled": true,
+      "mode": "dynamic",
+      "max_lines": 140,
+      "required_links": [
+        "docs/index.md",
+        "docs/.doc-policy.json",
+        "docs/.doc-manifest.json",
+        "docs/runbook.md"
+      ],
+      "sync_on_manifest_change": true,
+      "fail_on_agents_drift": true,
+      "max_overlap_ratio": 0.7
+    },
+    "gate": {
+      "status": "passed",
+      "failed_checks": []
+    },
+    "errors": [],
+    "warnings": [],
+    "metrics": {
+      "line_count": 47,
+      "missing_headings": 0,
+      "missing_required_links": 0,
+      "broken_links": 0,
+      "invalid_script_refs": 0,
+      "overlap_ratio": 0.0
+    }
+  }
+}

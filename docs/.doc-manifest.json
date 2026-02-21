@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "required": {
+    "files": [
+      "docs/.doc-spec.json",
+      "docs/architecture.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.md",
+      "docs/index.md",
+      "docs/references/doc_spec_schema.md",
+      "docs/runbook.md"
+    ],
+    "dirs": [
+      "docs/exec-plans/active",
+      "docs/exec-plans/completed",
+      "docs/references",
+      "docs/tech-debt"
+    ]
+  },
+  "optional": {
+    "files": [
+      "docs/glossary.md"
+    ]
+  },
+  "archive_dir": "docs/archive"
+}

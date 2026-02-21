@@ -1,0 +1,222 @@
+{
+  "meta": {
+    "generated_at": "2026-02-21T07:17:25.660369+00:00",
+    "root": "/Users/tompoet/AgentSkills",
+    "mode": "bootstrap",
+    "policy_path": "docs/.doc-policy.json",
+    "manifest_path": "docs/.doc-manifest.json",
+    "manifest_source": "adaptive",
+    "manifest_profile": "small",
+    "manifest_changed": true,
+    "manifest_effective": {
+      "version": 1,
+      "required": {
+        "files": [
+          "docs/index.md"
+        ],
+        "dirs": []
+      },
+      "optional": {
+        "files": []
+      },
+      "archive_dir": "docs/archive"
+    },
+    "manifest_reasoning": [
+      "bootstrap_manifest_strategy=adaptive"
+    ],
+    "capability_decisions": [
+      {
+        "id": "core.index",
+        "enabled": true,
+        "source": "baseline",
+        "evidence": [
+          "baseline capability is always required"
+        ],
+        "required_files": [
+          "docs/index.md"
+        ],
+        "required_dirs": [],
+        "optional_files": []
+      },
+      {
+        "id": "operations.runbook",
+        "enabled": false,
+        "source": "disabled",
+        "evidence": [
+          "no enabling signals"
+        ],
+        "required_files": [
+          "docs/runbook.md"
+        ],
+        "required_dirs": [],
+        "optional_files": []
+      },
+      {
+        "id": "architecture.overview",
+        "enabled": false,
+        "source": "disabled",
+        "evidence": [
+          "no enabling signals"
+        ],
+        "required_files": [
+          "docs/architecture.md"
+        ],
+        "required_dirs": [],
+        "optional_files": []
+      },
+      {
+        "id": "planning.workspace",
+        "enabled": false,
+        "source": "disabled",
+        "evidence": [
+          "no enabling signals"
+        ],
+        "required_files": [],
+        "required_dirs": [
+          "docs/exec-plans/active",
+          "docs/exec-plans/completed",
+          "docs/tech-debt"
+        ],
+        "optional_files": []
+      },
+      {
+        "id": "glossary.terms",
+        "enabled": false,
+        "source": "disabled",
+        "evidence": [
+          "no enabling signals"
+        ],
+        "required_files": [],
+        "required_dirs": [],
+        "optional_files": [
+          "docs/glossary.md"
+        ]
+      },
+      {
+        "id": "incident.response",
+        "enabled": false,
+        "source": "disabled",
+        "evidence": [
+          "no enabling signals"
+        ],
+        "required_files": [
+          "docs/incident-response.md"
+        ],
+        "required_dirs": [],
+        "optional_files": []
+      },
+      {
+        "id": "security.posture",
+        "enabled": false,
+        "source": "disabled",
+        "evidence": [
+          "no enabling signals"
+        ],
+        "required_files": [
+          "docs/security.md"
+        ],
+        "required_dirs": [],
+        "optional_files": []
+      },
+      {
+        "id": "compliance.controls",
+        "enabled": false,
+        "source": "disabled",
+        "evidence": [
+          "no enabling signals"
+        ],
+        "required_files": [
+          "docs/compliance.md"
+        ],
+        "required_dirs": [],
+        "optional_files": []
+      }
+    ],
+    "doc_metadata": {
+      "enabled": true,
+      "require_owner": true,
+      "require_last_reviewed": true,
+      "require_review_cycle_days": true
+    },
+    "language": {
+      "primary": "zh-CN",
+      "profile": "zh-CN",
+      "source": "default"
+    }
+  },
+  "inputs": {
+    "policy_exists": false,
+    "manifest_exists": false,
+    "facts_loaded": true
+  },
+  "summary": {
+    "action_count": 4,
+    "action_counts": {
+      "add": 4
+    },
+    "has_actionable_drift": true
+  },
+  "actions": [
+    {
+      "id": "A001",
+      "type": "add",
+      "kind": "file",
+      "path": "docs/.doc-policy.json",
+      "risk": "low",
+      "reason": "policy file is missing",
+      "evidence": [
+        "docs automation requires policy boundaries"
+      ],
+      "template": "policy"
+    },
+    {
+      "id": "A002",
+      "type": "add",
+      "kind": "file",
+      "path": "docs/.doc-manifest.json",
+      "risk": "low",
+      "reason": "manifest file is missing",
+      "evidence": [
+        "docs structure requires manifest contract"
+      ],
+      "template": "manifest",
+      "manifest_snapshot": {
+        "version": 1,
+        "required": {
+          "files": [
+            "docs/index.md"
+          ],
+          "dirs": []
+        },
+        "optional": {
+          "files": []
+        },
+        "archive_dir": "docs/archive"
+      }
+    },
+    {
+      "id": "A003",
+      "type": "add",
+      "kind": "file",
+      "path": "docs/index.md",
+      "risk": "low",
+      "reason": "required file is missing",
+      "evidence": [
+        "manifest.required.files includes docs/index.md"
+      ],
+      "template": "managed"
+    },
+    {
+      "id": "A004",
+      "type": "add",
+      "kind": "file",
+      "path": "AGENTS.md",
+      "risk": "low",
+      "reason": "AGENTS navigation file is missing during bootstrap",
+      "evidence": [
+        "policy.bootstrap_agents_md=true"
+      ],
+      "template": "agents"
+    }
+  ]
+}

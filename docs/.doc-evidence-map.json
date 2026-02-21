@@ -1,0 +1,319 @@
+{
+  "generated_at": "2026-02-21T13:02:39.738798+00:00",
+  "root": "/Users/tompoet/AgentSkills",
+  "plan": "/Users/tompoet/AgentSkills/docs/.doc-plan.json",
+  "spec": "/Users/tompoet/AgentSkills/docs/.doc-spec.json",
+  "facts": "/Users/tompoet/AgentSkills/docs/.repo-facts.json",
+  "plan_meta": {
+    "generated_at": "2026-02-21T13:02:39.601996+00:00",
+    "root": "/Users/tompoet/AgentSkills",
+    "mode": "audit",
+    "policy_path": "docs/.doc-policy.json",
+    "manifest_path": "docs/.doc-manifest.json",
+    "manifest_source": "existing",
+    "manifest_profile": "small",
+    "manifest_changed": false,
+    "manifest_effective": {
+      "version": 1,
+      "required": {
+        "files": [
+          "docs/.doc-spec.json",
+          "docs/architecture.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.md",
+          "docs/index.md",
+          "docs/references/doc_spec_schema.md",
+          "docs/runbook.md"
+        ],
+        "dirs": [
+          "docs/exec-plans/active",
+          "docs/exec-plans/completed",
+          "docs/references",
+          "docs/tech-debt"
+        ]
+      },
+      "optional": {
+        "files": [
+          "docs/glossary.md"
+        ]
+      },
+      "archive_dir": "docs/archive"
+    },
+    "manifest_reasoning": [
+      "include_files=1"
+    ],
+    "capability_decisions": [
+      {
+        "id": "core.index",
+        "enabled": true,
+        "source": "baseline",
+        "evidence": [
+          "baseline capability is always required"
+        ],
+        "required_files": [
+          "docs/index.md"
+        ],
+        "required_dirs": [],
+        "optional_files": []
+      },
+      {
+        "id": "operations.runbook",
+        "enabled": true,
+        "source": "goal_include",
+        "evidence": [
+          "ci_configs=1",
+          "enabled by doc_goals.include"
+        ],
+        "required_files": [
+          "docs/runbook.md"
+        ],
+        "required_dirs": [],
+        "optional_files": []
+      },
+      {
+        "id": "architecture.overview",
+        "enabled": true,
+        "source": "goal_include",
+        "evidence": [
+          "file_count=73",
+          "enabled by doc_goals.include"
+        ],
+        "required_files": [
+          "docs/architecture.md"
+        ],
+        "required_dirs": [],
+        "optional_files": []
+      },
+      {
+        "id": "planning.workspace",
+        "enabled": true,
+        "source": "goal_include",
+        "evidence": [
+          "ci_configs=1",
+          "enabled by doc_goals.include"
+        ],
+        "required_files": [],
+        "required_dirs": [
+          "docs/exec-plans/active",
+          "docs/exec-plans/completed",
+          "docs/tech-debt"
+        ],
+        "optional_files": []
+      },
+      {
+        "id": "glossary.terms",
+        "enabled": true,
+        "source": "signal",
+        "evidence": [
+          "docs_markdown_count=7"
+        ],
+        "required_files": [],
+        "required_dirs": [],
+        "optional_files": [
+          "docs/glossary.md"
+        ]
+      },
+      {
+        "id": "incident.response",
+        "enabled": false,
+        "source": "disabled",
+        "evidence": [
+          "no enabling signals"
+        ],
+        "required_files": [
+          "docs/incident-response.md"
+        ],
+        "required_dirs": [],
+        "optional_files": []
+      },
+      {
+        "id": "security.posture",
+        "enabled": false,
+        "source": "disabled",
+        "evidence": [
+          "no enabling signals"
+        ],
+        "required_files": [
+          "docs/security.md"
+        ],
+        "required_dirs": [],
+        "optional_files": []
+      },
+      {
+        "id": "compliance.controls",
+        "enabled": false,
+        "source": "disabled",
+        "evidence": [
+          "no enabling signals"
+        ],
+        "required_files": [
+          "docs/compliance.md"
+        ],
+        "required_dirs": [],
+        "optional_files": []
+      }
+    ],
+    "doc_metadata": {
+      "enabled": true,
+      "require_owner": true,
+      "require_last_reviewed": true,
+      "require_review_cycle_days": true
+    },
+    "language": {
+      "primary": "zh-CN",
+      "profile": "zh-CN",
+      "source": "policy_locked"
+    }
+  },
+  "doc_spec": {
+    "errors": [],
+    "warnings": []
+  },
+  "metrics": {
+    "claims": 4,
+    "supported": 4,
+    "unknown": 0,
+    "missing": 0
+  },
+  "documents": [
+    {
+      "path": "docs/architecture.md",
+      "sections": [
+        {
+          "section_id": "module_inventory",
+          "claims": [
+            {
+              "claim_id": "architecture.modules.top_level",
+              "status": "supported",
+              "statement": "仓库的顶层模块包括：skills",
+              "statement_template": "仓库的顶层模块包括：{modules}",
+              "required_evidence_types": [
+                "repo_scan.modules"
+              ],
+              "missing_evidence_types": [],
+              "allow_unknown": false,
+              "evidence": [
+                {
+                  "type": "repo_scan.modules",
+                  "value": [
+                    "skills"
+                  ]
+                }
+              ],
+              "citations": [
+                "evidence://repo_scan.modules"
+              ],
+              "citation": "evidence://repo_scan.modules"
+            }
+          ]
+        },
+        {
+          "section_id": "dependency_manifests",
+          "claims": [
+            {
+              "claim_id": "architecture.dependencies.manifests",
+              "status": "supported",
+              "statement": "仓库依赖清单包括：none",
+              "statement_template": "仓库依赖清单包括：{manifests}",
+              "required_evidence_types": [
+                "repo_scan.manifests"
+              ],
+              "missing_evidence_types": [],
+              "allow_unknown": false,
+              "evidence": [
+                {
+                  "type": "repo_scan.manifests",
+                  "value": {
+                    "go.mod": false,
+                    "package.json": false,
+                    "pyproject.toml": false,
+                    "requirements.txt": false,
+                    "Cargo.toml": false,
+                    "pom.xml": false,
+                    "build.gradle": false,
+                    "Makefile": false
+                  }
+                }
+              ],
+              "citations": [
+                "evidence://repo_scan.manifests"
+              ],
+              "citation": "evidence://repo_scan.manifests"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/runbook.md",
+      "sections": [
+        {
+          "section_id": "dev_commands",
+          "claims": [
+            {
+              "claim_id": "runbook.dev_commands",
+              "status": "supported",
+              "statement": "当前开发命令集合为：REPO_ROOT=\"/Users/tompoet/AgentSkills\", SKILL_DIR=\"$REPO_ROOT/.agents/skills/docs-sor-maintainer\", PYTHON_BIN=\"${PYTHON_BIN:-python3}\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/repo_scan.py\" --root \"$REPO_ROOT\" --output \"$REPO_ROOT/docs/.repo-facts.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode bootstrap --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan-bootstrap.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_apply.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan-bootstrap.json\" --mode bootstrap, \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode apply-safe --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan-apply-safe.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_apply.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan-apply-safe.json\" --mode apply-safe, \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_synthesize.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan-apply-safe.json\" --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-evidence-map.json\"",
+              "statement_template": "当前开发命令集合为：{commands}",
+              "required_evidence_types": [
+                "runbook.dev_commands"
+              ],
+              "missing_evidence_types": [],
+              "allow_unknown": false,
+              "evidence": [
+                {
+                  "type": "runbook.dev_commands",
+                  "value": [
+                    "REPO_ROOT=\"/Users/tompoet/AgentSkills\"",
+                    "SKILL_DIR=\"$REPO_ROOT/.agents/skills/docs-sor-maintainer\"",
+                    "PYTHON_BIN=\"${PYTHON_BIN:-python3}\"",
+                    "\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/repo_scan.py\" --root \"$REPO_ROOT\" --output \"$REPO_ROOT/docs/.repo-facts.json\"",
+                    "\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode bootstrap --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan-bootstrap.json\"",
+                    "\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_apply.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan-bootstrap.json\" --mode bootstrap",
+                    "\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode apply-safe --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan-apply-safe.json\"",
+                    "\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_apply.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan-apply-safe.json\" --mode apply-safe",
+                    "\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_synthesize.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan-apply-safe.json\" --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-evidence-map.json\""
+                  ]
+                }
+              ],
+              "citations": [
+                "evidence://runbook.dev_commands"
+              ],
+              "citation": "evidence://runbook.dev_commands"
+            }
+          ]
+        },
+        {
+          "section_id": "validation_commands",
+          "claims": [
+            {
+              "claim_id": "runbook.validation_commands",
+              "status": "supported",
+              "statement": "当前校验命令集合为：\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_validate.py\" --root \"$REPO_ROOT\" --facts \"$REPO_ROOT/docs/.repo-facts.json\" --fail-on-drift --fail-on-freshness --output \"$REPO_ROOT/docs/.doc-validate-report.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_quality.py\" --root \"$REPO_ROOT\" --output \"$REPO_ROOT/docs/.doc-quality-report.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_garden.py\" --root \"$REPO_ROOT\" --apply-mode apply-safe --fail-on-drift --fail-on-freshness, python3 -m py_compile \"$SKILL_DIR\"/scripts/*.py",
+              "statement_template": "当前校验命令集合为：{commands}",
+              "required_evidence_types": [
+                "runbook.validation_commands"
+              ],
+              "missing_evidence_types": [],
+              "allow_unknown": false,
+              "evidence": [
+                {
+                  "type": "runbook.validation_commands",
+                  "value": [
+                    "\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_validate.py\" --root \"$REPO_ROOT\" --facts \"$REPO_ROOT/docs/.repo-facts.json\" --fail-on-drift --fail-on-freshness --output \"$REPO_ROOT/docs/.doc-validate-report.json\"",
+                    "\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_quality.py\" --root \"$REPO_ROOT\" --output \"$REPO_ROOT/docs/.doc-quality-report.json\"",
+                    "\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_garden.py\" --root \"$REPO_ROOT\" --apply-mode apply-safe --fail-on-drift --fail-on-freshness",
+                    "python3 -m py_compile \"$SKILL_DIR\"/scripts/*.py"
+                  ]
+                }
+              ],
+              "citations": [
+                "evidence://runbook.validation_commands"
+              ],
+              "citation": "evidence://runbook.validation_commands"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

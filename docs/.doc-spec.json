@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "documents": [
+    {
+      "path": "docs/architecture.md",
+      "required_sections": [
+        "module_inventory",
+        "dependency_manifests"
+      ],
+      "render_order": [
+        "module_inventory",
+        "dependency_manifests"
+      ],
+      "sections": [
+        {
+          "section_id": "module_inventory",
+          "claims": [
+            {
+              "claim_id": "architecture.modules.top_level",
+              "statement_template": "仓库的顶层模块包括：{modules}",
+              "required_evidence_types": [
+                "repo_scan.modules"
+              ],
+              "allow_unknown": false
+            }
+          ]
+        },
+        {
+          "section_id": "dependency_manifests",
+          "claims": [
+            {
+              "claim_id": "architecture.dependencies.manifests",
+              "statement_template": "仓库依赖清单包括：{manifests}",
+              "required_evidence_types": [
+                "repo_scan.manifests"
+              ],
+              "allow_unknown": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/runbook.md",
+      "required_sections": [
+        "dev_commands",
+        "validation_commands"
+      ],
+      "render_order": [
+        "dev_commands",
+        "validation_commands"
+      ],
+      "sections": [
+        {
+          "section_id": "dev_commands",
+          "claims": [
+            {
+              "claim_id": "runbook.dev_commands",
+              "statement_template": "当前开发命令集合为：{commands}",
+              "required_evidence_types": [
+                "runbook.dev_commands"
+              ],
+              "allow_unknown": false
+            }
+          ]
+        },
+        {
+          "section_id": "validation_commands",
+          "claims": [
+            {
+              "claim_id": "runbook.validation_commands",
+              "statement_template": "当前校验命令集合为：{commands}",
+              "required_evidence_types": [
+                "runbook.validation_commands"
+              ],
+              "allow_unknown": false
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

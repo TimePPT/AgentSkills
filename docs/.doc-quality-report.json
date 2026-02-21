@@ -1,0 +1,32 @@
+{
+  "generated_at": "2026-02-21T08:23:45.333763+00:00",
+  "root": "/Users/tompoet/AgentSkills",
+  "enabled": true,
+  "doc_spec": {
+    "errors": [],
+    "warnings": []
+  },
+  "metrics": {
+    "total_claims": 4,
+    "supported_claims": 2,
+    "unknown_claims": 2,
+    "missing_claims": 0,
+    "unknown_text": 3,
+    "unresolved_todo": 0,
+    "evidence_coverage": 0.5,
+    "conflicts": 0,
+    "facts_age_days": 0
+  },
+  "conflicts": [],
+  "gate": {
+    "status": "passed",
+    "failed_checks": [],
+    "thresholds": {
+      "min_evidence_coverage": 0.5,
+      "max_conflicts": 0,
+      "max_unknown_claims": 2,
+      "max_unresolved_todo": 0,
+      "max_stale_metrics_days": 7
+    }
+  }
+}

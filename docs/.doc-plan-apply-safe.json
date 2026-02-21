@@ -1,0 +1,179 @@
+{
+  "meta": {
+    "generated_at": "2026-02-21T11:25:15.091589+00:00",
+    "root": "/Users/tompoet/AgentSkills",
+    "mode": "apply-safe",
+    "policy_path": "docs/.doc-policy.json",
+    "manifest_path": "docs/.doc-manifest.json",
+    "manifest_source": "existing",
+    "manifest_profile": "small",
+    "manifest_changed": false,
+    "manifest_effective": {
+      "version": 1,
+      "required": {
+        "files": [
+          "docs/.doc-spec.json",
+          "docs/architecture.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.md",
+          "docs/index.md",
+          "docs/references/doc_spec_schema.md",
+          "docs/runbook.md"
+        ],
+        "dirs": [
+          "docs/exec-plans/active",
+          "docs/exec-plans/completed",
+          "docs/references",
+          "docs/tech-debt"
+        ]
+      },
+      "optional": {
+        "files": [
+          "docs/glossary.md"
+        ]
+      },
+      "archive_dir": "docs/archive"
+    },
+    "manifest_reasoning": [
+      "include_files=1"
+    ],
+    "capability_decisions": [
+      {
+        "id": "core.index",
+        "enabled": true,
+        "source": "baseline",
+        "evidence": [
+          "baseline capability is always required"
+        ],
+        "required_files": [
+          "docs/index.md"
+        ],
+        "required_dirs": [],
+        "optional_files": []
+      },
+      {
+        "id": "operations.runbook",
+        "enabled": true,
+        "source": "goal_include",
+        "evidence": [
+          "enabled by doc_goals.include"
+        ],
+        "required_files": [
+          "docs/runbook.md"
+        ],
+        "required_dirs": [],
+        "optional_files": []
+      },
+      {
+        "id": "architecture.overview",
+        "enabled": true,
+        "source": "goal_include",
+        "evidence": [
+          "file_count=68",
+          "enabled by doc_goals.include"
+        ],
+        "required_files": [
+          "docs/architecture.md"
+        ],
+        "required_dirs": [],
+        "optional_files": []
+      },
+      {
+        "id": "planning.workspace",
+        "enabled": true,
+        "source": "goal_include",
+        "evidence": [
+          "enabled by doc_goals.include"
+        ],
+        "required_files": [],
+        "required_dirs": [
+          "docs/exec-plans/active",
+          "docs/exec-plans/completed",
+          "docs/tech-debt"
+        ],
+        "optional_files": []
+      },
+      {
+        "id": "glossary.terms",
+        "enabled": true,
+        "source": "signal",
+        "evidence": [
+          "docs_markdown_count=7"
+        ],
+        "required_files": [],
+        "required_dirs": [],
+        "optional_files": [
+          "docs/glossary.md"
+        ]
+      },
+      {
+        "id": "incident.response",
+        "enabled": false,
+        "source": "disabled",
+        "evidence": [
+          "no enabling signals"
+        ],
+        "required_files": [
+          "docs/incident-response.md"
+        ],
+        "required_dirs": [],
+        "optional_files": []
+      },
+      {
+        "id": "security.posture",
+        "enabled": false,
+        "source": "disabled",
+        "evidence": [
+          "no enabling signals"
+        ],
+        "required_files": [
+          "docs/security.md"
+        ],
+        "required_dirs": [],
+        "optional_files": []
+      },
+      {
+        "id": "compliance.controls",
+        "enabled": false,
+        "source": "disabled",
+        "evidence": [
+          "no enabling signals"
+        ],
+        "required_files": [
+          "docs/compliance.md"
+        ],
+        "required_dirs": [],
+        "optional_files": []
+      }
+    ],
+    "doc_metadata": {
+      "enabled": true,
+      "require_owner": true,
+      "require_last_reviewed": true,
+      "require_review_cycle_days": true
+    },
+    "language": {
+      "primary": "zh-CN",
+      "profile": "zh-CN",
+      "source": "policy_locked"
+    }
+  },
+  "inputs": {
+    "policy_exists": true,
+    "manifest_exists": true,
+    "facts_loaded": true,
+    "doc_spec": {
+      "path": "docs/.doc-spec.json",
+      "exists": true,
+      "error_count": 0,
+      "warning_count": 0,
+      "errors": [],
+      "warnings": []
+    }
+  },
+  "summary": {
+    "action_count": 0,
+    "action_counts": {},
+    "has_actionable_drift": false
+  },
+  "actions": []
+}

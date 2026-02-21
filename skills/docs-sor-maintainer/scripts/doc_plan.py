@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import json
+import re
 from copy import deepcopy
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -11,10 +12,22 @@ from typing import Any
 
 import doc_capabilities as dc
 import doc_metadata as dm
+import doc_quality
+import doc_spec
 import language_profiles as lp
 
 DEFAULT_POLICY = lp.build_default_policy()
-ACTIONABLE_TYPES = {"add", "update", "archive", "manual_review", "sync_manifest"}
+ACTIONABLE_TYPES = {
+    "add",
+    "update",
+    "archive",
+    "manual_review",
+    "sync_manifest",
+    "update_section",
+    "fill_claim",
+    "refresh_evidence",
+    "quality_repair",
+}
 
 
 def utc_now() -> str:
@@ -109,6 +122,120 @@ def missing_required_sections(path: Path, rel_path: str) -> list[str]:
         if not any(marker in text for marker in markers):
             missing.append(section_id)
     return missing
+
+
+def extract_runbook_section_commands(root: Path, section_id: str) -> list[str]:
+    runbook_path = root / "docs/runbook.md"
+    if not runbook_path.exists():
+        return []
+
+    markers = {
+        marker.strip()
+        for marker in lp.get_section_markers("docs/runbook.md", section_id)
+        if isinstance(marker, str) and marker.strip()
+    }
+    if not markers:
+        return []
+
+    lines = runbook_path.read_text(encoding="utf-8").splitlines()
+    section_start = None
+    section_end = len(lines)
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if section_start is None and stripped in markers:
+            section_start = index + 1
+            continue
+        if section_start is not None and re.match(r"^##\s+", stripped):
+            section_end = index
+            break
+
+    if section_start is None:
+        return []
+
+    commands: list[str] = []
+    in_command_block = False
+    for line in lines[section_start:section_end]:
+        stripped = line.strip()
+        if stripped.startswith("```"):
+            language = stripped[3:].strip().lower()
+            if in_command_block:
+                in_command_block = False
+            else:
+                in_command_block = language in {"", "bash", "sh", "zsh"}
+            continue
+        if not in_command_block:
+            continue
+        if not stripped or stripped.startswith("#"):
+            continue
+        commands.append(stripped)
+
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for command in commands:
+        if command in seen:
+            continue
+        seen.add(command)
+        deduped.append(command)
+    return deduped
+
+
+def resolve_evidence_value(
+    facts: dict[str, Any] | None,
+    evidence_type: str,
+    root: Path,
+    runbook_cache: dict[str, list[str]],
+) -> Any | None:
+    if not isinstance(evidence_type, str):
+        return None
+
+    if evidence_type.startswith("repo_scan."):
+        if not facts:
+            return None
+        cursor: Any = facts
+        for key in evidence_type.split(".")[1:]:
+            if isinstance(cursor, dict) and key in cursor:
+                cursor = cursor[key]
+            else:
+                return None
+        return cursor
+
+    if evidence_type.startswith("runbook."):
+        section_key = evidence_type.split(".", 1)[1]
+        if section_key not in {"dev_commands", "validation_commands"}:
+            return None
+        if section_key not in runbook_cache:
+            runbook_cache[section_key] = extract_runbook_section_commands(
+                root, section_key
+            )
+        return runbook_cache.get(section_key)
+
+    return None
+
+def evidence_is_empty(value: Any) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, (list, dict, str)):
+        return len(value) == 0
+    return False
+
+def get_facts_age_days(facts: dict[str, Any] | None) -> int | None:
+    if not facts:
+        return None
+    generated_at = facts.get("generated_at")
+    if not isinstance(generated_at, str) or not generated_at:
+        return None
+    try:
+        generated_time = datetime.fromisoformat(generated_at)
+    except ValueError:
+        return None
+    if generated_time.tzinfo is None:
+        generated_time = generated_time.replace(tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
+    return (now - generated_time).days
+
+def resolve_section_markers(rel_path: str, section_id: str) -> list[str]:
+    markers = lp.get_section_markers(rel_path, section_id)
+    return markers or []
 
 
 def stale_docs_candidates(
@@ -236,12 +363,24 @@ def build_plan(
         effective_manifest.get("archive_dir", dc.DEFAULT_ARCHIVE_DIR)
     )
     metadata_policy = dm.resolve_metadata_policy(policy)
+    spec_path = root / "docs/.doc-spec.json"
+    spec_data, spec_errors, spec_warnings = doc_spec.load_spec(spec_path)
     allow_auto_update = set(
         normalize_rel(p) for p in policy.get("allow_auto_update", [])
     )
     protected_patterns = [
         normalize_rel(p) for p in policy.get("protect_from_auto_overwrite", [])
     ]
+
+    spec_documents: dict[str, dict[str, Any]] = {}
+    if isinstance(spec_data, dict):
+        for doc in spec_data.get("documents", []) or []:
+            if not isinstance(doc, dict):
+                continue
+            path_value = doc.get("path")
+            if not isinstance(path_value, str) or not path_value.strip():
+                continue
+            spec_documents[normalize_rel(path_value)] = doc
 
     actions: list[dict[str, Any]] = []
 
@@ -403,6 +542,160 @@ def build_plan(
                 evidence,
             )
 
+    facts_age_days = get_facts_age_days(facts)
+    runbook_cache: dict[str, list[str]] = {}
+    quality_gates = policy.get("doc_quality_gates")
+    max_stale_days = None
+    if isinstance(quality_gates, dict):
+        max_stale_days = quality_gates.get("max_stale_metrics_days")
+    if not isinstance(max_stale_days, int) or max_stale_days <= 0:
+        max_stale_days = None
+
+    for rel_path, spec_doc in spec_documents.items():
+        abs_path = root / rel_path
+        if not abs_path.exists():
+            continue
+
+        sections = spec_doc.get("sections")
+        if not isinstance(sections, list) or not sections:
+            continue
+
+        content = abs_path.read_text(encoding="utf-8")
+        for section in sections:
+            if not isinstance(section, dict):
+                continue
+            section_id = section.get("section_id")
+            if not isinstance(section_id, str) or not section_id.strip():
+                continue
+            section_id = section_id.strip()
+            markers = resolve_section_markers(rel_path, section_id)
+            if markers and not any(marker in content for marker in markers):
+                heading = lp.get_section_heading(
+                    rel_path, section_id, template_profile
+                )
+                add_action(
+                    "update_section",
+                    "section",
+                    rel_path,
+                    "doc-spec section missing",
+                    [f"missing section marker: {heading}"],
+                    section_id=section_id,
+                    section_heading=heading,
+                )
+
+            claims = section.get("claims")
+            if not isinstance(claims, list) or not claims:
+                continue
+
+            for claim in claims:
+                if not isinstance(claim, dict):
+                    continue
+                claim_id = claim.get("claim_id")
+                if not isinstance(claim_id, str) or not claim_id.strip():
+                    continue
+                claim_id = claim_id.strip()
+                required_types = claim.get("required_evidence_types") or []
+                if not isinstance(required_types, list) or not required_types:
+                    continue
+
+                missing_types: list[str] = []
+                stale_types: list[str] = []
+                for evidence_type in required_types:
+                    if not isinstance(evidence_type, str):
+                        continue
+                    value = resolve_evidence_value(
+                        facts,
+                        evidence_type,
+                        root=root,
+                        runbook_cache=runbook_cache,
+                    )
+                    if evidence_is_empty(value):
+                        missing_types.append(evidence_type)
+                    elif (
+                        max_stale_days is not None
+                        and facts_age_days is not None
+                        and evidence_type.startswith("repo_scan.")
+                        and facts_age_days > max_stale_days
+                    ):
+                        stale_types.append(evidence_type)
+
+                if stale_types:
+                    add_action(
+                        "refresh_evidence",
+                        "claim",
+                        rel_path,
+                        "repo-scan evidence is stale",
+                        [
+                            f"facts age {facts_age_days}d exceeds {max_stale_days}d",
+                            f"evidence types: {', '.join(stale_types)}",
+                        ],
+                        section_id=section_id,
+                        claim_id=claim_id,
+                        evidence_types=stale_types,
+                    )
+
+                if missing_types:
+                    allow_unknown = bool(claim.get("allow_unknown", False))
+                    if allow_unknown:
+                        continue
+                    statement_template = claim.get("statement_template", "")
+                    add_action(
+                        "fill_claim",
+                        "claim",
+                        rel_path,
+                        "doc-spec claim missing evidence",
+                        [f"missing evidence: {', '.join(missing_types)}"],
+                        section_id=section_id,
+                        claim_id=claim_id,
+                        statement_template=statement_template,
+                        required_evidence_types=required_types,
+                        allow_unknown=allow_unknown,
+                        missing_evidence_types=missing_types,
+                    )
+
+    if isinstance(quality_gates, dict) and bool(quality_gates.get("enabled", False)):
+        try:
+            quality_report = doc_quality.evaluate_quality(
+                root=root,
+                policy=policy,
+                facts=facts,
+                spec_path=spec_path,
+                evidence_map_path=None,
+            )
+        except Exception as exc:  # noqa: BLE001
+            add_action(
+                "quality_repair",
+                "quality",
+                "docs/.doc-quality-report.json",
+                "doc-quality evaluation failed during planning",
+                [str(exc)],
+            )
+        else:
+            gate = quality_report.get("gate") or {}
+            failed_checks = gate.get("failed_checks") or []
+            if gate.get("status") != "passed":
+                metrics = quality_report.get("metrics") or {}
+                add_action(
+                    "quality_repair",
+                    "quality",
+                    "docs/.doc-quality-report.json",
+                    "doc-quality gate failed",
+                    [
+                        "failed checks: "
+                        + ", ".join(str(v) for v in failed_checks)
+                        if failed_checks
+                        else "failed checks: unknown",
+                        "metrics: "
+                        f"coverage={metrics.get('evidence_coverage')} "
+                        f"unknown={metrics.get('unknown_claims')} "
+                        f"todo={metrics.get('unresolved_todo')} "
+                        f"conflicts={metrics.get('conflicts')} "
+                        f"citation_issues={metrics.get('citation_issues')}",
+                    ],
+                    failed_checks=failed_checks,
+                    quality_metrics=metrics,
+                )
+
     if mode in {"apply-with-archive", "audit", "apply-safe"}:
         stale = stale_docs_candidates(
             root, managed_files, archive_dir, protected_patterns
@@ -464,8 +757,18 @@ def build_plan(
                 )
 
     counts: dict[str, int] = {}
+    section_action_counts: dict[str, int] = {}
+    claim_action_counts: dict[str, int] = {}
     for action in actions:
         counts[action["type"]] = counts.get(action["type"], 0) + 1
+        section_id = action.get("section_id")
+        if isinstance(section_id, str) and section_id.strip():
+            key = section_id.strip()
+            section_action_counts[key] = section_action_counts.get(key, 0) + 1
+        claim_id = action.get("claim_id")
+        if isinstance(claim_id, str) and claim_id.strip():
+            key = claim_id.strip()
+            claim_action_counts[key] = claim_action_counts.get(key, 0) + 1
 
     return {
         "meta": {
@@ -500,10 +803,20 @@ def build_plan(
             "policy_exists": has_policy,
             "manifest_exists": has_manifest,
             "facts_loaded": facts is not None,
+            "doc_spec": {
+                "path": normalize_rel(spec_path.relative_to(root)),
+                "exists": spec_data is not None,
+                "error_count": len(spec_errors),
+                "warning_count": len(spec_warnings),
+                "errors": spec_errors,
+                "warnings": spec_warnings,
+            },
         },
         "summary": {
             "action_count": len(actions),
             "action_counts": counts,
+            "section_action_counts": section_action_counts,
+            "claim_action_counts": claim_action_counts,
             "has_actionable_drift": any(a["type"] in ACTIONABLE_TYPES for a in actions),
         },
         "actions": actions,

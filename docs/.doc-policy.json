@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "mode_default": "audit",
+  "require_evidence": true,
+  "delete_behavior": "archive",
+  "bootstrap_manifest_strategy": "adaptive",
+  "bootstrap_agents_md": true,
+  "doc_goals": {
+    "include": [
+      "architecture",
+      "runbook",
+      "planning"
+    ],
+    "exclude": []
+  },
+  "manifest_evolution": {
+    "allow_additive": true,
+    "allow_pruning": false
+  },
+  "adaptive_manifest_overrides": {
+    "include_files": [
+      "docs/exec-plans/active/docs-sor-roadmap-v2.md"
+    ],
+    "include_dirs": [],
+    "exclude_files": [],
+    "exclude_dirs": []
+  },
+  "doc_metadata": {
+    "enabled": true,
+    "require_owner": true,
+    "require_last_reviewed": true,
+    "require_review_cycle_days": true,
+    "default_owner": "docs-maintainer",
+    "default_review_cycle_days": 90,
+    "ignore_paths": [
+      "docs/archive/**"
+    ],
+    "stale_warning_enabled": true
+  },
+  "doc_gardening": {
+    "enabled": true,
+    "apply_mode": "apply-safe",
+    "fail_on_drift": true,
+    "fail_on_freshness": true,
+    "max_repair_iterations": 2,
+    "report_json": "docs/.doc-garden-report.json",
+    "report_md": "docs/.doc-garden-report.md"
+  },
+  "doc_quality_gates": {
+    "enabled": true,
+    "min_evidence_coverage": 1.0,
+    "max_conflicts": 0,
+    "max_unknown_claims": 0,
+    "max_unresolved_todo": 0,
+    "max_stale_metrics_days": 7,
+    "fail_on_quality_gate": true
+  },
+  "agents_generation": {
+    "enabled": true,
+    "mode": "dynamic",
+    "max_lines": 140,
+    "required_links": [
+      "docs/index.md",
+      "docs/.doc-policy.json",
+      "docs/.doc-manifest.json",
+      "docs/runbook.md"
+    ],
+    "sync_on_manifest_change": true,
+    "fail_on_agents_drift": true
+  },
+  "allow_auto_update": [
+    "docs/index.md",
+    "docs/architecture.md",
+    "docs/runbook.md",
+    "docs/glossary.md",
+    "docs/incident-response.md",
+    "docs/security.md",
+    "docs/compliance.md"
+  ],
+  "protect_from_auto_overwrite": [
+    "docs/adr/**"
+  ],
+  "language": {
+    "primary": "zh-CN",
+    "profile": "zh-CN",
+    "locked": true,
+    "preserve_english_terms": true,
+    "english_only_contexts": [
+      "code_identifiers",
+      "config_keys",
+      "cli_flags",
+      "file_paths"
+    ]
+  }
+}

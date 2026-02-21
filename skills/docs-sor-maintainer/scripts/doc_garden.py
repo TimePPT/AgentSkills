@@ -15,6 +15,7 @@ DEFAULT_GARDENING_POLICY = {
     "apply_mode": "apply-safe",
     "fail_on_drift": True,
     "fail_on_freshness": True,
+    "max_repair_iterations": 2,
     "report_json": "docs/.doc-garden-report.json",
     "report_md": "docs/.doc-garden-report.md",
 }
@@ -61,6 +62,9 @@ def resolve_doc_gardening_settings(policy: dict[str, Any] | None) -> dict[str, A
     settings["fail_on_freshness"] = bool(
         raw.get("fail_on_freshness", settings["fail_on_freshness"])
     )
+    max_repair_iterations = raw.get("max_repair_iterations")
+    if isinstance(max_repair_iterations, int) and max_repair_iterations >= 0:
+        settings["max_repair_iterations"] = max_repair_iterations
 
     for key in ("report_json", "report_md"):
         value = raw.get(key)
@@ -105,6 +109,30 @@ def load_json_object(path: Path) -> dict[str, Any] | None:
         return None
     return data if isinstance(data, dict) else None
 
+def parse_drift_action_type(note: str) -> str | None:
+    if not note:
+        return None
+    parts = note.split()
+    if len(parts) < 2:
+        return None
+    return parts[1]
+
+def is_repairable_drift(validate_report: dict[str, Any] | None) -> bool:
+    if not validate_report:
+        return False
+    drift = validate_report.get("drift") or {}
+    actions = drift.get("actions") or []
+    if not isinstance(actions, list) or not actions:
+        return False
+    repairable = {"update_section", "fill_claim", "refresh_evidence", "quality_repair"}
+    for note in actions:
+        if not isinstance(note, str):
+            return False
+        action_type = parse_drift_action_type(note)
+        if action_type not in repairable:
+            return False
+    return True
+
 
 def render_report_markdown(report: dict[str, Any]) -> str:
     lines = [
@@ -148,6 +176,19 @@ def render_report_markdown(report: dict[str, Any]) -> str:
                 f"- Warnings: {validate.get('warnings')}",
                 f"- Drift actions: {validate.get('drift_action_count')}",
                 f"- Metadata stale docs: {validate.get('metadata_stale_docs')}",
+            ]
+        )
+
+    repair = report.get("repair") or {}
+    if repair:
+        lines.extend(
+            [
+                "",
+                "## Repair",
+                "",
+                f"- Attempts: {repair.get('attempts', 0)}",
+                f"- Max iterations: {repair.get('max_iterations', 0)}",
+                f"- Repairable drift: {repair.get('repairable_drift')}",
             ]
         )
 
@@ -226,6 +267,7 @@ def main() -> int:
     plan_rel = normalize(args.plan)
     report_json_rel = normalize(args.report_json or gardening_settings["report_json"])
     report_md_rel = normalize(args.report_md or gardening_settings["report_md"])
+    max_repair_iterations = int(gardening_settings.get("max_repair_iterations", 0))
 
     facts_abs = root / facts_rel
     plan_abs = root / plan_rel
@@ -267,59 +309,17 @@ def main() -> int:
         return 0
 
     steps: list[dict[str, Any]] = []
+    repair_attempts = 0
+    last_validate_report: dict[str, Any] | None = None
 
     def exec_or_stop(step_name: str, cmd: list[str]) -> bool:
         step = run_step(step_name, cmd, root)
         steps.append(step)
         return step["returncode"] == 0
 
-    ok = exec_or_stop(
-        "scan",
-        [
-            py,
-            str(script_dir / "repo_scan.py"),
-            "--root",
-            str(root),
-            "--output",
-            str(facts_abs),
-        ],
-    )
-
-    if ok:
+    def run_cycle(label: str) -> bool:
         ok = exec_or_stop(
-            "plan",
-            [
-                py,
-                str(script_dir / "doc_plan.py"),
-                "--root",
-                str(root),
-                "--mode",
-                args.plan_mode,
-                "--facts",
-                str(facts_abs),
-                "--output",
-                str(plan_abs),
-            ],
-        )
-
-    if ok and apply_mode != "none":
-        apply_cmd = [
-            py,
-            str(script_dir / "doc_apply.py"),
-            "--root",
-            str(root),
-            "--plan",
-            str(plan_abs),
-            "--mode",
-            apply_mode,
-        ]
-        if args.init_language:
-            apply_cmd.extend(["--init-language", args.init_language])
-        ok = exec_or_stop("apply", apply_cmd)
-
-    if ok and not args.skip_validate:
-        ok = exec_or_stop(
-            "scan-post-apply",
+            f"{label}:scan",
             [
                 py,
                 str(script_dir / "repo_scan.py"),
@@ -330,25 +330,101 @@ def main() -> int:
             ],
         )
 
-    validate_report: dict[str, Any] | None = None
-    if ok and not args.skip_validate:
-        validate_cmd = [
-            py,
-            str(script_dir / "doc_validate.py"),
-            "--root",
-            str(root),
-            "--facts",
-            str(facts_abs),
-        ]
-        if fail_on_drift:
-            validate_cmd.append("--fail-on-drift")
-        if fail_on_freshness:
-            validate_cmd.append("--fail-on-freshness")
-        ok = exec_or_stop("validate", validate_cmd)
+        if ok:
+            ok = exec_or_stop(
+                f"{label}:plan",
+                [
+                    py,
+                    str(script_dir / "doc_plan.py"),
+                    "--root",
+                    str(root),
+                    "--mode",
+                    args.plan_mode,
+                    "--facts",
+                    str(facts_abs),
+                    "--output",
+                    str(plan_abs),
+                ],
+            )
+
+        if ok and apply_mode != "none":
+            apply_cmd = [
+                py,
+                str(script_dir / "doc_apply.py"),
+                "--root",
+                str(root),
+                "--plan",
+                str(plan_abs),
+                "--mode",
+                apply_mode,
+            ]
+            if args.init_language:
+                apply_cmd.extend(["--init-language", args.init_language])
+            ok = exec_or_stop(f"{label}:apply", apply_cmd)
+
+        if ok and not args.skip_validate:
+            ok = exec_or_stop(
+                f"{label}:scan-post-apply",
+                [
+                    py,
+                    str(script_dir / "repo_scan.py"),
+                    "--root",
+                    str(root),
+                    "--output",
+                    str(facts_abs),
+                ],
+            )
+
+        if ok and not args.skip_validate:
+            synth_cmd = [
+                py,
+                str(script_dir / "doc_synthesize.py"),
+                "--root",
+                str(root),
+                "--plan",
+                str(plan_abs),
+                "--facts",
+                str(facts_abs),
+                "--output",
+                str(root / "docs/.doc-evidence-map.json"),
+            ]
+            ok = exec_or_stop(f"{label}:synthesize", synth_cmd)
+
+        if ok and not args.skip_validate:
+            validate_cmd = [
+                py,
+                str(script_dir / "doc_validate.py"),
+                "--root",
+                str(root),
+                "--facts",
+                str(facts_abs),
+            ]
+            if fail_on_drift:
+                validate_cmd.append("--fail-on-drift")
+            if fail_on_freshness:
+                validate_cmd.append("--fail-on-freshness")
+            ok = exec_or_stop(f"{label}:validate", validate_cmd)
+
+        nonlocal last_validate_report
+        last_validate_report = load_json_object(root / "docs/.doc-validate-report.json")
+        return ok
+
+    cycle_index = 0
+    ok = run_cycle("run")
+    while (
+        not ok
+        and not args.skip_validate
+        and apply_mode != "none"
+        and cycle_index < max_repair_iterations
+        and is_repairable_drift(last_validate_report)
+    ):
+        repair_attempts += 1
+        cycle_index += 1
+        ok = run_cycle(f"repair-{cycle_index}")
 
     plan_data = load_json_object(plan_abs) or {}
     apply_report_data = load_json_object(root / "docs/.doc-apply-report.json") or {}
-    validate_report = load_json_object(root / "docs/.doc-validate-report.json") or {}
+    validate_report = last_validate_report or {}
 
     report = {
         "generated_at": utc_now(),
@@ -359,6 +435,7 @@ def main() -> int:
             "fail_on_drift": fail_on_drift,
             "fail_on_freshness": fail_on_freshness,
             "skip_validate": args.skip_validate,
+            "max_repair_iterations": max_repair_iterations,
         },
         "steps": steps,
         "plan": {
@@ -378,6 +455,11 @@ def main() -> int:
             "metadata_stale_docs": (
                 (validate_report.get("metrics") or {}).get("metadata_stale_docs")
             ),
+        },
+        "repair": {
+            "attempts": repair_attempts,
+            "max_iterations": max_repair_iterations,
+            "repairable_drift": is_repairable_drift(last_validate_report),
         },
         "summary": {
             "status": "passed" if ok else "failed",

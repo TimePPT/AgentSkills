@@ -14,7 +14,10 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 import doc_metadata as dm  # noqa: E402
+import doc_agents_validate  # noqa: E402
 import doc_plan  # noqa: E402
+import doc_quality  # noqa: E402
+import doc_spec  # noqa: E402
 
 LINK_PATTERN = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 
@@ -209,6 +212,35 @@ def check_drift(
     notes = [f"{a.get('id')} {a.get('type')} {a.get('path')}" for a in actionable]
     return len(actionable) > 0, len(actionable), notes
 
+def resolve_quality_gate_settings(policy: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(policy, dict):
+        return {"enabled": False, "fail_on_quality_gate": False}
+    raw = policy.get("doc_quality_gates")
+    if not isinstance(raw, dict):
+        return {"enabled": False, "fail_on_quality_gate": False}
+    return {
+        "enabled": bool(raw.get("enabled", False)),
+        "fail_on_quality_gate": bool(raw.get("fail_on_quality_gate", True)),
+    }
+
+
+def resolve_agents_gate_settings(policy: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(policy, dict):
+        return {
+            "enabled": False,
+            "fail_on_agents_drift": False,
+        }
+    raw = policy.get("agents_generation")
+    if not isinstance(raw, dict):
+        return {
+            "enabled": False,
+            "fail_on_agents_drift": False,
+        }
+    return {
+        "enabled": bool(raw.get("enabled", False)),
+        "fail_on_agents_drift": bool(raw.get("fail_on_agents_drift", True)),
+    }
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -219,6 +251,7 @@ def parse_args() -> argparse.Namespace:
         "--manifest", default="docs/.doc-manifest.json", help="Manifest path"
     )
     parser.add_argument("--policy", default="docs/.doc-policy.json", help="Policy path")
+    parser.add_argument("--spec", default="docs/.doc-spec.json", help="Doc spec path")
     parser.add_argument(
         "--facts", default="docs/.repo-facts.json", help="Facts JSON path"
     )
@@ -254,6 +287,11 @@ def main() -> int:
         (root / args.policy).resolve()
         if not Path(args.policy).is_absolute()
         else Path(args.policy)
+    )
+    spec_path = (
+        (root / args.spec).resolve()
+        if not Path(args.spec).is_absolute()
+        else Path(args.spec)
     )
     facts_path = (
         (root / args.facts).resolve()
@@ -292,6 +330,48 @@ def main() -> int:
     errors.extend(metadata_errors)
     warnings.extend(metadata_warnings)
 
+    spec_data, spec_errors, spec_warnings = doc_spec.load_spec(spec_path)
+    errors.extend([f"doc-spec: {message}" for message in spec_errors])
+    warnings.extend([f"doc-spec: {message}" for message in spec_warnings])
+
+    quality_settings = resolve_quality_gate_settings(policy)
+    quality_report = None
+    quality_failed = False
+    if quality_settings["enabled"]:
+        try:
+            quality_report = doc_quality.evaluate_quality(
+                root,
+                policy,
+                facts,
+                spec_path,
+                evidence_map_path=root / "docs/.doc-evidence-map.json",
+            )
+            quality_failed = quality_report.get("gate", {}).get("status") != "passed"
+            if quality_failed and quality_settings["fail_on_quality_gate"]:
+                errors.append("doc-quality: quality gate failed")
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"doc-quality: {exc}")
+            quality_failed = True
+
+    agents_settings = resolve_agents_gate_settings(policy)
+    agents_report = None
+    agents_failed = False
+    if agents_settings["enabled"]:
+        try:
+            agents_report = doc_agents_validate.evaluate_agents(
+                root=root,
+                policy=policy,
+                agents_path=root / "AGENTS.md",
+                index_path=root / "docs/index.md",
+            )
+            agents_failed = agents_report.get("gate", {}).get("status") != "passed"
+            if agents_failed and agents_settings["fail_on_agents_drift"]:
+                errors.append("agents-quality: agents gate failed")
+            warnings.extend([f"agents-quality: {w}" for w in agents_report.get("warnings", [])])
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"agents-quality: {exc}")
+            agents_failed = True
+
     has_drift, drift_count, drift_notes = check_drift(
         root, policy_path, manifest_path, facts
     )
@@ -301,6 +381,8 @@ def main() -> int:
         len(errors) == 0
         and (not args.fail_on_drift or not has_drift)
         and (not args.fail_on_freshness or not has_stale_metadata)
+        and (not quality_settings["fail_on_quality_gate"] or not quality_failed)
+        and (not agents_settings["fail_on_agents_drift"] or not agents_failed)
     )
 
     report = {
@@ -319,6 +401,13 @@ def main() -> int:
             "metadata_missing_fields": metadata_metrics.get("missing_fields", 0),
             "metadata_invalid_fields": metadata_metrics.get("invalid_fields", 0),
             "metadata_stale_docs": metadata_metrics.get("stale_docs", 0),
+            "doc_spec_exists": spec_data is not None,
+            "doc_spec_errors": len(spec_errors),
+            "doc_spec_warnings": len(spec_warnings),
+            "doc_quality_enabled": quality_settings["enabled"],
+            "doc_quality_failed": quality_failed,
+            "agents_validate_enabled": agents_settings["enabled"],
+            "agents_validate_failed": agents_failed,
         },
         "errors": errors,
         "warnings": warnings,
@@ -326,9 +415,34 @@ def main() -> int:
             "has_drift": has_drift,
             "actions": drift_notes,
         },
+        "doc_spec": {
+            "path": normalize(spec_path.relative_to(root)),
+            "exists": spec_data is not None,
+            "errors": spec_errors,
+            "warnings": spec_warnings,
+        },
+        "doc_quality": quality_report
+        or {
+            "enabled": quality_settings["enabled"],
+            "gate": {
+                "status": "skipped" if not quality_settings["enabled"] else "failed",
+                "failed_checks": [],
+            },
+        },
         "doc_metadata": {
             "policy": metadata_policy,
             "findings": metadata_findings,
+        },
+        "agents": agents_report
+        or {
+            "enabled": agents_settings["enabled"],
+            "gate": {
+                "status": "skipped" if not agents_settings["enabled"] else "failed",
+                "failed_checks": [],
+            },
+            "errors": [],
+            "warnings": [],
+            "metrics": {},
         },
     }
 

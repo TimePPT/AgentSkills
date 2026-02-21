@@ -55,6 +55,28 @@
     "report_json": "docs/.doc-garden-report.json",
     "report_md": "docs/.doc-garden-report.md"
   },
+  "doc_quality_gates": {
+    "enabled": false,
+    "min_evidence_coverage": 0.9,
+    "max_conflicts": 0,
+    "max_unknown_claims": 0,
+    "max_unresolved_todo": 0,
+    "max_stale_metrics_days": 7,
+    "fail_on_quality_gate": true
+  },
+  "agents_generation": {
+    "enabled": false,
+    "mode": "dynamic",
+    "max_lines": 140,
+    "required_links": [
+      "docs/index.md",
+      "docs/.doc-policy.json",
+      "docs/.doc-manifest.json",
+      "docs/runbook.md"
+    ],
+    "sync_on_manifest_change": true,
+    "fail_on_agents_drift": true
+  },
   "allow_auto_update": [
     "docs/index.md",
     "docs/architecture.md",
@@ -95,6 +117,8 @@
 - `adaptive_manifest_overrides`: force include/exclude specific files or directories after capability decision.
 - `doc_metadata`: ownership/freshness metadata policy for managed markdown docs.
 - `doc_gardening`: automation defaults used by `doc_garden.py`.
+- `doc_quality_gates`: content quality gate thresholds used by validators.
+- `agents_generation`: dynamic AGENTS.md generation settings.
 - `allow_auto_update`: auto-update whitelist.
 - `protect_from_auto_overwrite`: protected glob patterns.
 

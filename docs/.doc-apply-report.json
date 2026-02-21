@@ -1,0 +1,25 @@
+{
+  "generated_at": "2026-02-21T13:00:40.075907+00:00",
+  "root": "/Users/tompoet/AgentSkills",
+  "mode": "apply-safe",
+  "dry_run": false,
+  "language": {
+    "primary": "zh-CN",
+    "profile": "zh-CN",
+    "locked": true,
+    "source": "policy_locked",
+    "policy_language_updated": false
+  },
+  "summary": {
+    "total_actions": 0,
+    "applied": 0,
+    "skipped": 0,
+    "errors": 0
+  },
+  "results": [],
+  "agents_generation": {
+    "status": "skipped",
+    "enabled": true,
+    "triggered": false
+  }
+}

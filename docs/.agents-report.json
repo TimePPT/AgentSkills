@@ -1,0 +1,41 @@
+{
+  "generated_at": "2026-02-21T11:38:22.991491+00:00",
+  "root": "/Users/tompoet/AgentSkills",
+  "output": "AGENTS.md",
+  "status": "generated",
+  "profile": "zh-CN",
+  "settings": {
+    "enabled": true,
+    "mode": "dynamic",
+    "max_lines": 140,
+    "required_links": [
+      "docs/index.md",
+      "docs/.doc-policy.json",
+      "docs/.doc-manifest.json",
+      "docs/runbook.md"
+    ],
+    "sync_on_manifest_change": true,
+    "fail_on_agents_drift": true,
+    "max_overlap_ratio": 0.7
+  },
+  "inputs": {
+    "policy_loaded": true,
+    "manifest_loaded": true,
+    "facts_loaded": true,
+    "navigation_links": [
+      "docs/index.md",
+      "docs/.doc-policy.json",
+      "docs/.doc-manifest.json",
+      "docs/runbook.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.md",
+      "docs/references/doc_spec_schema.md"
+    ],
+    "modules": [
+      "skills"
+    ]
+  },
+  "metrics": {
+    "line_count": 47,
+    "content_sha256": "ca3f7b61e055406b58c7f1a1d1885f917aa79ed59576f538ca7f13c2fab0e2e3"
+  }
+}
