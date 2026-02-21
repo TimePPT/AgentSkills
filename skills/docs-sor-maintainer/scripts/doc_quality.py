@@ -239,6 +239,15 @@ def evaluate_quality(
         if isinstance(c.get("statement"), str)
         and "TODO" in c.get("statement")
     )
+    unresolved_todo = sum(
+        1
+        for c in claims
+        if c.get("status") == "missing"
+        or (
+            isinstance(c.get("statement"), str)
+            and "TODO" in c.get("statement")
+        )
+    )
     unknown_text = sum(
         1
         for c in claims
@@ -273,7 +282,6 @@ def evaluate_quality(
             failed_checks.append("citation_integrity")
         if unknown > int(thresholds["max_unknown_claims"]):
             failed_checks.append("max_unknown_claims")
-        unresolved_todo = todo_count + missing
         if unresolved_todo > int(thresholds["max_unresolved_todo"]):
             failed_checks.append("max_unresolved_todo")
         max_stale = thresholds["max_stale_metrics_days"]
@@ -295,7 +303,7 @@ def evaluate_quality(
             "unknown_claims": unknown,
             "missing_claims": missing,
             "unknown_text": unknown_text,
-            "unresolved_todo": todo_count + missing,
+            "unresolved_todo": unresolved_todo,
             "evidence_coverage": evidence_coverage,
             "conflicts": len(conflicts),
             "citation_issues": len(citation_issues),

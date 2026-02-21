@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches:
+      - master
       - main
 
 jobs:
@@ -33,6 +34,8 @@ jobs:
             }
           elif [ -d "$REPO_ROOT/.agents/skills/docs-sor-maintainer/scripts" ]; then
             SKILL_DIR="$REPO_ROOT/.agents/skills/docs-sor-maintainer"
+          elif [ -d "$REPO_ROOT/skills/docs-sor-maintainer/scripts" ]; then
+            SKILL_DIR="$REPO_ROOT/skills/docs-sor-maintainer"
           elif [ -d "$CODEX_HOME_RESOLVED/skills/docs-sor-maintainer/scripts" ]; then
             SKILL_DIR="$CODEX_HOME_RESOLVED/skills/docs-sor-maintainer"
           else
