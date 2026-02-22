@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-02-22T05:42:01.040470+00:00",
+  "generated_at": "2026-02-22T14:09:58.564276+00:00",
   "root": "/Users/tompoet/AgentSkills",
   "passed": true,
   "fail_on_drift": true,
@@ -7,10 +7,10 @@
   "metrics": {
     "errors": 0,
     "warnings": 0,
-    "checked_links": 13,
+    "checked_links": 18,
     "drift_action_count": 0,
     "facts_loaded": true,
-    "metadata_checked_docs": 11,
+    "metadata_checked_docs": 16,
     "metadata_missing_fields": 0,
     "metadata_invalid_fields": 0,
     "metadata_stale_docs": 0,
@@ -26,9 +26,15 @@
     "semantic_auto_migrate_count": 0,
     "semantic_manual_review_count": 0,
     "semantic_skip_count": 0,
+    "fallback_auto_migrate_count": 0,
     "semantic_low_confidence_count": 0,
     "semantic_conflict_count": 0,
-    "structured_section_completeness": 1.0
+    "denylist_migration_count": 0,
+    "structured_section_completeness": 1.0,
+    "active_exec_plan_files": 7,
+    "completed_declared_exec_plans": 1,
+    "missing_exec_plan_closeout_links": 0,
+    "missing_exec_plan_closeout_targets": 0
   },
   "errors": [],
   "warnings": [],
@@ -43,7 +49,7 @@
     "warnings": []
   },
   "doc_quality": {
-    "generated_at": "2026-02-22T05:42:00.997807+00:00",
+    "generated_at": "2026-02-22T14:09:58.504307+00:00",
     "root": "/Users/tompoet/AgentSkills",
     "enabled": true,
     "doc_spec": {
@@ -64,6 +70,7 @@
       "semantic_auto_migrate_count": 0,
       "semantic_manual_review_count": 0,
       "semantic_skip_count": 0,
+      "fallback_auto_migrate_count": 0,
       "semantic_low_confidence_count": 0,
       "semantic_conflict_count": 0,
       "structured_section_completeness": 1.0,
@@ -76,6 +83,7 @@
       "thresholds": {
         "max_semantic_conflicts": 0,
         "max_semantic_low_confidence_auto": 0,
+        "max_fallback_auto_migrate": 0,
         "min_structured_section_completeness": 0.95,
         "fail_on_semantic_gate": true
       },
@@ -83,6 +91,7 @@
         "semantic_auto_migrate_count": 0,
         "semantic_manual_review_count": 0,
         "semantic_skip_count": 0,
+        "fallback_auto_migrate_count": 0,
         "semantic_low_confidence_count": 0,
         "semantic_conflict_count": 0,
         "structured_section_completeness": 1.0,
@@ -105,6 +114,7 @@
         "max_stale_metrics_days": 7,
         "max_semantic_conflicts": 0,
         "max_semantic_low_confidence_auto": 0,
+        "max_fallback_auto_migrate": 0,
         "min_structured_section_completeness": 0.95
       }
     }
@@ -196,16 +206,76 @@
         "age_days": 0
       },
       {
-        "path": "docs/exec-plans/active/docs-sor-roadmap-v2.md",
+        "path": "docs/exec-plans/active/docs-sor-roadmap-v2.2-phase-f-agent-runtime-semantic-hardening.md",
         "values": {
           "doc-owner": "docs-maintainer",
-          "doc-last-reviewed": "2026-02-21",
+          "doc-last-reviewed": "2026-02-22",
           "doc-review-cycle-days": "90"
         },
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 1
+        "age_days": 0
+      },
+      {
+        "path": "docs/exec-plans/active/docs-sor-roadmap-v2.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-22",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 0
+      },
+      {
+        "path": "docs/exec-plans/completed/README.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-22",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 0
+      },
+      {
+        "path": "docs/exec-plans/completed/docs-sor-roadmap-v2-closeout-2026-02-22.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-22",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 0
+      },
+      {
+        "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.2-phase-f-closeout-2026-02-22.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-22",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 0
+      },
+      {
+        "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.3-phase-f5-closeout-2026-02-22.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-22",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 0
       },
       {
         "path": "docs/index.md",
@@ -258,7 +328,7 @@
     ]
   },
   "agents": {
-    "generated_at": "2026-02-22T05:42:00.998339+00:00",
+    "generated_at": "2026-02-22T14:09:58.504997+00:00",
     "root": "/Users/tompoet/AgentSkills",
     "enabled": true,
     "settings": {
@@ -282,7 +352,7 @@
     "errors": [],
     "warnings": [],
     "metrics": {
-      "line_count": 48,
+      "line_count": 49,
       "missing_headings": 0,
       "missing_required_links": 0,
       "broken_links": 0,
@@ -311,6 +381,8 @@
       ],
       "exclude_globs": [
         "**/*.pyc",
+        "**/AGENTS*.md",
+        "**/README*.md",
         "**/__pycache__/**",
         ".agents/**",
         ".git/**",
@@ -337,8 +409,8 @@
       "semantic": {
         "enabled": true,
         "engine": "llm",
-        "provider": "deterministic_mock",
-        "model": "gpt-5-codex",
+        "provider": "agent_runtime",
+        "model": "agent-runtime-report-v1",
         "auto_migrate_threshold": 0.85,
         "review_threshold": 0.6,
         "max_chars_per_doc": 20000,
@@ -354,7 +426,8 @@
           "AGENTS.md",
           "README.md"
         ],
-        "fail_closed": true
+        "fail_closed": true,
+        "allow_fallback_auto_migrate": false
       }
     },
     "registry_path": "docs/.legacy-migration-map.json",
@@ -370,10 +443,12 @@
       "semantic_auto_migrate_count": 0,
       "semantic_manual_review_count": 0,
       "semantic_skip_count": 0,
+      "fallback_auto_migrate_count": 0,
       "semantic_low_confidence_count": 0,
       "semantic_conflict_count": 0,
       "structured_section_completeness": 1.0,
-      "semantic_missing_source_marker_auto_count": 0
+      "semantic_missing_source_marker_auto_count": 0,
+      "denylist_migration_count": 0
     },
     "unresolved_sources": [],
     "semantic": {
@@ -381,6 +456,7 @@
       "thresholds": {
         "max_semantic_conflicts": 0,
         "max_semantic_low_confidence_auto": 0,
+        "max_fallback_auto_migrate": 0,
         "min_structured_section_completeness": 0.95,
         "fail_on_semantic_gate": true
       },
@@ -388,6 +464,7 @@
         "semantic_auto_migrate_count": 0,
         "semantic_manual_review_count": 0,
         "semantic_skip_count": 0,
+        "fallback_auto_migrate_count": 0,
         "semantic_low_confidence_count": 0,
         "semantic_conflict_count": 0,
         "structured_section_completeness": 1.0,
@@ -397,9 +474,20 @@
       "conflicts": [],
       "incomplete_sources": [],
       "missing_source_marker_auto_sources": [],
-      "backlog": []
+      "backlog": [],
+      "denylist_migration_sources": []
     },
     "errors": [],
     "warnings": []
+  },
+  "exec_plan_closeout": {
+    "errors": [],
+    "warnings": [],
+    "metrics": {
+      "active_exec_plan_files": 7,
+      "completed_declared_files": 1,
+      "missing_closeout_link_files": 0,
+      "missing_closeout_target_files": 0
+    }
   }
 }

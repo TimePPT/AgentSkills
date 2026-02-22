@@ -12,8 +12,9 @@
 - [docs/.doc-manifest.json](./docs/.doc-manifest.json)
 - [docs/runbook.md](./docs/runbook.md)
 - [docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md](./docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md)
-- [docs/exec-plans/active/docs-sor-roadmap-v2.md](./docs/exec-plans/active/docs-sor-roadmap-v2.md)
-- [docs/references/doc_spec_schema.md](./docs/references/doc_spec_schema.md)
+- [docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md](./docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md)
+- [docs/exec-plans/active/docs-sor-roadmap-v2.2-phase-f-agent-runtime-semantic-hardening.md](./docs/exec-plans/active/docs-sor-roadmap-v2.2-phase-f-agent-runtime-semantic-hardening.md)
+- [docs/exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md](./docs/exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md)
 - 当前顶层模块：`skills`。
 
 ## 标准命令

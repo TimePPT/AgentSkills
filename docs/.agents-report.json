@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-02-21T15:08:48.792310+00:00",
+  "generated_at": "2026-02-22T14:09:58.349291+00:00",
   "root": "/Users/tompoet/AgentSkills",
   "output": "AGENTS.md",
   "status": "generated",
@@ -28,15 +28,16 @@
       "docs/.doc-manifest.json",
       "docs/runbook.md",
       "docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md",
-      "docs/exec-plans/active/docs-sor-roadmap-v2.md",
-      "docs/references/doc_spec_schema.md"
+      "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.2-phase-f-agent-runtime-semantic-hardening.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md"
     ],
     "modules": [
       "skills"
     ]
   },
   "metrics": {
-    "line_count": 48,
-    "content_sha256": "a69bef10c5d297d962dbd740393eb6f67573f61945fa6e6d1df4efa57e88a377"
+    "line_count": 49,
+    "content_sha256": "cdb60a73a56763a7e0181ef8478ca6b7adf37b08f4e4630f8183eee11939baca"
   }
 }
