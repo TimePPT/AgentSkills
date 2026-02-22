@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-02-21T13:02:39.738798+00:00",
+  "generated_at": "2026-02-22T03:29:44.485113+00:00",
   "root": "/Users/tompoet/AgentSkills",
   "plan": "/Users/tompoet/AgentSkills/docs/.doc-plan.json",
   "spec": "/Users/tompoet/AgentSkills/docs/.doc-spec.json",
   "facts": "/Users/tompoet/AgentSkills/docs/.repo-facts.json",
   "plan_meta": {
-    "generated_at": "2026-02-21T13:02:39.601996+00:00",
+    "generated_at": "2026-02-22T03:29:44.270892+00:00",
     "root": "/Users/tompoet/AgentSkills",
     "mode": "audit",
     "policy_path": "docs/.doc-policy.json",
@@ -19,6 +19,8 @@
         "files": [
           "docs/.doc-spec.json",
           "docs/architecture.md",
+          "docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md",
           "docs/exec-plans/active/docs-sor-roadmap-v2.md",
           "docs/index.md",
           "docs/references/doc_spec_schema.md",
@@ -39,7 +41,7 @@
       "archive_dir": "docs/archive"
     },
     "manifest_reasoning": [
-      "include_files=1"
+      "include_files=3"
     ],
     "capability_decisions": [
       {
@@ -74,7 +76,7 @@
         "enabled": true,
         "source": "goal_include",
         "evidence": [
-          "file_count=73",
+          "file_count=90",
           "enabled by doc_goals.include"
         ],
         "required_files": [
@@ -89,6 +91,7 @@
         "source": "goal_include",
         "evidence": [
           "ci_configs=1",
+          "file_count=90",
           "enabled by doc_goals.include"
         ],
         "required_files": [],
@@ -104,7 +107,7 @@
         "enabled": true,
         "source": "signal",
         "evidence": [
-          "docs_markdown_count=7"
+          "docs_markdown_count=10"
         ],
         "required_files": [],
         "required_dirs": [],
@@ -157,6 +160,22 @@
       "require_owner": true,
       "require_last_reviewed": true,
       "require_review_cycle_days": true
+    },
+    "legacy_sources": {
+      "enabled": true,
+      "mapping_strategy": "path_based",
+      "candidate_count": 0,
+      "target_doc_count": 0,
+      "semantic": {
+        "enabled": true,
+        "engine": "llm",
+        "provider": "deterministic_mock",
+        "model": "gpt-5-codex",
+        "auto_migrate_threshold": 0.85,
+        "review_threshold": 0.6,
+        "report_path": "docs/.legacy-semantic-report.json",
+        "decision_counts": {}
+      }
     },
     "language": {
       "primary": "zh-CN",

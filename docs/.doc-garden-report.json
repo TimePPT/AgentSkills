@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-02-21T13:00:40.276159+00:00",
+  "generated_at": "2026-02-22T03:29:44.571203+00:00",
   "root": "/Users/tompoet/AgentSkills",
   "settings": {
     "plan_mode": "audit",
-    "apply_mode": "apply-safe",
+    "apply_mode": "none",
     "fail_on_drift": true,
     "fail_on_freshness": true,
     "skip_validate": false,
@@ -20,8 +20,8 @@
         "--output",
         "/Users/tompoet/AgentSkills/docs/.repo-facts.json"
       ],
-      "started_at": "2026-02-21T13:00:39.887793+00:00",
-      "finished_at": "2026-02-21T13:00:40.007631+00:00",
+      "started_at": "2026-02-22T03:29:44.033828+00:00",
+      "finished_at": "2026-02-22T03:29:44.216648+00:00",
       "returncode": 0,
       "stdout": "[OK] Wrote facts to /Users/tompoet/AgentSkills/docs/.repo-facts.json\n",
       "stderr": "",
@@ -41,29 +41,10 @@
         "--output",
         "/Users/tompoet/AgentSkills/docs/.doc-plan.json"
       ],
-      "started_at": "2026-02-21T13:00:40.007719+00:00",
-      "finished_at": "2026-02-21T13:00:40.044808+00:00",
+      "started_at": "2026-02-22T03:29:44.216712+00:00",
+      "finished_at": "2026-02-22T03:29:44.274865+00:00",
       "returncode": 0,
-      "stdout": "[OK] Wrote plan to /Users/tompoet/AgentSkills/docs/.doc-plan.json\n[INFO] Action count: 0\n[INFO] Language primary=zh-CN profile=zh-CN source=policy_locked\n",
-      "stderr": "",
-      "status": "ok"
-    },
-    {
-      "name": "run:apply",
-      "command": [
-        "/Users/tompoet/.pyenv/versions/3.12.12/bin/python3",
-        "/Users/tompoet/AgentSkills/.agents/skills/docs-sor-maintainer/scripts/doc_apply.py",
-        "--root",
-        "/Users/tompoet/AgentSkills",
-        "--plan",
-        "/Users/tompoet/AgentSkills/docs/.doc-plan.json",
-        "--mode",
-        "apply-safe"
-      ],
-      "started_at": "2026-02-21T13:00:40.044865+00:00",
-      "finished_at": "2026-02-21T13:00:40.080003+00:00",
-      "returncode": 0,
-      "stdout": "[OK] Processed 0 actions\n[INFO] Applied=0 Skipped=0 Errors=0\n[INFO] Language primary=zh-CN profile=zh-CN source=policy_locked\n",
+      "stdout": "[OK] Wrote plan to /Users/tompoet/AgentSkills/docs/.doc-plan.json\n[INFO] Action count: 0\n[INFO] Semantic report: /Users/tompoet/AgentSkills/docs/.legacy-semantic-report.json\n[INFO] Language primary=zh-CN profile=zh-CN source=policy_locked\n",
       "stderr": "",
       "status": "ok"
     },
@@ -77,8 +58,8 @@
         "--output",
         "/Users/tompoet/AgentSkills/docs/.repo-facts.json"
       ],
-      "started_at": "2026-02-21T13:00:40.080061+00:00",
-      "finished_at": "2026-02-21T13:00:40.200134+00:00",
+      "started_at": "2026-02-22T03:29:44.274920+00:00",
+      "finished_at": "2026-02-22T03:29:44.459419+00:00",
       "returncode": 0,
       "stdout": "[OK] Wrote facts to /Users/tompoet/AgentSkills/docs/.repo-facts.json\n",
       "stderr": "",
@@ -98,8 +79,8 @@
         "--output",
         "/Users/tompoet/AgentSkills/docs/.doc-evidence-map.json"
       ],
-      "started_at": "2026-02-21T13:00:40.200203+00:00",
-      "finished_at": "2026-02-21T13:00:40.229785+00:00",
+      "started_at": "2026-02-22T03:29:44.459481+00:00",
+      "finished_at": "2026-02-22T03:29:44.488538+00:00",
       "returncode": 0,
       "stdout": "[OK] Wrote evidence map to /Users/tompoet/AgentSkills/docs/.doc-evidence-map.json\n[INFO] claims=4 supported=4 unknown=0 missing=0\n",
       "stderr": "",
@@ -117,8 +98,8 @@
         "--fail-on-drift",
         "--fail-on-freshness"
       ],
-      "started_at": "2026-02-21T13:00:40.229844+00:00",
-      "finished_at": "2026-02-21T13:00:40.275828+00:00",
+      "started_at": "2026-02-22T03:29:44.488586+00:00",
+      "finished_at": "2026-02-22T03:29:44.570562+00:00",
       "returncode": 0,
       "stdout": "[OK] Wrote validate report to /Users/tompoet/AgentSkills/docs/.doc-validate-report.json\n[INFO] errors=0 warnings=0 drift=0\n",
       "stderr": "",
@@ -130,8 +111,8 @@
     "action_counts": {}
   },
   "apply": {
-    "total_actions": 0,
-    "applied": 0,
+    "total_actions": 4,
+    "applied": 4,
     "skipped": 0,
     "errors": 0
   },
@@ -147,10 +128,14 @@
     "max_iterations": 2,
     "repairable_drift": false
   },
+  "semantic_backlog": {
+    "count": 0,
+    "sample": []
+  },
   "summary": {
     "status": "passed",
-    "apply_mode": "apply-safe",
-    "step_count": 6,
+    "apply_mode": "none",
+    "step_count": 5,
     "failed_step_count": 0
   }
 }

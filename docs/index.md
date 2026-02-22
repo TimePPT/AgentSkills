@@ -1,5 +1,5 @@
 <!-- doc-owner: docs-maintainer -->
-<!-- doc-last-reviewed: 2026-02-21 -->
+<!-- doc-last-reviewed: 2026-02-22 -->
 <!-- doc-review-cycle-days: 90 -->
 
 # 文档索引
@@ -13,6 +13,11 @@
 - [docs/architecture.md](./architecture.md)
 - [docs/runbook.md](./runbook.md)
 - [docs/exec-plans/active/docs-sor-roadmap-v2.md](./exec-plans/active/docs-sor-roadmap-v2.md)
+- [docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md](./exec-plans/active/docs-sor-legacy-migration-automation-plan.md)
+- [docs/exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md](./exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md)
+- [docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-test-matrix.md](./exec-plans/active/docs-sor-roadmap-v2.1-phase-d-test-matrix.md)
+- [docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-acceptance-report.md](./exec-plans/active/docs-sor-roadmap-v2.1-phase-d-acceptance-report.md)
+- [docs/references/legacy-semantic-migration-acceptance-template.md](./references/legacy-semantic-migration-acceptance-template.md)
 
 ## 操作流程
 
@@ -28,3 +33,4 @@
 - 本轮文档目标：
   - 固化当前 codebase 的结构与操作约束；
   - 输出下一阶段增强（R2/R5/R6/R7/R8 与 F3/F4/F5）的需求与功能设计，直接指导开发、测试、验收。
+  - Phase D 已补齐语义迁移回归矩阵与验收模板，可直接复用到后续迭代。

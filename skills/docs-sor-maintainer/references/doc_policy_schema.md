@@ -62,7 +62,11 @@
     "max_unknown_claims": 0,
     "max_unresolved_todo": 0,
     "max_stale_metrics_days": 7,
-    "fail_on_quality_gate": true
+    "max_semantic_conflicts": 0,
+    "max_semantic_low_confidence_auto": 0,
+    "min_structured_section_completeness": 0.95,
+    "fail_on_quality_gate": true,
+    "fail_on_semantic_gate": true
   },
   "agents_generation": {
     "enabled": false,
@@ -76,6 +80,51 @@
     ],
     "sync_on_manifest_change": true,
     "fail_on_agents_drift": true
+  },
+  "legacy_sources": {
+    "enabled": false,
+    "include_globs": [],
+    "exclude_globs": [
+      "docs/**",
+      "docs/archive/**",
+      ".git/**",
+      ".agents/**",
+      "skills/**",
+      "**/__pycache__/**",
+      "**/*.pyc"
+    ],
+    "archive_root": "docs/archive/legacy",
+    "mapping_strategy": "path_based",
+    "target_root": "docs/history/legacy",
+    "target_doc": "docs/history/legacy-migration.md",
+    "registry_path": "docs/.legacy-migration-map.json",
+    "allow_non_markdown": true,
+    "exempt_sources": [],
+    "mapping_table": {},
+    "fail_on_legacy_drift": true,
+    "semantic_report_path": "docs/.legacy-semantic-report.json",
+    "semantic": {
+      "enabled": false,
+      "engine": "deterministic_mock",
+      "provider": "deterministic_mock",
+      "model": "deterministic-mock-v1",
+      "auto_migrate_threshold": 0.85,
+      "review_threshold": 0.6,
+      "max_chars_per_doc": 20000,
+      "categories": [
+        "requirement",
+        "plan",
+        "progress",
+        "worklog",
+        "agent_ops",
+        "not_migratable"
+      ],
+      "denylist_files": [
+        "README.md",
+        "AGENTS.md"
+      ],
+      "fail_closed": true
+    }
   },
   "allow_auto_update": [
     "docs/index.md",
@@ -118,7 +167,14 @@
 - `doc_metadata`: ownership/freshness metadata policy for managed markdown docs.
 - `doc_gardening`: automation defaults used by `doc_garden.py`.
 - `doc_quality_gates`: content quality gate thresholds used by validators.
+  - `max_semantic_conflicts`: max allowed semantic conflict count.
+  - `max_semantic_low_confidence_auto`: max allowed auto-migrated low-confidence items.
+  - `min_structured_section_completeness`: minimum completeness ratio for structured migration sections.
+  - `fail_on_semantic_gate`: when true, semantic gate failures are treated as errors.
 - `agents_generation`: dynamic AGENTS.md generation settings.
+- `legacy_sources`: legacy files discovery/migration policy for non-SoR historical files.
+  - `legacy_sources.semantic`: semantic classifier policy for legacy candidates, including threshold routing and denylist.
+  - `legacy_sources.semantic_report_path`: report output path for semantic classification records.
 - `allow_auto_update`: auto-update whitelist.
 - `protect_from_auto_overwrite`: protected glob patterns.
 
@@ -139,5 +195,6 @@
 - Keep `manifest_evolution.allow_additive=true` to let docs baseline evolve with repository growth.
 - Keep `doc_metadata.enabled=true` so validate can enforce ownership/freshness governance.
 - Keep `doc_gardening.enabled=true` and run it on schedule for continuous docs gardening.
+- Enable `legacy_sources` only after defining strict `include_globs` to avoid accidental broad migration.
 - Use `allow_auto_update` as explicit allowlist.
 - Prefer manual review for strategy docs and policy docs.

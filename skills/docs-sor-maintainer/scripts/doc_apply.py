@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import shutil
 import sys
@@ -15,6 +16,7 @@ if str(SCRIPT_DIR) not in sys.path:
 
 import doc_capabilities as dc  # noqa: E402
 import doc_agents  # noqa: E402
+import doc_legacy as dl  # noqa: E402
 import doc_metadata as dm  # noqa: E402
 import language_profiles as lp  # noqa: E402
 
@@ -296,6 +298,65 @@ def upsert_doc_metadata(rel_path: str, path: Path, dry_run: bool, metadata_polic
     return True
 
 
+def read_text_lossy(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return path.read_text(encoding="utf-8", errors="replace")
+
+
+def resolve_legacy_registry_path(root: Path, legacy_settings: dict[str, Any]) -> Path:
+    registry_rel = normalize(
+        str(
+            legacy_settings.get(
+                "registry_path", dl.DEFAULT_LEGACY_SETTINGS["registry_path"]
+            )
+        )
+    )
+    return root / registry_rel
+
+
+def update_legacy_registry(
+    root: Path,
+    legacy_settings: dict[str, Any],
+    source_rel: str,
+    patch: dict[str, Any],
+    dry_run: bool,
+) -> None:
+    registry_path = resolve_legacy_registry_path(root, legacy_settings)
+    registry = dl.load_registry(registry_path)
+    dl.upsert_registry_entry(registry, source_rel, patch)
+    dl.save_registry(registry_path, registry, dry_run)
+
+
+def resolve_legacy_semantic_patch(action: dict[str, Any]) -> dict[str, Any]:
+    patch: dict[str, Any] = {}
+    category = action.get("semantic_category")
+    if isinstance(category, str) and category.strip():
+        patch["category"] = category.strip()
+
+    confidence = action.get("semantic_confidence")
+    if isinstance(confidence, (int, float)):
+        patch["confidence"] = float(confidence)
+
+    decision_source = action.get("decision_source")
+    if isinstance(decision_source, str) and decision_source.strip():
+        patch["decision_source"] = decision_source.strip()
+    elif patch:
+        patch["decision_source"] = "semantic"
+    else:
+        patch["decision_source"] = "rule"
+
+    semantic_model = action.get("semantic_model")
+    if isinstance(semantic_model, str) and semantic_model.strip():
+        patch["semantic_model"] = semantic_model.strip()
+    return patch
+
+
+def build_summary_hash(entry_content: str) -> str:
+    return hashlib.sha256(entry_content.encode("utf-8")).hexdigest()
+
+
 def apply_action(
     root: Path,
     action: dict[str, Any],
@@ -303,6 +364,7 @@ def apply_action(
     language_settings: dict[str, Any],
     template_profile: str,
     metadata_policy: dict[str, Any],
+    legacy_settings: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     result = {
         "id": action.get("id"),
@@ -316,6 +378,7 @@ def apply_action(
     kind = action.get("kind")
     rel_path = normalize(action.get("path", ""))
     abs_path = root / rel_path
+    legacy_cfg = legacy_settings or dl.resolve_legacy_settings({})
 
     try:
         if action_type == "add":
@@ -455,7 +518,93 @@ def apply_action(
             result["details"] = details
             return result
 
-        if action_type == "archive":
+        if action_type == "migrate_legacy":
+            source_rel = normalize(action.get("source_path", ""))
+            if not source_rel:
+                result["details"] = "missing source_path"
+                return result
+
+            source_abs = root / source_rel
+            if not source_abs.exists():
+                result["details"] = "source does not exist"
+                return result
+
+            archive_rel = normalize(action.get("archive_path", ""))
+            if not archive_rel:
+                archive_rel = dl.resolve_archive_path(source_rel, legacy_cfg)
+            marker = dl.source_marker(source_rel)
+            semantic_patch = resolve_legacy_semantic_patch(action)
+
+            if abs_path.exists():
+                base_content = read_text_lossy(abs_path)
+            else:
+                base_content = dl.render_target_header(template_profile)
+                if dm.should_enforce_for_path(rel_path, metadata_policy):
+                    base_content, _ = dm.ensure_metadata_block(
+                        base_content,
+                        metadata_policy,
+                        reference_date=date.today(),
+                    )
+
+            if marker in base_content:
+                update_legacy_registry(
+                    root,
+                    legacy_cfg,
+                    source_rel,
+                    {
+                        "status": "migrated",
+                        "target_path": rel_path,
+                        "archive_path": archive_rel,
+                        **semantic_patch,
+                    },
+                    dry_run,
+                )
+                result["details"] = "legacy source already migrated"
+                return result
+
+            source_content = read_text_lossy(source_abs)
+            entry = dl.render_structured_migration_entry(
+                source_rel=source_rel,
+                source_content=source_content,
+                archive_path=archive_rel,
+                template_profile=template_profile,
+                semantic={
+                    "category": action.get("semantic_category"),
+                    "confidence": action.get("semantic_confidence"),
+                },
+                evidence=action.get("evidence") if isinstance(action.get("evidence"), list) else None,
+            ).rstrip()
+            summary_hash = build_summary_hash(entry)
+
+            merged_content = base_content.rstrip()
+            if merged_content:
+                merged_content += "\n\n" + entry + "\n"
+            else:
+                merged_content = entry + "\n"
+            write_text(abs_path, merged_content, dry_run)
+
+            if dm.should_enforce_for_path(rel_path, metadata_policy):
+                upsert_doc_metadata(rel_path, abs_path, dry_run, metadata_policy)
+
+            update_legacy_registry(
+                root,
+                legacy_cfg,
+                source_rel,
+                {
+                    "status": "migrated",
+                    "target_path": rel_path,
+                    "archive_path": archive_rel,
+                    "migrated_at": utc_now(),
+                    "summary_hash": summary_hash,
+                    **semantic_patch,
+                },
+                dry_run,
+            )
+            result["status"] = "applied"
+            result["details"] = f"legacy content migrated from {source_rel}"
+            return result
+
+        if action_type in {"archive", "archive_legacy"}:
             source_rel = normalize(action.get("source_path", ""))
             if not source_rel:
                 result["details"] = "missing source_path"
@@ -474,11 +623,44 @@ def apply_action(
                 abs_path.parent.mkdir(parents=True, exist_ok=True)
                 shutil.move(str(source_abs), str(abs_path))
 
+            if action_type == "archive_legacy":
+                semantic_patch = resolve_legacy_semantic_patch(action)
+                update_legacy_registry(
+                    root,
+                    legacy_cfg,
+                    source_rel,
+                    {
+                        "status": "archived",
+                        "archive_path": rel_path,
+                        "target_path": normalize(action.get("target_path", "")),
+                        "archived_at": utc_now(),
+                        **semantic_patch,
+                    },
+                    dry_run,
+                )
+
             result["status"] = "applied"
             result["details"] = f"archived from {source_rel}"
             return result
 
-        if action_type in {"manual_review", "keep"}:
+        if action_type in {"manual_review", "legacy_manual_review", "keep"}:
+            if action_type == "legacy_manual_review":
+                source_rel = normalize(action.get("path") or action.get("source_path") or "")
+                if source_rel:
+                    semantic_patch = resolve_legacy_semantic_patch(action)
+                    update_legacy_registry(
+                        root,
+                        legacy_cfg,
+                        source_rel,
+                        {
+                            "status": "manual_review",
+                            "target_path": normalize(action.get("target_path", "")),
+                            "archive_path": normalize(action.get("archive_path", "")),
+                            "reviewed_at": utc_now(),
+                            **semantic_patch,
+                        },
+                        dry_run,
+                    )
             result["details"] = "no automatic action"
             return result
 
@@ -564,6 +746,7 @@ def main() -> int:
         )
     )
     metadata_policy = dm.resolve_metadata_policy(effective_policy)
+    legacy_settings = dl.resolve_legacy_settings(effective_policy)
 
     with plan_path.open("r", encoding="utf-8") as f:
         plan = json.load(f)
@@ -598,6 +781,7 @@ def main() -> int:
             language_settings,
             template_profile,
             metadata_policy,
+            legacy_settings,
         )
         for action in actions
     ]

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-02-21T11:38:22.991491+00:00",
+  "generated_at": "2026-02-21T15:08:48.792310+00:00",
   "root": "/Users/tompoet/AgentSkills",
   "output": "AGENTS.md",
   "status": "generated",
@@ -27,6 +27,7 @@
       "docs/.doc-policy.json",
       "docs/.doc-manifest.json",
       "docs/runbook.md",
+      "docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md",
       "docs/exec-plans/active/docs-sor-roadmap-v2.md",
       "docs/references/doc_spec_schema.md"
     ],
@@ -35,7 +36,7 @@
     ]
   },
   "metrics": {
-    "line_count": 47,
-    "content_sha256": "ca3f7b61e055406b58c7f1a1d1885f917aa79ed59576f538ca7f13c2fab0e2e3"
+    "line_count": 48,
+    "content_sha256": "a69bef10c5d297d962dbd740393eb6f67573f61945fa6e6d1df4efa57e88a377"
   }
 }

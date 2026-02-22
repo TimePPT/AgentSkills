@@ -14,6 +14,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 import language_profiles as lp  # noqa: E402
+import doc_garden  # noqa: E402
 
 
 class DocGardenRepairLoopTests(unittest.TestCase):
@@ -145,6 +146,34 @@ class DocGardenRepairLoopTests(unittest.TestCase):
         self.assertEqual(report.get("summary", {}).get("status"), "failed")
         self.assertEqual(report.get("repair", {}).get("attempts"), 1)
         self.assertEqual(report.get("repair", {}).get("max_iterations"), 1)
+
+    def test_collect_semantic_backlog_and_render(self) -> None:
+        validate_report = {
+            "legacy": {
+                "semantic": {
+                    "backlog": [
+                        {"source_path": "legacy/a.md", "reason": "semantic_conflict"},
+                        {
+                            "source_path": "legacy/b.md",
+                            "reason": "structured_section_incomplete",
+                        },
+                    ]
+                }
+            }
+        }
+        backlog = doc_garden.collect_semantic_backlog(validate_report)
+        self.assertEqual(len(backlog), 2)
+
+        report = {
+            "generated_at": "2026-02-22T00:00:00+00:00",
+            "root": str(self.root),
+            "summary": {"status": "failed", "apply_mode": "apply-safe"},
+            "steps": [],
+            "semantic_backlog": {"count": 2, "sample": backlog},
+        }
+        markdown = doc_garden.render_report_markdown(report)
+        self.assertIn("## Semantic Backlog", markdown)
+        self.assertIn("legacy/a.md", markdown)
 
 
 if __name__ == "__main__":

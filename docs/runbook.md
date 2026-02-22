@@ -1,5 +1,5 @@
 <!-- doc-owner: docs-maintainer -->
-<!-- doc-last-reviewed: 2026-02-21 -->
+<!-- doc-last-reviewed: 2026-02-22 -->
 <!-- doc-review-cycle-days: 90 -->
 
 # 运行手册
@@ -54,6 +54,13 @@ PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 ```bash
 "$PYTHON_BIN" "$SKILL_DIR/scripts/doc_garden.py" --root "$REPO_ROOT" --apply-mode apply-safe --fail-on-drift --fail-on-freshness
+```
+
+Phase D 语义迁移回归：
+
+```bash
+python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_legacy_migration
+python3 -m unittest discover -s skills/docs-sor-maintainer/tests -p 'test_*.py'
 ```
 
 脚本语法自检：

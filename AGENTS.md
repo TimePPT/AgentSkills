@@ -11,6 +11,7 @@
 - [docs/.doc-policy.json](./docs/.doc-policy.json)
 - [docs/.doc-manifest.json](./docs/.doc-manifest.json)
 - [docs/runbook.md](./docs/runbook.md)
+- [docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md](./docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md)
 - [docs/exec-plans/active/docs-sor-roadmap-v2.md](./docs/exec-plans/active/docs-sor-roadmap-v2.md)
 - [docs/references/doc_spec_schema.md](./docs/references/doc_spec_schema.md)
 - 当前顶层模块：`skills`。

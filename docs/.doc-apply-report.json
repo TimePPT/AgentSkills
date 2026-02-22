@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-02-21T13:00:40.075907+00:00",
+  "generated_at": "2026-02-22T04:01:11.495943+00:00",
   "root": "/Users/tompoet/AgentSkills",
   "mode": "apply-safe",
   "dry_run": false,
@@ -11,12 +11,34 @@
     "policy_language_updated": false
   },
   "summary": {
-    "total_actions": 0,
+    "total_actions": 3,
     "applied": 0,
-    "skipped": 0,
+    "skipped": 3,
     "errors": 0
   },
-  "results": [],
+  "results": [
+    {
+      "id": "A001",
+      "type": "manual_review",
+      "path": "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-acceptance-report.md",
+      "status": "skipped",
+      "details": "no automatic action"
+    },
+    {
+      "id": "A002",
+      "type": "manual_review",
+      "path": "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-test-matrix.md",
+      "status": "skipped",
+      "details": "no automatic action"
+    },
+    {
+      "id": "A003",
+      "type": "manual_review",
+      "path": "docs/references/legacy-semantic-migration-acceptance-template.md",
+      "status": "skipped",
+      "details": "no automatic action"
+    }
+  ],
   "agents_generation": {
     "status": "skipped",
     "enabled": true,

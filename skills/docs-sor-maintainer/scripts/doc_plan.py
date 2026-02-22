@@ -5,12 +5,14 @@ import argparse
 import fnmatch
 import json
 import re
+from collections import Counter
 from copy import deepcopy
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import doc_capabilities as dc
+import doc_legacy as dl
 import doc_metadata as dm
 import doc_quality
 import doc_spec
@@ -27,6 +29,9 @@ ACTIONABLE_TYPES = {
     "fill_claim",
     "refresh_evidence",
     "quality_repair",
+    "migrate_legacy",
+    "archive_legacy",
+    "legacy_manual_review",
 }
 
 
@@ -40,6 +45,74 @@ def to_posix(path: Path, root: Path) -> str:
 
 def normalize_rel(path_str: str) -> str:
     return dc.normalize_rel(path_str)
+
+
+def summarize_semantic_decisions(
+    records: list[dict[str, Any]],
+) -> dict[str, int]:
+    decisions = [
+        str(record.get("decision"))
+        for record in records
+        if isinstance(record.get("decision"), str)
+    ]
+    return dict(Counter(decisions))
+
+
+def build_semantic_action_fields(record: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(record, dict):
+        return {}
+    return {
+        "semantic_category": record.get("category"),
+        "semantic_confidence": record.get("confidence"),
+        "semantic_decision": record.get("decision"),
+        "semantic_rationale": record.get("rationale"),
+        "semantic_signals": record.get("signals") or [],
+        "semantic_engine": record.get("engine"),
+        "semantic_provider": record.get("provider"),
+        "semantic_model": record.get("model"),
+        "decision_source": "semantic",
+    }
+
+
+def maybe_write_semantic_report(root: Path, plan: dict[str, Any]) -> Path | None:
+    meta = plan.get("meta") if isinstance(plan, dict) else {}
+    legacy_meta = meta.get("legacy_sources") if isinstance(meta, dict) else {}
+    semantic_meta = (
+        legacy_meta.get("semantic") if isinstance(legacy_meta, dict) else {}
+    )
+    if not isinstance(semantic_meta, dict) or not semantic_meta.get("enabled", False):
+        return None
+
+    report_rel = str(semantic_meta.get("report_path") or "").strip()
+    if not report_rel:
+        return None
+
+    entries = plan.get("legacy_semantic_report")
+    if not isinstance(entries, list):
+        entries = []
+
+    report_path = (root / report_rel).resolve()
+    payload = {
+        "version": 1,
+        "generated_at": meta.get("generated_at"),
+        "root": str(root),
+        "mode": meta.get("mode"),
+        "engine": semantic_meta.get("engine"),
+        "provider": semantic_meta.get("provider"),
+        "model": semantic_meta.get("model"),
+        "auto_migrate_threshold": semantic_meta.get("auto_migrate_threshold"),
+        "review_threshold": semantic_meta.get("review_threshold"),
+        "entries": entries,
+        "summary": {
+            "candidate_count": len(entries),
+            "decision_counts": summarize_semantic_decisions(entries),
+        },
+    }
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    with report_path.open("w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    return report_path
 
 
 def infer_primary_language_from_docs(root: Path) -> str | None:
@@ -356,6 +429,46 @@ def build_plan(
         manifest_notes,
         manifest_changed,
     ) = resolve_effective_manifest(policy, has_manifest, current_manifest, facts)
+
+    legacy_settings = dl.resolve_legacy_settings(policy)
+    legacy_candidates = dl.discover_legacy_sources(root, legacy_settings)
+    legacy_semantic_records: list[dict[str, Any]] = []
+    legacy_semantic_index: dict[str, dict[str, Any]] = {}
+    semantic_settings = (
+        legacy_settings.get("semantic")
+        if isinstance(legacy_settings.get("semantic"), dict)
+        else {}
+    )
+    if semantic_settings.get("enabled", False):
+        for source_rel in legacy_candidates:
+            semantic_record = dl.classify_legacy_source(root, source_rel, legacy_settings)
+            legacy_semantic_records.append(semantic_record)
+            legacy_semantic_index[source_rel] = semantic_record
+    legacy_target_files = sorted(
+        {
+            dl.resolve_target_path(source_rel, legacy_settings)
+            for source_rel in legacy_candidates
+        }
+    )
+    if legacy_settings.get("enabled", False) and legacy_target_files:
+        manifest_with_legacy = dc.normalize_manifest_snapshot(effective_manifest)
+        _, _, optional_files_existing = dc.get_manifest_lists(manifest_with_legacy)
+        merged_optional = sorted(set(optional_files_existing) | set(legacy_target_files))
+        manifest_with_legacy.setdefault("optional", {})["files"] = merged_optional
+        if not dc.manifests_equal(effective_manifest, manifest_with_legacy):
+            effective_manifest = manifest_with_legacy
+            manifest_notes.append(
+                "legacy_sources enabled: append legacy migration targets to optional files"
+            )
+            if has_manifest:
+                manifest_changed = not dc.manifests_equal(
+                    current_manifest, effective_manifest
+                )
+                if manifest_changed and manifest_source == "existing":
+                    manifest_source = "existing_additive"
+            else:
+                manifest_changed = True
+
     required_files, required_dirs, optional_files = dc.get_manifest_lists(
         effective_manifest
     )
@@ -398,7 +511,7 @@ def build_plan(
             "kind": kind,
             "path": normalize_rel(path),
             "risk": "low"
-            if action_type in {"add", "archive", "sync_manifest"}
+            if action_type in {"add", "archive", "archive_legacy", "sync_manifest"}
             else "medium",
             "reason": reason,
             "evidence": evidence,
@@ -721,6 +834,89 @@ def build_plan(
                     [f"not declared in manifest: {stale_path}"],
                 )
 
+    if legacy_settings.get("enabled", False) and mode in {
+        "apply-with-archive",
+        "audit",
+        "apply-safe",
+    }:
+        exempt_sources = set(legacy_settings.get("exempt_sources") or [])
+        for source_rel in legacy_candidates:
+            if source_rel in exempt_sources:
+                continue
+            target_rel = dl.resolve_target_path(source_rel, legacy_settings)
+            archive_target = dl.resolve_archive_path(source_rel, legacy_settings)
+            semantic_record = legacy_semantic_index.get(source_rel)
+            semantic_fields = build_semantic_action_fields(semantic_record)
+            route_fields: dict[str, Any] = (
+                dict(semantic_fields) if semantic_fields else {"decision_source": "rule"}
+            )
+            semantic_decision = (
+                str(semantic_record.get("decision"))
+                if isinstance(semantic_record, dict)
+                and isinstance(semantic_record.get("decision"), str)
+                else None
+            )
+            evidence = [
+                f"legacy source matched include_globs: {source_rel}",
+                f"mapping_strategy={legacy_settings.get('mapping_strategy')}",
+            ]
+            if semantic_record:
+                evidence.append(
+                    "semantic: "
+                    f"category={semantic_record.get('category')} "
+                    f"confidence={semantic_record.get('confidence')} "
+                    f"decision={semantic_record.get('decision')}"
+                )
+
+            if semantic_record and semantic_decision == "skip":
+                continue
+
+            if semantic_record and semantic_decision == "manual_review":
+                add_action(
+                    "legacy_manual_review",
+                    "file",
+                    source_rel,
+                    "legacy source routed to manual review by semantic decision",
+                    evidence,
+                    target_path=target_rel,
+                    archive_path=archive_target,
+                    **route_fields,
+                )
+                continue
+
+            if mode == "apply-with-archive":
+                add_action(
+                    "migrate_legacy",
+                    "file",
+                    target_rel,
+                    "legacy source requires SoR migration",
+                    evidence,
+                    source_path=source_rel,
+                    archive_path=archive_target,
+                    **route_fields,
+                )
+                add_action(
+                    "archive_legacy",
+                    "file",
+                    archive_target,
+                    "legacy source archived after successful migration",
+                    [f"migration target: {target_rel}"],
+                    source_path=source_rel,
+                    target_path=target_rel,
+                    **route_fields,
+                )
+            else:
+                add_action(
+                    "legacy_manual_review",
+                    "file",
+                    source_rel,
+                    "legacy source requires mapping review before migration",
+                    evidence,
+                    target_path=target_rel,
+                    archive_path=archive_target,
+                    **route_fields,
+                )
+
     has_agents_md = (root / "AGENTS.md").exists()
     if (
         mode == "bootstrap"
@@ -793,6 +989,26 @@ def build_plan(
                     "require_review_cycle_days", True
                 ),
             },
+            "legacy_sources": {
+                "enabled": legacy_settings.get("enabled", False),
+                "mapping_strategy": legacy_settings.get("mapping_strategy"),
+                "candidate_count": len(legacy_candidates),
+                "target_doc_count": len(legacy_target_files),
+                "semantic": {
+                    "enabled": semantic_settings.get("enabled", False),
+                    "engine": semantic_settings.get("engine"),
+                    "provider": semantic_settings.get("provider"),
+                    "model": semantic_settings.get("model"),
+                    "auto_migrate_threshold": semantic_settings.get(
+                        "auto_migrate_threshold"
+                    ),
+                    "review_threshold": semantic_settings.get("review_threshold"),
+                    "report_path": legacy_settings.get("semantic_report_path"),
+                    "decision_counts": summarize_semantic_decisions(
+                        legacy_semantic_records
+                    ),
+                },
+            },
             "language": {
                 "primary": language_settings["primary"],
                 "profile": language_settings["profile"],
@@ -819,6 +1035,7 @@ def build_plan(
             "claim_action_counts": claim_action_counts,
             "has_actionable_drift": any(a["type"] in ACTIONABLE_TYPES for a in actions),
         },
+        "legacy_semantic_report": legacy_semantic_records,
         "actions": actions,
     }
 
@@ -872,8 +1089,12 @@ def main() -> int:
         json.dump(plan, f, ensure_ascii=False, indent=2)
         f.write("\n")
 
+    semantic_report_path = maybe_write_semantic_report(root, plan)
+
     print(f"[OK] Wrote plan to {output}")
     print(f"[INFO] Action count: {plan['summary']['action_count']}")
+    if semantic_report_path is not None:
+        print(f"[INFO] Semantic report: {semantic_report_path}")
     language = (plan.get("meta") or {}).get("language") or {}
     print(
         "[INFO] Language primary="

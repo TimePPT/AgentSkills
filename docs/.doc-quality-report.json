@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-02-21T08:23:45.333763+00:00",
+  "generated_at": "2026-02-22T03:29:38.544748+00:00",
   "root": "/Users/tompoet/AgentSkills",
   "enabled": true,
   "doc_spec": {
@@ -8,25 +8,60 @@
   },
   "metrics": {
     "total_claims": 4,
-    "supported_claims": 2,
-    "unknown_claims": 2,
+    "supported_claims": 4,
+    "unknown_claims": 0,
     "missing_claims": 0,
-    "unknown_text": 3,
+    "unknown_text": 0,
     "unresolved_todo": 0,
-    "evidence_coverage": 0.5,
+    "evidence_coverage": 1.0,
     "conflicts": 0,
-    "facts_age_days": 0
+    "citation_issues": 0,
+    "facts_age_days": 0,
+    "semantic_auto_migrate_count": 0,
+    "semantic_manual_review_count": 0,
+    "semantic_skip_count": 0,
+    "semantic_low_confidence_count": 0,
+    "semantic_conflict_count": 0,
+    "structured_section_completeness": 1.0,
+    "semantic_missing_source_marker_auto_count": 0
   },
   "conflicts": [],
+  "citation_issues": [],
+  "semantic": {
+    "enabled": true,
+    "thresholds": {
+      "max_semantic_conflicts": 0,
+      "max_semantic_low_confidence_auto": 0,
+      "min_structured_section_completeness": 0.95,
+      "fail_on_semantic_gate": true
+    },
+    "metrics": {
+      "semantic_auto_migrate_count": 0,
+      "semantic_manual_review_count": 0,
+      "semantic_skip_count": 0,
+      "semantic_low_confidence_count": 0,
+      "semantic_conflict_count": 0,
+      "structured_section_completeness": 1.0,
+      "missing_source_marker_auto_count": 0
+    },
+    "low_confidence_auto_sources": [],
+    "conflicts": [],
+    "incomplete_sources": [],
+    "missing_source_marker_auto_sources": [],
+    "backlog": []
+  },
   "gate": {
     "status": "passed",
     "failed_checks": [],
     "thresholds": {
-      "min_evidence_coverage": 0.5,
+      "min_evidence_coverage": 1.0,
       "max_conflicts": 0,
-      "max_unknown_claims": 2,
+      "max_unknown_claims": 0,
       "max_unresolved_todo": 0,
-      "max_stale_metrics_days": 7
+      "max_stale_metrics_days": 7,
+      "max_semantic_conflicts": 0,
+      "max_semantic_low_confidence_auto": 0,
+      "min_structured_section_completeness": 0.95
     }
   }
 }

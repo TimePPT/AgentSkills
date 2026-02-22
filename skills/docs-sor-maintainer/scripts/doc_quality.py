@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,16 @@ if str(SCRIPT_DIR) not in sys.path:
 
 import doc_spec  # noqa: E402
 import doc_synthesize  # noqa: E402
+import doc_legacy as dl  # noqa: E402
+
+
+STRUCTURED_SECTION_MARKER_GROUPS = [
+    ("summary", ["### 摘要", "### Summary"]),
+    ("key_facts", ["### 关键事实", "### Key Facts"]),
+    ("decisions", ["### 决策与结论", "### Decisions"]),
+    ("risks", ["### 待办与风险", "### TODO & Risks"]),
+    ("trace", ["### 来源追踪", "### Source Trace"]),
+]
 
 
 def utc_now() -> str:
@@ -110,6 +121,230 @@ def flatten_claims(documents: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 if isinstance(claim, dict):
                     claims.append(claim)
     return claims
+
+
+def get_semantic_quality_thresholds(policy: dict[str, Any]) -> dict[str, Any]:
+    quality_policy = policy.get("doc_quality_gates")
+    quality_policy = quality_policy if isinstance(quality_policy, dict) else {}
+    return {
+        "max_semantic_conflicts": int(
+            quality_policy.get("max_semantic_conflicts", 0)
+        ),
+        "max_semantic_low_confidence_auto": int(
+            quality_policy.get("max_semantic_low_confidence_auto", 0)
+        ),
+        "min_structured_section_completeness": float(
+            quality_policy.get("min_structured_section_completeness", 0.95)
+        ),
+        "fail_on_semantic_gate": bool(
+            quality_policy.get("fail_on_semantic_gate", True)
+        ),
+    }
+
+
+def _extract_legacy_entry_block(target_text: str, source_rel: str) -> str | None:
+    marker = dl.source_marker(source_rel)
+    start = target_text.find(marker)
+    if start < 0:
+        return None
+    end = target_text.find("\n## Legacy Source `", start + len(marker))
+    if end < 0:
+        end = len(target_text)
+    return target_text[start:end]
+
+
+def _compute_structured_presence_ratio(entry_block: str) -> float:
+    required = len(STRUCTURED_SECTION_MARKER_GROUPS)
+    if required == 0:
+        return 1.0
+    hit = 0
+    for _, markers in STRUCTURED_SECTION_MARKER_GROUPS:
+        if any(marker in entry_block for marker in markers):
+            hit += 1
+    return hit / required
+
+
+def _load_semantic_report_entries(root: Path, settings: dict[str, Any]) -> list[dict[str, Any]]:
+    report_rel = str(settings.get("semantic_report_path", "")).strip()
+    if not report_rel:
+        return []
+    report_path = root / dl.normalize_rel(report_rel)
+    report = load_json(report_path)
+    if not isinstance(report, dict):
+        return []
+    entries = report.get("entries")
+    if not isinstance(entries, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for item in entries:
+        if isinstance(item, dict):
+            out.append(item)
+    return out
+
+
+def evaluate_semantic_migration_quality(
+    root: Path,
+    policy: dict[str, Any],
+) -> dict[str, Any]:
+    settings = dl.resolve_legacy_settings(policy)
+    semantic_settings = (
+        settings.get("semantic")
+        if isinstance(settings.get("semantic"), dict)
+        else {}
+    )
+    enabled = bool(settings.get("enabled", False) and semantic_settings.get("enabled", False))
+    thresholds = get_semantic_quality_thresholds(policy)
+    result: dict[str, Any] = {
+        "enabled": enabled,
+        "thresholds": thresholds,
+        "metrics": {
+            "semantic_auto_migrate_count": 0,
+            "semantic_manual_review_count": 0,
+            "semantic_skip_count": 0,
+            "semantic_low_confidence_count": 0,
+            "semantic_conflict_count": 0,
+            "structured_section_completeness": 1.0,
+            "missing_source_marker_auto_count": 0,
+        },
+        "low_confidence_auto_sources": [],
+        "conflicts": [],
+        "incomplete_sources": [],
+        "missing_source_marker_auto_sources": [],
+        "backlog": [],
+    }
+    if not enabled:
+        return result
+
+    semantic_entries = _load_semantic_report_entries(root, settings)
+    decision_counter = Counter(
+        str(item.get("decision"))
+        for item in semantic_entries
+        if isinstance(item.get("decision"), str)
+    )
+    result["metrics"]["semantic_auto_migrate_count"] = int(
+        decision_counter.get("auto_migrate", 0)
+    )
+    result["metrics"]["semantic_manual_review_count"] = int(
+        decision_counter.get("manual_review", 0)
+    )
+    result["metrics"]["semantic_skip_count"] = int(decision_counter.get("skip", 0))
+
+    semantic_by_source: dict[str, dict[str, Any]] = {}
+    for item in semantic_entries:
+        source_rel = item.get("source_path")
+        if isinstance(source_rel, str) and source_rel.strip():
+            semantic_by_source[dl.normalize_rel(source_rel)] = item
+
+    registry_path = root / str(settings.get("registry_path", dl.DEFAULT_LEGACY_SETTINGS["registry_path"]))
+    registry = dl.load_registry(registry_path)
+    registry_entries = (
+        registry.get("entries") if isinstance(registry.get("entries"), dict) else {}
+    )
+
+    auto_review_threshold = float(semantic_settings.get("review_threshold", 0.60))
+    structured_ratios: list[float] = []
+    conflicts: list[dict[str, Any]] = []
+    low_confidence_auto: list[str] = []
+    incomplete_sources: list[str] = []
+    missing_marker_auto: list[str] = []
+    backlog: list[dict[str, Any]] = []
+
+    for source_rel, entry in registry_entries.items():
+        if not isinstance(source_rel, str) or not isinstance(entry, dict):
+            continue
+        normalized_source = dl.normalize_rel(source_rel)
+        semantic_entry = semantic_by_source.get(normalized_source)
+        status = entry.get("status")
+        target_rel = entry.get("target_path")
+        decision_source = entry.get("decision_source")
+        confidence = entry.get("confidence")
+
+        if (
+            status in {"migrated", "archived"}
+            and isinstance(decision_source, str)
+            and decision_source == "semantic"
+            and isinstance(confidence, (int, float))
+            and float(confidence) < auto_review_threshold
+        ):
+            low_confidence_auto.append(normalized_source)
+            backlog.append(
+                {
+                    "source_path": normalized_source,
+                    "reason": "low_confidence_auto_migration",
+                    "confidence": float(confidence),
+                    "review_threshold": auto_review_threshold,
+                }
+            )
+
+        if isinstance(target_rel, str) and target_rel.strip() and status in {"migrated", "archived"}:
+            target_abs = root / dl.normalize_rel(target_rel)
+            if target_abs.exists():
+                target_text = target_abs.read_text(encoding="utf-8", errors="replace")
+                entry_block = _extract_legacy_entry_block(target_text, normalized_source)
+                if entry_block is None:
+                    if isinstance(decision_source, str) and decision_source == "semantic":
+                        missing_marker_auto.append(normalized_source)
+                        backlog.append(
+                            {
+                                "source_path": normalized_source,
+                                "reason": "missing_source_marker_auto",
+                                "target_path": dl.normalize_rel(target_rel),
+                            }
+                        )
+                else:
+                    ratio = _compute_structured_presence_ratio(entry_block)
+                    structured_ratios.append(ratio)
+                    if ratio < 1.0:
+                        incomplete_sources.append(normalized_source)
+                        backlog.append(
+                            {
+                                "source_path": normalized_source,
+                                "reason": "structured_section_incomplete",
+                                "target_path": dl.normalize_rel(target_rel),
+                                "completeness": round(ratio, 4),
+                            }
+                        )
+
+        if semantic_entry is not None:
+            semantic_category = semantic_entry.get("category")
+            registry_category = entry.get("category")
+            if (
+                isinstance(semantic_category, str)
+                and isinstance(registry_category, str)
+                and semantic_category.strip()
+                and registry_category.strip()
+                and semantic_category.strip() != registry_category.strip()
+            ):
+                conflicts.append(
+                    {
+                        "source_path": normalized_source,
+                        "kind": "category_mismatch",
+                        "semantic_category": semantic_category.strip(),
+                        "registry_category": registry_category.strip(),
+                    }
+                )
+                backlog.append(
+                    {
+                        "source_path": normalized_source,
+                        "reason": "semantic_conflict",
+                        "kind": "category_mismatch",
+                    }
+                )
+
+    result["metrics"]["semantic_low_confidence_count"] = len(low_confidence_auto)
+    result["metrics"]["semantic_conflict_count"] = len(conflicts)
+    result["metrics"]["missing_source_marker_auto_count"] = len(missing_marker_auto)
+    result["metrics"]["structured_section_completeness"] = (
+        round(sum(structured_ratios) / len(structured_ratios), 4)
+        if structured_ratios
+        else 1.0
+    )
+    result["low_confidence_auto_sources"] = low_confidence_auto
+    result["conflicts"] = conflicts
+    result["incomplete_sources"] = incomplete_sources
+    result["missing_source_marker_auto_sources"] = missing_marker_auto
+    result["backlog"] = backlog
+    return result
 
 
 def parse_citation_token(token: str) -> str | None:
@@ -259,10 +494,12 @@ def evaluate_quality(
     conflicts = compute_conflicts(claims)
     citation_issues = compute_citation_issues(claims)
     facts_age_days = get_facts_age_days(facts)
+    semantic_quality = evaluate_semantic_migration_quality(root, policy)
 
     quality_policy = policy.get("doc_quality_gates")
     quality_policy = quality_policy if isinstance(quality_policy, dict) else {}
     enabled = bool(quality_policy.get("enabled", False))
+    semantic_thresholds = get_semantic_quality_thresholds(policy)
 
     thresholds = {
         "min_evidence_coverage": quality_policy.get("min_evidence_coverage", 0.0),
@@ -270,6 +507,13 @@ def evaluate_quality(
         "max_unknown_claims": quality_policy.get("max_unknown_claims", 0),
         "max_unresolved_todo": quality_policy.get("max_unresolved_todo", 0),
         "max_stale_metrics_days": quality_policy.get("max_stale_metrics_days", 0),
+        "max_semantic_conflicts": semantic_thresholds["max_semantic_conflicts"],
+        "max_semantic_low_confidence_auto": semantic_thresholds[
+            "max_semantic_low_confidence_auto"
+        ],
+        "min_structured_section_completeness": semantic_thresholds[
+            "min_structured_section_completeness"
+        ],
     }
 
     failed_checks: list[str] = []
@@ -288,6 +532,25 @@ def evaluate_quality(
         if isinstance(max_stale, int) and max_stale > 0:
             if facts_age_days is None or facts_age_days > max_stale:
                 failed_checks.append("max_stale_metrics_days")
+        if semantic_quality.get("enabled", False):
+            semantic_metrics = semantic_quality.get("metrics") or {}
+            if (
+                int(semantic_metrics.get("semantic_conflict_count", 0))
+                > int(thresholds["max_semantic_conflicts"])
+            ):
+                failed_checks.append("max_semantic_conflicts")
+            if (
+                int(semantic_metrics.get("semantic_low_confidence_count", 0))
+                > int(thresholds["max_semantic_low_confidence_auto"])
+            ):
+                failed_checks.append("max_semantic_low_confidence_auto")
+            if (
+                float(semantic_metrics.get("structured_section_completeness", 1.0))
+                < float(thresholds["min_structured_section_completeness"])
+            ):
+                failed_checks.append("min_structured_section_completeness")
+            if int(semantic_metrics.get("missing_source_marker_auto_count", 0)) > 0:
+                failed_checks.append("semantic_source_marker_integrity")
 
     report = {
         "generated_at": utc_now(),
@@ -308,9 +571,45 @@ def evaluate_quality(
             "conflicts": len(conflicts),
             "citation_issues": len(citation_issues),
             "facts_age_days": facts_age_days,
+            "semantic_auto_migrate_count": (
+                (semantic_quality.get("metrics") or {}).get(
+                    "semantic_auto_migrate_count", 0
+                )
+            ),
+            "semantic_manual_review_count": (
+                (semantic_quality.get("metrics") or {}).get(
+                    "semantic_manual_review_count", 0
+                )
+            ),
+            "semantic_skip_count": (
+                (semantic_quality.get("metrics") or {}).get(
+                    "semantic_skip_count", 0
+                )
+            ),
+            "semantic_low_confidence_count": (
+                (semantic_quality.get("metrics") or {}).get(
+                    "semantic_low_confidence_count", 0
+                )
+            ),
+            "semantic_conflict_count": (
+                (semantic_quality.get("metrics") or {}).get(
+                    "semantic_conflict_count", 0
+                )
+            ),
+            "structured_section_completeness": (
+                (semantic_quality.get("metrics") or {}).get(
+                    "structured_section_completeness", 1.0
+                )
+            ),
+            "semantic_missing_source_marker_auto_count": (
+                (semantic_quality.get("metrics") or {}).get(
+                    "missing_source_marker_auto_count", 0
+                )
+            ),
         },
         "conflicts": conflicts,
         "citation_issues": citation_issues,
+        "semantic": semantic_quality,
         "gate": {
             "status": "failed" if enabled and failed_checks else "passed",
             "failed_checks": failed_checks,

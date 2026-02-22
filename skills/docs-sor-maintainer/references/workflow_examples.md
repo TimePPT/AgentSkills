@@ -106,6 +106,22 @@ Expected behavior:
 - write report files (`docs/.doc-garden-report.json`, `docs/.doc-garden-report.md`).
 - exit non-zero if drift/freshness gate fails.
 
+## Example H: legacy migration and centralized archive
+
+```bash
+# set docs/.doc-policy.json -> legacy_sources.enabled=true and define include_globs/exclude_globs
+"$PYTHON_BIN" "$SKILL_DIR/scripts/repo_scan.py" --root "$REPO_ROOT" --output "$REPO_ROOT/docs/.repo-facts.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_plan.py" --root "$REPO_ROOT" --mode apply-with-archive --facts "$REPO_ROOT/docs/.repo-facts.json" --output "$REPO_ROOT/docs/.doc-plan.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_apply.py" --root "$REPO_ROOT" --plan "$REPO_ROOT/docs/.doc-plan.json" --mode apply-with-archive
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_validate.py" --root "$REPO_ROOT" --fail-on-drift --fail-on-freshness
+```
+
+Expected behavior:
+
+- legacy files matched by policy globs are migrated to SoR target docs.
+- source files are archived under `docs/archive/legacy/**` (no hard delete).
+- migration status is tracked in `docs/.legacy-migration-map.json`.
+
 ## CI recommendation
 
 - Block merge when drift exists or stale docs exceed review cycle.

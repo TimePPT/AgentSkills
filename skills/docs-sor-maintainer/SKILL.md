@@ -82,7 +82,8 @@ Typical actions:
 1. Collect facts from codebase.
 2. Compare against `docs/.doc-manifest.json` and `docs/.doc-policy.json`.
 3. Output `add/update/archive/manual_review/sync_manifest` actions with evidence.
-4. Include fine-grained capabilities when signals/goals require them (`incident.response`, `security.posture`, `compliance.controls`).
+4. When `legacy_sources.enabled=true`, emit legacy actions (`legacy_manual_review` in audit, `migrate_legacy/archive_legacy` in migration mode).
+5. Include fine-grained capabilities when signals/goals require them (`incident.response`, `security.posture`, `compliance.controls`).
 
 ### `apply-safe`
 
@@ -101,6 +102,7 @@ Goal: migrate/cleanup mature repositories.
 Typical actions:
 1. Run all `apply-safe` behaviors.
 2. Move stale docs into `docs/archive/` (never direct delete).
+3. When `legacy_sources.enabled=true`, migrate legacy files into SoR docs then archive to `docs/archive/legacy/**`.
 
 ## Standard Execution Flow
 
@@ -136,11 +138,13 @@ Release-quality evidence is maintainer-only process data and should live outside
 - Use `doc_goals` and `adaptive_manifest_overrides` to steer capability decisions explicitly.
 - Keep ownership/freshness metadata checks enabled via `doc_metadata`; stale docs should be reviewed instead of silently ignored.
 - Use `doc_gardening` policy defaults for automation behavior and reports.
+- Use narrow `legacy_sources.include_globs`; avoid enabling broad repository-wide legacy scans without review.
 
 ## Runtime Components
 
 - `scripts/repo_scan.py`: collect codebase facts.
 - `scripts/doc_metadata.py`: parse and upsert ownership/freshness metadata.
+- `scripts/doc_legacy.py`: resolve legacy migration policy, path mapping, and migration registry helpers.
 - `scripts/doc_plan.py`: build deterministic action plan.
 - `scripts/doc_apply.py`: apply mode-gated actions with language lock.
 - `scripts/doc_validate.py`: validate required structure, links, drift, and metadata freshness.

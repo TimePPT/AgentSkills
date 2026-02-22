@@ -4,6 +4,8 @@
     "files": [
       "docs/.doc-spec.json",
       "docs/architecture.md",
+      "docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md",
       "docs/exec-plans/active/docs-sor-roadmap-v2.md",
       "docs/index.md",
       "docs/references/doc_spec_schema.md",
@@ -18,7 +20,10 @@
   },
   "optional": {
     "files": [
-      "docs/glossary.md"
+      "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-acceptance-report.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-test-matrix.md",
+      "docs/glossary.md",
+      "docs/references/legacy-semantic-migration-acceptance-template.md"
     ]
   },
   "archive_dir": "docs/archive"

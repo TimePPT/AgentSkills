@@ -134,6 +134,25 @@ def is_repairable_drift(validate_report: dict[str, Any] | None) -> bool:
     return True
 
 
+def collect_semantic_backlog(validate_report: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if not isinstance(validate_report, dict):
+        return []
+    legacy = validate_report.get("legacy")
+    if not isinstance(legacy, dict):
+        return []
+    semantic = legacy.get("semantic")
+    if not isinstance(semantic, dict):
+        return []
+    backlog = semantic.get("backlog")
+    if not isinstance(backlog, list):
+        return []
+    items: list[dict[str, Any]] = []
+    for item in backlog:
+        if isinstance(item, dict):
+            items.append(item)
+    return items
+
+
 def render_report_markdown(report: dict[str, Any]) -> str:
     lines = [
         "# Doc Garden Report",
@@ -191,6 +210,25 @@ def render_report_markdown(report: dict[str, Any]) -> str:
                 f"- Repairable drift: {repair.get('repairable_drift')}",
             ]
         )
+
+    semantic_backlog = report.get("semantic_backlog") or {}
+    if semantic_backlog:
+        lines.extend(
+            [
+                "",
+                "## Semantic Backlog",
+                "",
+                f"- Count: {semantic_backlog.get('count', 0)}",
+            ]
+        )
+        sample = semantic_backlog.get("sample") or []
+        if isinstance(sample, list):
+            for item in sample[:10]:
+                if not isinstance(item, dict):
+                    continue
+                source_path = item.get("source_path", "UNKNOWN")
+                reason = item.get("reason", "UNKNOWN")
+                lines.append(f"- `{source_path}`: {reason}")
 
     lines.append("")
     return "\n".join(lines)
@@ -425,6 +463,7 @@ def main() -> int:
     plan_data = load_json_object(plan_abs) or {}
     apply_report_data = load_json_object(root / "docs/.doc-apply-report.json") or {}
     validate_report = last_validate_report or {}
+    semantic_backlog = collect_semantic_backlog(validate_report)
 
     report = {
         "generated_at": utc_now(),
@@ -460,6 +499,10 @@ def main() -> int:
             "attempts": repair_attempts,
             "max_iterations": max_repair_iterations,
             "repairable_drift": is_repairable_drift(last_validate_report),
+        },
+        "semantic_backlog": {
+            "count": len(semantic_backlog),
+            "sample": semantic_backlog[:20],
         },
         "summary": {
             "status": "passed" if ok else "failed",

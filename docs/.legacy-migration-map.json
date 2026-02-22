@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "updated_at": "2026-02-21T15:19:00+00:00",
+  "entries": {
+    "README.md": {
+      "source_path": "README.md",
+      "status": "exempted",
+      "reason": "README.md is human-facing repository description and excluded from legacy migration",
+      "exempted_at": "2026-02-21T15:19:00+00:00"
+    }
+  }
+}

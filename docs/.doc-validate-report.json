@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-02-21T13:02:39.889558+00:00",
+  "generated_at": "2026-02-22T04:02:44.185371+00:00",
   "root": "/Users/tompoet/AgentSkills",
   "passed": true,
   "fail_on_drift": true,
@@ -7,10 +7,10 @@
   "metrics": {
     "errors": 0,
     "warnings": 0,
-    "checked_links": 7,
+    "checked_links": 12,
     "drift_action_count": 0,
     "facts_loaded": true,
-    "metadata_checked_docs": 5,
+    "metadata_checked_docs": 10,
     "metadata_missing_fields": 0,
     "metadata_invalid_fields": 0,
     "metadata_stale_docs": 0,
@@ -20,7 +20,15 @@
     "doc_quality_enabled": true,
     "doc_quality_failed": false,
     "agents_validate_enabled": true,
-    "agents_validate_failed": false
+    "agents_validate_failed": false,
+    "legacy_enabled": true,
+    "legacy_unresolved_sources": 0,
+    "semantic_auto_migrate_count": 0,
+    "semantic_manual_review_count": 0,
+    "semantic_skip_count": 0,
+    "semantic_low_confidence_count": 0,
+    "semantic_conflict_count": 0,
+    "structured_section_completeness": 1.0
   },
   "errors": [],
   "warnings": [],
@@ -35,7 +43,7 @@
     "warnings": []
   },
   "doc_quality": {
-    "generated_at": "2026-02-21T13:02:39.887137+00:00",
+    "generated_at": "2026-02-22T04:02:44.155426+00:00",
     "root": "/Users/tompoet/AgentSkills",
     "enabled": true,
     "doc_spec": {
@@ -52,10 +60,40 @@
       "evidence_coverage": 1.0,
       "conflicts": 0,
       "citation_issues": 0,
-      "facts_age_days": 0
+      "facts_age_days": 0,
+      "semantic_auto_migrate_count": 0,
+      "semantic_manual_review_count": 0,
+      "semantic_skip_count": 0,
+      "semantic_low_confidence_count": 0,
+      "semantic_conflict_count": 0,
+      "structured_section_completeness": 1.0,
+      "semantic_missing_source_marker_auto_count": 0
     },
     "conflicts": [],
     "citation_issues": [],
+    "semantic": {
+      "enabled": true,
+      "thresholds": {
+        "max_semantic_conflicts": 0,
+        "max_semantic_low_confidence_auto": 0,
+        "min_structured_section_completeness": 0.95,
+        "fail_on_semantic_gate": true
+      },
+      "metrics": {
+        "semantic_auto_migrate_count": 0,
+        "semantic_manual_review_count": 0,
+        "semantic_skip_count": 0,
+        "semantic_low_confidence_count": 0,
+        "semantic_conflict_count": 0,
+        "structured_section_completeness": 1.0,
+        "missing_source_marker_auto_count": 0
+      },
+      "low_confidence_auto_sources": [],
+      "conflicts": [],
+      "incomplete_sources": [],
+      "missing_source_marker_auto_sources": [],
+      "backlog": []
+    },
     "gate": {
       "status": "passed",
       "failed_checks": [],
@@ -64,7 +102,10 @@
         "max_conflicts": 0,
         "max_unknown_claims": 0,
         "max_unresolved_todo": 0,
-        "max_stale_metrics_days": 7
+        "max_stale_metrics_days": 7,
+        "max_semantic_conflicts": 0,
+        "max_semantic_low_confidence_auto": 0,
+        "min_structured_section_completeness": 0.95
       }
     }
   },
@@ -92,6 +133,54 @@
         "missing": [],
         "invalid": [],
         "stale": false,
+        "age_days": 1
+      },
+      {
+        "path": "docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-21",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 1
+      },
+      {
+        "path": "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-acceptance-report.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-22",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 0
+      },
+      {
+        "path": "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-test-matrix.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-22",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 0
+      },
+      {
+        "path": "docs/exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-22",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
         "age_days": 0
       },
       {
@@ -104,13 +193,13 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 0
+        "age_days": 1
       },
       {
         "path": "docs/index.md",
         "values": {
           "doc-owner": "docs-maintainer",
-          "doc-last-reviewed": "2026-02-21",
+          "doc-last-reviewed": "2026-02-22",
           "doc-review-cycle-days": "90"
         },
         "missing": [],
@@ -128,13 +217,25 @@
         "missing": [],
         "invalid": [],
         "stale": false,
+        "age_days": 1
+      },
+      {
+        "path": "docs/references/legacy-semantic-migration-acceptance-template.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-22",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
         "age_days": 0
       },
       {
         "path": "docs/runbook.md",
         "values": {
           "doc-owner": "docs-maintainer",
-          "doc-last-reviewed": "2026-02-21",
+          "doc-last-reviewed": "2026-02-22",
           "doc-review-cycle-days": "90"
         },
         "missing": [],
@@ -145,7 +246,7 @@
     ]
   },
   "agents": {
-    "generated_at": "2026-02-21T13:02:39.887623+00:00",
+    "generated_at": "2026-02-22T04:02:44.155900+00:00",
     "root": "/Users/tompoet/AgentSkills",
     "enabled": true,
     "settings": {
@@ -169,12 +270,124 @@
     "errors": [],
     "warnings": [],
     "metrics": {
-      "line_count": 47,
+      "line_count": 48,
       "missing_headings": 0,
       "missing_required_links": 0,
       "broken_links": 0,
       "invalid_script_refs": 0,
       "overlap_ratio": 0.0
     }
+  },
+  "legacy": {
+    "enabled": true,
+    "settings": {
+      "enabled": true,
+      "include_globs": [
+        "**/*AGENTS*.md",
+        "**/*dev-notes*.md",
+        "**/*journal*.md",
+        "**/*log*.md",
+        "**/*plan*.md",
+        "**/*progress*.md",
+        "**/*requirement*.md",
+        "**/*requirements*.md",
+        "**/*roadmap*.md",
+        "**/*worklog*.md",
+        "**/*日志*.md",
+        "**/*进度*.md",
+        "**/*需求*.md"
+      ],
+      "exclude_globs": [
+        "**/*.pyc",
+        "**/__pycache__/**",
+        ".agents/**",
+        ".git/**",
+        "AGENTS.md",
+        "README.md",
+        "docs/**",
+        "docs/archive/**",
+        "docs/archive/legacy/**",
+        "skills/**"
+      ],
+      "archive_root": "docs/archive/legacy",
+      "mapping_strategy": "path_based",
+      "target_root": "docs/history/legacy",
+      "target_doc": "docs/history/legacy-migration.md",
+      "registry_path": "docs/.legacy-migration-map.json",
+      "allow_non_markdown": true,
+      "exempt_sources": [
+        "AGENTS.md",
+        "README.md"
+      ],
+      "mapping_table": {},
+      "fail_on_legacy_drift": true,
+      "semantic_report_path": "docs/.legacy-semantic-report.json",
+      "semantic": {
+        "enabled": true,
+        "engine": "llm",
+        "provider": "deterministic_mock",
+        "model": "gpt-5-codex",
+        "auto_migrate_threshold": 0.85,
+        "review_threshold": 0.6,
+        "max_chars_per_doc": 20000,
+        "categories": [
+          "agent_ops",
+          "not_migratable",
+          "plan",
+          "progress",
+          "requirement",
+          "worklog"
+        ],
+        "denylist_files": [
+          "AGENTS.md",
+          "README.md"
+        ],
+        "fail_closed": true
+      }
+    },
+    "registry_path": "docs/.legacy-migration-map.json",
+    "metrics": {
+      "discovered_sources": 0,
+      "registry_entries": 1,
+      "completed_sources": 0,
+      "exempted_sources": 0,
+      "unresolved_sources": 0,
+      "missing_archive_files": 0,
+      "missing_target_docs": 0,
+      "missing_source_markers": 0,
+      "semantic_auto_migrate_count": 0,
+      "semantic_manual_review_count": 0,
+      "semantic_skip_count": 0,
+      "semantic_low_confidence_count": 0,
+      "semantic_conflict_count": 0,
+      "structured_section_completeness": 1.0,
+      "semantic_missing_source_marker_auto_count": 0
+    },
+    "unresolved_sources": [],
+    "semantic": {
+      "enabled": true,
+      "thresholds": {
+        "max_semantic_conflicts": 0,
+        "max_semantic_low_confidence_auto": 0,
+        "min_structured_section_completeness": 0.95,
+        "fail_on_semantic_gate": true
+      },
+      "metrics": {
+        "semantic_auto_migrate_count": 0,
+        "semantic_manual_review_count": 0,
+        "semantic_skip_count": 0,
+        "semantic_low_confidence_count": 0,
+        "semantic_conflict_count": 0,
+        "structured_section_completeness": 1.0,
+        "missing_source_marker_auto_count": 0
+      },
+      "low_confidence_auto_sources": [],
+      "conflicts": [],
+      "incomplete_sources": [],
+      "missing_source_marker_auto_sources": [],
+      "backlog": []
+    },
+    "errors": [],
+    "warnings": []
   }
 }

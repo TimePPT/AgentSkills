@@ -15,6 +15,7 @@ if str(SCRIPT_DIR) not in sys.path:
 
 import doc_metadata as dm  # noqa: E402
 import doc_agents_validate  # noqa: E402
+import doc_legacy as dl  # noqa: E402
 import doc_plan  # noqa: E402
 import doc_quality  # noqa: E402
 import doc_spec  # noqa: E402
@@ -212,6 +213,207 @@ def check_drift(
     notes = [f"{a.get('id')} {a.get('type')} {a.get('path')}" for a in actionable]
     return len(actionable) > 0, len(actionable), notes
 
+
+def check_legacy_coverage(
+    root: Path,
+    policy: dict[str, Any],
+) -> tuple[list[str], list[str], dict[str, Any]]:
+    settings = dl.resolve_legacy_settings(policy)
+    report: dict[str, Any] = {
+        "enabled": settings.get("enabled", False),
+        "settings": settings,
+        "registry_path": settings.get("registry_path"),
+        "metrics": {
+            "discovered_sources": 0,
+            "registry_entries": 0,
+            "completed_sources": 0,
+            "exempted_sources": 0,
+            "unresolved_sources": 0,
+            "missing_archive_files": 0,
+            "missing_target_docs": 0,
+            "missing_source_markers": 0,
+            "semantic_auto_migrate_count": 0,
+            "semantic_manual_review_count": 0,
+            "semantic_skip_count": 0,
+            "semantic_low_confidence_count": 0,
+            "semantic_conflict_count": 0,
+            "structured_section_completeness": 1.0,
+            "semantic_missing_source_marker_auto_count": 0,
+        },
+        "unresolved_sources": [],
+        "semantic": {
+            "enabled": False,
+            "thresholds": {},
+            "metrics": {},
+            "backlog": [],
+            "conflicts": [],
+            "low_confidence_auto_sources": [],
+            "incomplete_sources": [],
+            "missing_source_marker_auto_sources": [],
+        },
+        "errors": [],
+        "warnings": [],
+    }
+
+    if not settings.get("enabled", False):
+        return [], [], report
+
+    candidates = dl.discover_legacy_sources(root, settings)
+    report["metrics"]["discovered_sources"] = len(candidates)
+    exempt_sources = set(settings.get("exempt_sources") or [])
+
+    registry_path = root / str(settings.get("registry_path"))
+    registry = dl.load_registry(registry_path)
+    entries = (
+        registry.get("entries") if isinstance(registry.get("entries"), dict) else {}
+    )
+    report["metrics"]["registry_entries"] = len(entries)
+
+    semantic_skip_sources: set[str] = set()
+    semantic_report_rel = normalize(str(settings.get("semantic_report_path", "")))
+    semantic_report_path = root / semantic_report_rel if semantic_report_rel else None
+    if semantic_report_path and semantic_report_path.exists():
+        try:
+            semantic_payload = load_json(semantic_report_path)
+        except Exception:  # noqa: BLE001
+            semantic_payload = {}
+        semantic_entries = (
+            semantic_payload.get("entries")
+            if isinstance(semantic_payload.get("entries"), list)
+            else []
+        )
+        for item in semantic_entries:
+            if not isinstance(item, dict):
+                continue
+            source_path = item.get("source_path")
+            decision = item.get("decision")
+            if (
+                isinstance(source_path, str)
+                and source_path.strip()
+                and isinstance(decision, str)
+                and decision.strip() == "skip"
+            ):
+                semantic_skip_sources.add(normalize(source_path))
+
+    completed_sources = [rel for rel in candidates if dl.has_completed_entry(registry, rel)]
+    unresolved_sources = [
+        rel
+        for rel in candidates
+        if rel not in exempt_sources
+        and rel not in semantic_skip_sources
+        and not dl.has_completed_entry(registry, rel)
+    ]
+    report["metrics"]["completed_sources"] = len(completed_sources)
+    report["metrics"]["exempted_sources"] = len(
+        [rel for rel in candidates if rel in exempt_sources or rel in semantic_skip_sources]
+    )
+    report["metrics"]["unresolved_sources"] = len(unresolved_sources)
+    report["unresolved_sources"] = unresolved_sources
+
+    errors: list[str] = []
+    warnings: list[str] = []
+    if unresolved_sources:
+        message = (
+            "legacy unresolved sources: " + ", ".join(unresolved_sources[:20])
+        )
+        if settings.get("fail_on_legacy_drift", True):
+            errors.append(message)
+        else:
+            warnings.append(message)
+
+    for source_rel, entry in entries.items():
+        if not isinstance(source_rel, str) or not isinstance(entry, dict):
+            continue
+        normalized_source = normalize(source_rel)
+        status = entry.get("status")
+        target_rel = normalize(entry.get("target_path", ""))
+        archive_rel = normalize(entry.get("archive_path", ""))
+
+        if status == "archived":
+            if not archive_rel or not (root / archive_rel).exists():
+                report["metrics"]["missing_archive_files"] += 1
+                errors.append(
+                    f"legacy archive missing for {normalized_source}: {archive_rel or 'UNKNOWN'}"
+                )
+
+        if status in {"migrated", "archived"}:
+            if not target_rel or not (root / target_rel).exists():
+                report["metrics"]["missing_target_docs"] += 1
+                errors.append(
+                    f"legacy target missing for {normalized_source}: {target_rel or 'UNKNOWN'}"
+                )
+                continue
+
+            target_text = (root / target_rel).read_text(encoding="utf-8", errors="replace")
+            if dl.source_marker(normalized_source) not in target_text:
+                report["metrics"]["missing_source_markers"] += 1
+                warnings.append(
+                    f"legacy source marker missing in {target_rel}: {normalized_source}"
+                )
+
+    semantic_quality = doc_quality.evaluate_semantic_migration_quality(root, policy)
+    report["semantic"] = semantic_quality
+    semantic_metrics = semantic_quality.get("metrics") or {}
+    report["metrics"]["semantic_auto_migrate_count"] = int(
+        semantic_metrics.get("semantic_auto_migrate_count", 0)
+    )
+    report["metrics"]["semantic_manual_review_count"] = int(
+        semantic_metrics.get("semantic_manual_review_count", 0)
+    )
+    report["metrics"]["semantic_skip_count"] = int(
+        semantic_metrics.get("semantic_skip_count", 0)
+    )
+    report["metrics"]["semantic_low_confidence_count"] = int(
+        semantic_metrics.get("semantic_low_confidence_count", 0)
+    )
+    report["metrics"]["semantic_conflict_count"] = int(
+        semantic_metrics.get("semantic_conflict_count", 0)
+    )
+    report["metrics"]["structured_section_completeness"] = float(
+        semantic_metrics.get("structured_section_completeness", 1.0)
+    )
+    report["metrics"]["semantic_missing_source_marker_auto_count"] = int(
+        semantic_metrics.get("missing_source_marker_auto_count", 0)
+    )
+
+    if semantic_quality.get("enabled", False):
+        thresholds = semantic_quality.get("thresholds") or {}
+        fail_on_semantic_gate = bool(thresholds.get("fail_on_semantic_gate", True))
+        semantic_gate_failures: list[str] = []
+        if report["metrics"]["semantic_missing_source_marker_auto_count"] > 0:
+            semantic_gate_failures.append(
+                "semantic gate failed: auto migrated entries contain missing source markers"
+            )
+        if (
+            report["metrics"]["semantic_low_confidence_count"]
+            > int(thresholds.get("max_semantic_low_confidence_auto", 0))
+        ):
+            semantic_gate_failures.append(
+                "semantic gate failed: low confidence auto migration exceeds threshold"
+            )
+        if (
+            report["metrics"]["semantic_conflict_count"]
+            > int(thresholds.get("max_semantic_conflicts", 0))
+        ):
+            semantic_gate_failures.append(
+                "semantic gate failed: semantic conflicts exceed threshold"
+            )
+        if report["metrics"]["structured_section_completeness"] < float(
+            thresholds.get("min_structured_section_completeness", 0.95)
+        ):
+            semantic_gate_failures.append(
+                "semantic gate failed: structured section completeness below threshold"
+            )
+        if fail_on_semantic_gate:
+            errors.extend(semantic_gate_failures)
+        else:
+            warnings.extend(semantic_gate_failures)
+
+    report["errors"] = errors
+    report["warnings"] = warnings
+    return errors, warnings, report
+
+
 def resolve_quality_gate_settings(policy: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(policy, dict):
         return {"enabled": False, "fail_on_quality_gate": False}
@@ -372,6 +574,10 @@ def main() -> int:
             errors.append(f"agents-quality: {exc}")
             agents_failed = True
 
+    legacy_errors, legacy_warnings, legacy_report = check_legacy_coverage(root, policy)
+    errors.extend(legacy_errors)
+    warnings.extend(legacy_warnings)
+
     has_drift, drift_count, drift_notes = check_drift(
         root, policy_path, manifest_path, facts
     )
@@ -408,6 +614,28 @@ def main() -> int:
             "doc_quality_failed": quality_failed,
             "agents_validate_enabled": agents_settings["enabled"],
             "agents_validate_failed": agents_failed,
+            "legacy_enabled": legacy_report.get("enabled", False),
+            "legacy_unresolved_sources": legacy_report.get("metrics", {}).get(
+                "unresolved_sources", 0
+            ),
+            "semantic_auto_migrate_count": legacy_report.get("metrics", {}).get(
+                "semantic_auto_migrate_count", 0
+            ),
+            "semantic_manual_review_count": legacy_report.get("metrics", {}).get(
+                "semantic_manual_review_count", 0
+            ),
+            "semantic_skip_count": legacy_report.get("metrics", {}).get(
+                "semantic_skip_count", 0
+            ),
+            "semantic_low_confidence_count": legacy_report.get("metrics", {}).get(
+                "semantic_low_confidence_count", 0
+            ),
+            "semantic_conflict_count": legacy_report.get("metrics", {}).get(
+                "semantic_conflict_count", 0
+            ),
+            "structured_section_completeness": legacy_report.get("metrics", {}).get(
+                "structured_section_completeness", 1.0
+            ),
         },
         "errors": errors,
         "warnings": warnings,
@@ -444,6 +672,7 @@ def main() -> int:
             "warnings": [],
             "metrics": {},
         },
+        "legacy": legacy_report,
     }
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
