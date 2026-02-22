@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at": "2026-02-22T04:01:35.034525+00:00",
+    "generated_at": "2026-02-22T05:42:00.836492+00:00",
     "root": "/Users/tompoet/AgentSkills",
     "mode": "audit",
     "policy_path": "docs/.doc-policy.json",
@@ -15,6 +15,7 @@
           "docs/.doc-spec.json",
           "docs/architecture.md",
           "docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md",
           "docs/exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md",
           "docs/exec-plans/active/docs-sor-roadmap-v2.md",
           "docs/index.md",
@@ -39,7 +40,7 @@
       "archive_dir": "docs/archive"
     },
     "manifest_reasoning": [
-      "include_files=3"
+      "include_files=4"
     ],
     "capability_decisions": [
       {
@@ -74,7 +75,7 @@
         "enabled": true,
         "source": "goal_include",
         "evidence": [
-          "file_count=93",
+          "file_count=98",
           "enabled by doc_goals.include"
         ],
         "required_files": [
@@ -89,7 +90,7 @@
         "source": "goal_include",
         "evidence": [
           "ci_configs=1",
-          "file_count=93",
+          "file_count=98",
           "enabled by doc_goals.include"
         ],
         "required_files": [],
@@ -105,7 +106,7 @@
         "enabled": true,
         "source": "signal",
         "evidence": [
-          "docs_markdown_count=13"
+          "docs_markdown_count=14"
         ],
         "required_files": [],
         "required_dirs": [],

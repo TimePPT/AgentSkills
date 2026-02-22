@@ -17,6 +17,7 @@
 - [docs/exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md](./exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md)
 - [docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-test-matrix.md](./exec-plans/active/docs-sor-roadmap-v2.1-phase-d-test-matrix.md)
 - [docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-acceptance-report.md](./exec-plans/active/docs-sor-roadmap-v2.1-phase-d-acceptance-report.md)
+- [docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md](./exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md)
 - [docs/references/legacy-semantic-migration-acceptance-template.md](./references/legacy-semantic-migration-acceptance-template.md)
 
 ## 操作流程
@@ -34,3 +35,4 @@
   - 固化当前 codebase 的结构与操作约束；
   - 输出下一阶段增强（R2/R5/R6/R7/R8 与 F3/F4/F5）的需求与功能设计，直接指导开发、测试、验收。
   - Phase D 已补齐语义迁移回归矩阵与验收模板，可直接复用到后续迭代。
+  - Phase E 聚焦开发落地、测试预验收与反漂移反腐败机制，作为发布前执行基线。

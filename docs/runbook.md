@@ -63,6 +63,16 @@ python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_legacy_migratio
 python3 -m unittest discover -s skills/docs-sor-maintainer/tests -p 'test_*.py'
 ```
 
+Phase E 预验收链路：
+
+```bash
+"$PYTHON_BIN" "$SKILL_DIR/scripts/repo_scan.py" --root "$REPO_ROOT" --output "$REPO_ROOT/docs/.repo-facts.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_plan.py" --root "$REPO_ROOT" --mode audit --facts "$REPO_ROOT/docs/.repo-facts.json" --output "$REPO_ROOT/docs/.doc-plan.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_validate.py" --root "$REPO_ROOT" --facts "$REPO_ROOT/docs/.repo-facts.json" --fail-on-drift --fail-on-freshness --output "$REPO_ROOT/docs/.doc-validate-report.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_quality.py" --root "$REPO_ROOT" --output "$REPO_ROOT/docs/.doc-quality-report.json"
+python3 -m unittest discover -s skills/docs-sor-maintainer/tests -p 'test_*.py'
+```
+
 脚本语法自检：
 
 ```bash

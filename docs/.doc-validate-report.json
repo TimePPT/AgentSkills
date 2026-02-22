@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-02-22T04:02:44.185371+00:00",
+  "generated_at": "2026-02-22T05:42:01.040470+00:00",
   "root": "/Users/tompoet/AgentSkills",
   "passed": true,
   "fail_on_drift": true,
@@ -7,10 +7,10 @@
   "metrics": {
     "errors": 0,
     "warnings": 0,
-    "checked_links": 12,
+    "checked_links": 13,
     "drift_action_count": 0,
     "facts_loaded": true,
-    "metadata_checked_docs": 10,
+    "metadata_checked_docs": 11,
     "metadata_missing_fields": 0,
     "metadata_invalid_fields": 0,
     "metadata_stale_docs": 0,
@@ -43,7 +43,7 @@
     "warnings": []
   },
   "doc_quality": {
-    "generated_at": "2026-02-22T04:02:44.155426+00:00",
+    "generated_at": "2026-02-22T05:42:00.997807+00:00",
     "root": "/Users/tompoet/AgentSkills",
     "enabled": true,
     "doc_spec": {
@@ -172,6 +172,18 @@
         "age_days": 0
       },
       {
+        "path": "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-22",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 0
+      },
+      {
         "path": "docs/exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md",
         "values": {
           "doc-owner": "docs-maintainer",
@@ -246,7 +258,7 @@
     ]
   },
   "agents": {
-    "generated_at": "2026-02-22T04:02:44.155900+00:00",
+    "generated_at": "2026-02-22T05:42:00.998339+00:00",
     "root": "/Users/tompoet/AgentSkills",
     "enabled": true,
     "settings": {
