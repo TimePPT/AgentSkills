@@ -1,6 +1,8 @@
 <!-- doc-owner: docs-maintainer -->
-<!-- doc-last-reviewed: 2026-02-21 -->
+<!-- doc-last-reviewed: 2026-02-22 -->
 <!-- doc-review-cycle-days: 90 -->
+<!-- exec-plan-status: completed -->
+<!-- exec-plan-closeout: docs/exec-plans/completed/docs-sor-roadmap-v2-closeout-2026-02-22.md -->
 
 # Docs SoR Maintainer V2 需求与功能设计
 
@@ -363,7 +365,7 @@
 - 风险：AGENTS 与 index 职责混淆导致重复膨胀。  
   缓解：将 AGENTS 固定为控制面，仅保留入口与命令；详细索引统一放在 `docs/index.md`。
 
-## 10. 验收执行记录（2026-02-21）
+## 10. 验收执行记录（2026-02-21 ~ 2026-02-22）
 
 ### 10.1 基线通过（Pass）
 
@@ -393,3 +395,22 @@
 
 - 文档元数据 owner 已从 `TODO-owner` 迁移为 `docs-maintainer`。
 - 当前文档中的 `TODO` 仅出现在需求描述语义（如 `TODO/UNKNOWN` 指标定义）与显式占位规则中，不属于未解释的待办残留。
+
+### 10.5 F5 追加验收（2026-02-22）
+
+- 运行链路：`repo_scan -> doc_plan(audit) -> doc_garden(apply-safe, repair) -> doc_validate --fail-on-drift --fail-on-freshness -> doc_quality -> unittest`
+- 结果：
+  - `doc_plan` 输出 `action_count=0`
+  - `doc_garden` 输出 `status=passed`
+  - `doc_validate` 输出 `errors=0 warnings=0 drift=0`
+  - `doc_quality` 输出 `gate=passed coverage=1.00 unknown=0 conflicts=0`
+  - `python3 -m unittest discover -s skills/docs-sor-maintainer/tests -p 'test_*.py'` 通过（43 tests）
+
+## 11. 收口与后续
+
+- 收口文档：`docs/exec-plans/completed/docs-sor-roadmap-v2-closeout-2026-02-22.md`
+- Phase F 收口：`docs/exec-plans/completed/docs-sor-roadmap-v2.2-phase-f-closeout-2026-02-22.md`
+- Phase F5 收口：`docs/exec-plans/completed/docs-sor-roadmap-v2.3-phase-f5-closeout-2026-02-22.md`
+- 历史建议：`建议进入 V2.4（双副本同步治理 + CI 门禁收敛自动化）`
+- 状态更新（2026-02-23）：V2.4 已按策略变更收口并废弃开发，详见
+  `docs/exec-plans/completed/docs-sor-roadmap-v2.4-closeout-2026-02-23.md`。

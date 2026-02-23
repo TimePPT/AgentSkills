@@ -12,17 +12,40 @@
 - [docs/references/doc_spec_schema.md](./references/doc_spec_schema.md)
 - [docs/architecture.md](./architecture.md)
 - [docs/runbook.md](./runbook.md)
+- [docs/references/legacy-semantic-migration-acceptance-template.md](./references/legacy-semantic-migration-acceptance-template.md)
+
+## 执行中计划（active）
+
+- [docs/exec-plans/active/docs-sor-roadmap-v2.5-hybrid-template-llm-governance.md](./exec-plans/active/docs-sor-roadmap-v2.5-hybrid-template-llm-governance.md)
+
+## 已完成但保留在 active 的历史计划（标记 completed）
+
+- [docs/exec-plans/active/docs-sor-roadmap-v2.4-dual-replica-sync-ci-convergence.md](./exec-plans/active/docs-sor-roadmap-v2.4-dual-replica-sync-ci-convergence.md)
 - [docs/exec-plans/active/docs-sor-roadmap-v2.md](./exec-plans/active/docs-sor-roadmap-v2.md)
 - [docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md](./exec-plans/active/docs-sor-legacy-migration-automation-plan.md)
 - [docs/exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md](./exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md)
+- [docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md](./exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md)
+- [docs/exec-plans/active/docs-sor-roadmap-v2.2-phase-f-agent-runtime-semantic-hardening.md](./exec-plans/active/docs-sor-roadmap-v2.2-phase-f-agent-runtime-semantic-hardening.md)
+
+## 历史验收证据（active）
+
 - [docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-test-matrix.md](./exec-plans/active/docs-sor-roadmap-v2.1-phase-d-test-matrix.md)
 - [docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-acceptance-report.md](./exec-plans/active/docs-sor-roadmap-v2.1-phase-d-acceptance-report.md)
-- [docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md](./exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md)
-- [docs/references/legacy-semantic-migration-acceptance-template.md](./references/legacy-semantic-migration-acceptance-template.md)
+
+## 已完成计划
+
+- [docs/exec-plans/completed/README.md](./exec-plans/completed/README.md)
+- [docs/exec-plans/completed/docs-sor-roadmap-v2-closeout-2026-02-22.md](./exec-plans/completed/docs-sor-roadmap-v2-closeout-2026-02-22.md)
+- [docs/exec-plans/completed/docs-sor-legacy-migration-automation-closeout-2026-02-22.md](./exec-plans/completed/docs-sor-legacy-migration-automation-closeout-2026-02-22.md)
+- [docs/exec-plans/completed/docs-sor-roadmap-v2.1-closeout-2026-02-22.md](./exec-plans/completed/docs-sor-roadmap-v2.1-closeout-2026-02-22.md)
+- [docs/exec-plans/completed/docs-sor-roadmap-v2.1-phase-e-closeout-2026-02-22.md](./exec-plans/completed/docs-sor-roadmap-v2.1-phase-e-closeout-2026-02-22.md)
+- [docs/exec-plans/completed/docs-sor-roadmap-v2.2-phase-f-closeout-2026-02-22.md](./exec-plans/completed/docs-sor-roadmap-v2.2-phase-f-closeout-2026-02-22.md)
+- [docs/exec-plans/completed/docs-sor-roadmap-v2.3-phase-f5-closeout-2026-02-22.md](./exec-plans/completed/docs-sor-roadmap-v2.3-phase-f5-closeout-2026-02-22.md)
+- [docs/exec-plans/completed/docs-sor-roadmap-v2.4-closeout-2026-02-23.md](./exec-plans/completed/docs-sor-roadmap-v2.4-closeout-2026-02-23.md)
 
 ## 操作流程
 
-1. 使用 `.agents/skills/docs-sor-maintainer/scripts/repo_scan.py` 生成仓库事实。
+1. 使用 `skills/docs-sor-maintainer/scripts/repo_scan.py` 生成仓库事实。
 2. 使用 `doc_plan.py` 生成计划，并优先审阅 `update/manual_review/sync_manifest` 动作。
 3. 使用 `doc_apply.py --mode apply-safe` 落地低风险变更。
 4. 使用 `doc_validate.py --fail-on-drift --fail-on-freshness` 作为合并前门禁。
@@ -30,9 +53,10 @@
 ## 当前仓库范围说明
 
 - 本仓库是 Skill 资产仓库，当前主模块为 `skills/docs-sor-maintainer`。
-- `.agents/skills/docs-sor-maintainer` 是运行期同步副本，供当前 Agent 执行脚本时优先引用。
+- `.agents/skills/docs-sor-maintainer` 是阶段性人工同步副本，不作为开发阶段实时门禁依据。
 - 本轮文档目标：
   - 固化当前 codebase 的结构与操作约束；
-  - 输出下一阶段增强（R2/R5/R6/R7/R8 与 F3/F4/F5）的需求与功能设计，直接指导开发、测试、验收。
-  - Phase D 已补齐语义迁移回归矩阵与验收模板，可直接复用到后续迭代。
-  - Phase E 聚焦开发落地、测试预验收与反漂移反腐败机制，作为发布前执行基线。
+  - 历史计划（V2/V2.1/Phase E/F/F5）已补齐 completed 收口标记与收口文档。
+  - 当前执行中主线：V2.5（模板兜底 + Agent 语义增益，覆盖创建/更新/迁移/维护四类场景）。
+  - V2.4 已按策略变更收口并废弃开发，详见：
+    `docs/exec-plans/completed/docs-sor-roadmap-v2.4-closeout-2026-02-23.md`。
