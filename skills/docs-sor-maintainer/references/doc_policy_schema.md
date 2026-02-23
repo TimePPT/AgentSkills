@@ -50,8 +50,10 @@
   "doc_gardening": {
     "enabled": true,
     "apply_mode": "apply-safe",
+    "repair_plan_mode": "audit",
     "fail_on_drift": true,
     "fail_on_freshness": true,
+    "max_repair_iterations": 2,
     "report_json": "docs/.doc-garden-report.json",
     "report_md": "docs/.doc-garden-report.md"
   },
@@ -64,6 +66,7 @@
     "max_stale_metrics_days": 7,
     "max_semantic_conflicts": 0,
     "max_semantic_low_confidence_auto": 0,
+    "max_fallback_auto_migrate": 0,
     "min_structured_section_completeness": 0.95,
     "fail_on_quality_gate": true,
     "fail_on_semantic_gate": true
@@ -80,6 +83,30 @@
     ],
     "sync_on_manifest_change": true,
     "fail_on_agents_drift": true
+  },
+  "semantic_generation": {
+    "enabled": false,
+    "mode": "deterministic",
+    "source": "invoking_agent",
+    "runtime_report_path": "docs/.semantic-runtime-report.json",
+    "fail_closed": true,
+    "allow_fallback_template": true,
+    "allow_external_llm_api": false,
+    "max_output_chars_per_section": 4000,
+    "required_evidence_prefixes": [
+      "repo_scan.",
+      "runbook.",
+      "semantic_report."
+    ],
+    "deny_paths": [
+      "docs/adr/**"
+    ],
+    "actions": {
+      "update_section": true,
+      "fill_claim": true,
+      "migrate_legacy": true,
+      "agents_generate": true
+    }
   },
   "legacy_sources": {
     "enabled": false,
@@ -105,9 +132,9 @@
     "semantic_report_path": "docs/.legacy-semantic-report.json",
     "semantic": {
       "enabled": false,
-      "engine": "deterministic_mock",
-      "provider": "deterministic_mock",
-      "model": "deterministic-mock-v1",
+      "engine": "llm",
+      "provider": "agent_runtime",
+      "model": "agent-runtime-report-v1",
       "auto_migrate_threshold": 0.85,
       "review_threshold": 0.6,
       "max_chars_per_doc": 20000,
@@ -123,7 +150,8 @@
         "README.md",
         "AGENTS.md"
       ],
-      "fail_closed": true
+      "fail_closed": true,
+      "allow_fallback_auto_migrate": false
     }
   },
   "allow_auto_update": [
@@ -166,15 +194,26 @@
 - `adaptive_manifest_overrides`: force include/exclude specific files or directories after capability decision.
 - `doc_metadata`: ownership/freshness metadata policy for managed markdown docs.
 - `doc_gardening`: automation defaults used by `doc_garden.py`.
+  - `repair_plan_mode`: dedicated plan mode for repair rounds.
+  - `max_repair_iterations`: upper bound for automatic repair retries.
 - `doc_quality_gates`: content quality gate thresholds used by validators.
   - `max_semantic_conflicts`: max allowed semantic conflict count.
   - `max_semantic_low_confidence_auto`: max allowed auto-migrated low-confidence items.
+  - `max_fallback_auto_migrate`: max allowed fallback auto migrations (recommended `0` for release gates).
   - `min_structured_section_completeness`: minimum completeness ratio for structured migration sections.
   - `fail_on_semantic_gate`: when true, semantic gate failures are treated as errors.
 - `agents_generation`: dynamic AGENTS.md generation settings.
+- `semantic_generation`: managed-doc semantic generation policy.
+  - `mode`: `deterministic` (default), `hybrid`, or `agent_strict`.
+  - `source`: semantic producer identifier; recommended `invoking_agent`.
+  - `runtime_report_path`: runtime semantic report consumed by apply flow.
+  - `allow_external_llm_api`: must stay `false` by default to avoid provider lock-in.
+  - `actions`: explicit allowlist of action types that may consume runtime semantics.
 - `legacy_sources`: legacy files discovery/migration policy for non-SoR historical files.
   - `legacy_sources.semantic`: semantic classifier policy for legacy candidates, including threshold routing and denylist.
-  - `legacy_sources.semantic_report_path`: report output path for semantic classification records.
+  - `legacy_sources.semantic.provider`: use `agent_runtime` to consume runtime-injected semantic entries; keep `deterministic_mock` for local testing only.
+  - `legacy_sources.semantic.allow_fallback_auto_migrate`: when false (default), semantic absence degrades to `manual_review/skip` only.
+  - `legacy_sources.semantic_report_path`: semantic report path consumed by planner and emitted as normalized report.
 - `allow_auto_update`: auto-update whitelist.
 - `protect_from_auto_overwrite`: protected glob patterns.
 

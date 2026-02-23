@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import shutil
 import sys
 from datetime import date, datetime, timezone
@@ -18,6 +19,7 @@ import doc_capabilities as dc  # noqa: E402
 import doc_agents  # noqa: E402
 import doc_legacy as dl  # noqa: E402
 import doc_metadata as dm  # noqa: E402
+import doc_semantic_runtime as dsr  # noqa: E402
 import language_profiles as lp  # noqa: E402
 
 
@@ -202,6 +204,130 @@ def upsert_section(
     return True
 
 
+def find_section_block_range(
+    lines: list[str],
+    rel_path: str,
+    section_id: str,
+    template_profile: str,
+    section_heading: str | None = None,
+) -> tuple[int, int] | None:
+    markers = {
+        marker.strip()
+        for marker in lp.get_section_markers(rel_path, section_id)
+        if isinstance(marker, str) and marker.strip()
+    }
+    resolved_heading = (
+        section_heading.strip()
+        if isinstance(section_heading, str) and section_heading.strip()
+        else lp.get_section_heading(rel_path, section_id, template_profile).strip()
+    )
+    if resolved_heading:
+        markers.add(resolved_heading)
+
+    start_idx: int | None = None
+    for idx, line in enumerate(lines):
+        if line.strip() in markers:
+            start_idx = idx
+            break
+    if start_idx is None:
+        return None
+
+    end_idx = len(lines)
+    in_fence = False
+    for idx in range(start_idx + 1, len(lines)):
+        stripped = lines[idx].strip()
+        if stripped.startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        if re.match(r"^#\s+", stripped) or re.match(r"^##\s+", stripped):
+            end_idx = idx
+            break
+    return start_idx, end_idx
+
+
+def upsert_section_content(
+    rel_path: str,
+    path: Path,
+    section_id: str,
+    content: str,
+    dry_run: bool,
+    template_profile: str,
+    section_heading: str | None = None,
+) -> bool:
+    if not isinstance(section_id, str) or not section_id.strip():
+        return False
+    if not isinstance(content, str) or not content.strip():
+        return False
+
+    section_id = section_id.strip()
+    normalized_content = content.strip()
+    upsert_section(
+        rel_path,
+        path,
+        section_id,
+        dry_run,
+        template_profile,
+        section_heading=section_heading,
+    )
+    if not path.exists():
+        return False
+
+    text = path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    section_range = find_section_block_range(
+        lines,
+        normalize(rel_path),
+        section_id,
+        template_profile,
+        section_heading=section_heading,
+    )
+    if section_range is None:
+        resolved_heading = (
+            section_heading.strip()
+            if isinstance(section_heading, str) and section_heading.strip()
+            else lp.get_section_heading(
+                normalize(rel_path), section_id, template_profile
+            ).strip()
+        )
+        if not resolved_heading:
+            return False
+        heading_line = (
+            resolved_heading
+            if resolved_heading.startswith("#")
+            else f"## {resolved_heading}"
+        )
+        updated = (
+            text.rstrip()
+            + "\n\n"
+            + heading_line
+            + "\n\n"
+            + normalized_content
+            + "\n"
+        )
+        if updated == text:
+            return False
+        write_text(path, updated, dry_run)
+        return True
+
+    start_idx, end_idx = section_range
+    heading_line = lines[start_idx].rstrip()
+    before = lines[:start_idx]
+    after = lines[end_idx:]
+    while after and not after[0].strip():
+        after.pop(0)
+
+    new_lines = before + [heading_line, ""] + normalized_content.splitlines()
+    if after:
+        new_lines += [""] + after
+    updated = "\n".join(new_lines).rstrip() + "\n"
+    if updated == text:
+        return False
+    write_text(path, updated, dry_run)
+    return True
+
+
 def upsert_claim_todo(
     rel_path: str,
     path: Path,
@@ -240,6 +366,229 @@ def upsert_claim_todo(
     updated = text.rstrip() + "\n\n" + heading + "\n\n" + todo_line + "\n"
     write_text(path, updated, dry_run)
     return True
+
+
+def _normalize_string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for item in value:
+        if not isinstance(item, str):
+            continue
+        text = item.strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        out.append(text)
+    return out
+
+
+def parse_citation_token(token: str) -> str | None:
+    if not isinstance(token, str):
+        return None
+    prefix = "evidence://"
+    if not token.startswith(prefix):
+        return None
+    evidence_type = token[len(prefix) :].strip()
+    if not evidence_type:
+        return None
+    return evidence_type
+
+
+def render_claim_statement_line(
+    claim_id: str,
+    statement: str,
+    citations: list[str],
+    template_profile: str,
+) -> str:
+    token = f"CLAIM(claim:{claim_id})"
+    citation_text = ", ".join(citations)
+    if template_profile == "zh-CN":
+        return f"- {token}: {statement} (citations: {citation_text})"
+    return f"- {token}: {statement} (citations: {citation_text})"
+
+
+def upsert_claim_statement(
+    rel_path: str,
+    path: Path,
+    section_id: str,
+    claim_id: str,
+    statement: str,
+    citations: list[str],
+    dry_run: bool,
+    template_profile: str,
+) -> bool:
+    if not isinstance(claim_id, str) or not claim_id.strip():
+        return False
+    if not isinstance(statement, str) or not statement.strip():
+        return False
+    normalized_citations = _normalize_string_list(citations)
+    if not normalized_citations:
+        return False
+
+    claim_id = claim_id.strip()
+    statement = statement.strip()
+    upsert_section(rel_path, path, section_id, dry_run, template_profile)
+    if not path.exists():
+        return False
+
+    text = path.read_text(encoding="utf-8")
+    claim_token = f"CLAIM(claim:{claim_id})"
+    todo_token = f"TODO(claim:{claim_id})"
+    claim_line = render_claim_statement_line(
+        claim_id, statement, normalized_citations, template_profile
+    )
+    lines = text.splitlines()
+
+    for idx, line in enumerate(lines):
+        if claim_token in line or todo_token in line:
+            if line.strip() == claim_line.strip():
+                return False
+            lines[idx] = claim_line
+            updated = "\n".join(lines).rstrip() + "\n"
+            write_text(path, updated, dry_run)
+            return True
+
+    heading = "### Claim Statements" if template_profile != "zh-CN" else "### Claim 陈述"
+    if heading in text:
+        updated = text.rstrip() + "\n" + claim_line + "\n"
+    else:
+        updated = text.rstrip() + "\n\n" + heading + "\n\n" + claim_line + "\n"
+    write_text(path, updated, dry_run)
+    return True
+
+
+def resolve_fill_claim_runtime_payload(
+    action: dict[str, Any],
+    runtime_entry: dict[str, Any] | None,
+    semantic_settings: dict[str, Any],
+) -> tuple[dict[str, Any] | None, list[str]]:
+    if not isinstance(runtime_entry, dict):
+        return None, ["runtime_entry_not_found"]
+
+    failed_checks: list[str] = []
+    if runtime_entry.get("status") != "ok":
+        failed_checks.append("runtime_status_not_ok")
+
+    statement = runtime_entry.get("statement")
+    if not isinstance(statement, str) or not statement.strip():
+        content = runtime_entry.get("content")
+        if isinstance(content, str) and content.strip():
+            statement = content.strip()
+        else:
+            statement = ""
+    if not statement:
+        failed_checks.append("missing_statement")
+
+    citations = _normalize_string_list(runtime_entry.get("citations"))
+    if not citations:
+        failed_checks.append("missing_citations")
+
+    citation_evidence_types: list[str] = []
+    invalid_citations: list[str] = []
+    for token in citations:
+        evidence_type = parse_citation_token(token)
+        if evidence_type is None:
+            invalid_citations.append(token)
+        else:
+            citation_evidence_types.append(evidence_type)
+    if invalid_citations:
+        failed_checks.append("invalid_citation_token")
+
+    required_prefixes_raw = semantic_settings.get("required_evidence_prefixes")
+    required_prefixes = [
+        str(value).strip()
+        for value in (
+            required_prefixes_raw if isinstance(required_prefixes_raw, list) else []
+        )
+        if isinstance(value, str) and str(value).strip()
+    ]
+    if required_prefixes and citation_evidence_types:
+        if any(
+            not any(evidence.startswith(prefix) for prefix in required_prefixes)
+            for evidence in citation_evidence_types
+        ):
+            failed_checks.append("citation_prefix_not_allowed")
+
+    required_evidence_types = [
+        str(value).strip()
+        for value in (
+            action.get("required_evidence_types")
+            if isinstance(action.get("required_evidence_types"), list)
+            else []
+        )
+        if isinstance(value, str) and str(value).strip()
+    ]
+    if required_evidence_types and citation_evidence_types:
+        missing_required = [
+            evidence
+            for evidence in required_evidence_types
+            if evidence not in citation_evidence_types
+        ]
+        if missing_required:
+            failed_checks.append("missing_required_citations")
+
+    deduped_failures: list[str] = []
+    seen: set[str] = set()
+    for failure in failed_checks:
+        if failure in seen:
+            continue
+        seen.add(failure)
+        deduped_failures.append(failure)
+    if deduped_failures:
+        return None, deduped_failures
+
+    return {
+        "statement": statement,
+        "citations": citations,
+    }, []
+
+
+def resolve_update_section_runtime_payload(
+    runtime_entry: dict[str, Any] | None,
+) -> tuple[dict[str, Any] | None, list[str]]:
+    if not isinstance(runtime_entry, dict):
+        return None, ["runtime_entry_not_found"]
+
+    failed_checks: list[str] = []
+    if runtime_entry.get("status") != "ok":
+        failed_checks.append("runtime_status_not_ok")
+
+    content_raw = runtime_entry.get("content")
+    statement_raw = runtime_entry.get("statement")
+    if isinstance(content_raw, str) and content_raw.strip():
+        content = content_raw.strip()
+    elif isinstance(statement_raw, str) and statement_raw.strip():
+        content = statement_raw.strip()
+    else:
+        content = ""
+    if not content:
+        failed_checks.append("missing_content")
+
+    deduped_failures: list[str] = []
+    seen: set[str] = set()
+    for failure in failed_checks:
+        if failure in seen:
+            continue
+        seen.add(failure)
+        deduped_failures.append(failure)
+    if deduped_failures:
+        return None, deduped_failures
+    return {"content": content}, []
+
+
+def resolve_agents_runtime_payload(
+    runtime_entry: dict[str, Any] | None,
+) -> tuple[dict[str, Any] | None, list[str]]:
+    payload, failures = resolve_update_section_runtime_payload(runtime_entry)
+    if not payload:
+        return None, failures
+    content = payload.get("content")
+    if not isinstance(content, str) or not content.strip():
+        return None, ["missing_content"]
+    normalized = content.rstrip() + "\n"
+    return {"content": normalized}, []
 
 
 def upsert_module_inventory(path: Path, modules: list[str], dry_run: bool, template_profile: str) -> bool:
@@ -365,6 +714,9 @@ def apply_action(
     template_profile: str,
     metadata_policy: dict[str, Any],
     legacy_settings: dict[str, Any] | None = None,
+    semantic_settings: dict[str, Any] | None = None,
+    semantic_runtime_entries: list[dict[str, Any]] | None = None,
+    semantic_runtime_state: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     result = {
         "id": action.get("id"),
@@ -379,6 +731,49 @@ def apply_action(
     rel_path = normalize(action.get("path", ""))
     abs_path = root / rel_path
     legacy_cfg = legacy_settings or dl.resolve_legacy_settings({})
+    semantic_cfg = (
+        semantic_settings
+        if isinstance(semantic_settings, dict)
+        else dsr.resolve_semantic_generation_settings({})
+    )
+    runtime_entries = (
+        semantic_runtime_entries if isinstance(semantic_runtime_entries, list) else []
+    )
+    runtime_state = (
+        semantic_runtime_state if isinstance(semantic_runtime_state, dict) else {}
+    )
+
+    def attach_runtime_candidate() -> dict[str, Any] | None:
+        if not isinstance(action_type, str):
+            return None
+        if not dsr.should_attempt_runtime_semantics(action_type, semantic_cfg):
+            return None
+        candidate = dsr.select_runtime_entry(action, runtime_entries, semantic_cfg)
+        if isinstance(candidate, dict):
+            result["semantic_runtime"] = {
+                "status": "candidate_loaded",
+                "entry_id": candidate.get("entry_id"),
+                "candidate_status": candidate.get("status"),
+                "mode": semantic_cfg.get("mode"),
+                "source": semantic_cfg.get("source"),
+            }
+            return candidate
+
+        state_status = (
+            "runtime_unavailable"
+            if not runtime_state.get("available", False)
+            else "entry_not_found"
+        )
+        state_error = runtime_state.get("error")
+        semantic_state: dict[str, Any] = {
+            "status": state_status,
+            "mode": semantic_cfg.get("mode"),
+            "source": semantic_cfg.get("source"),
+        }
+        if isinstance(state_error, str) and state_error.strip():
+            semantic_state["error"] = state_error.strip()
+        result["semantic_runtime"] = semantic_state
+        return None
 
     try:
         if action_type == "add":
@@ -453,8 +848,54 @@ def apply_action(
             return result
 
         if action_type == "update_section":
+            runtime_candidate = attach_runtime_candidate()
             section_id = action.get("section_id")
             section_heading = action.get("section_heading")
+            section_id_str = (
+                section_id.strip() if isinstance(section_id, str) and section_id.strip() else ""
+            )
+
+            runtime_payload = None
+            runtime_gate_failures: list[str] = []
+            if isinstance(runtime_candidate, dict):
+                runtime_payload, runtime_gate_failures = resolve_update_section_runtime_payload(
+                    runtime_candidate
+                )
+                semantic_runtime = result.get("semantic_runtime")
+                if isinstance(semantic_runtime, dict):
+                    semantic_runtime["gate"] = {
+                        "status": "passed" if runtime_payload else "failed",
+                        "failed_checks": runtime_gate_failures,
+                    }
+                    semantic_runtime["consumed"] = bool(runtime_payload)
+                    if not runtime_payload:
+                        semantic_runtime["status"] = "section_runtime_gate_failed"
+
+            if isinstance(runtime_payload, dict):
+                runtime_content = runtime_payload.get("content")
+                changed = upsert_section_content(
+                    rel_path,
+                    abs_path,
+                    section_id_str,
+                    str(runtime_content) if isinstance(runtime_content, str) else "",
+                    dry_run,
+                    template_profile,
+                    section_heading=section_heading if isinstance(section_heading, str) else None,
+                )
+                semantic_runtime = result.get("semantic_runtime")
+                if isinstance(semantic_runtime, dict):
+                    semantic_runtime["status"] = (
+                        "section_runtime_applied"
+                        if changed
+                        else "section_runtime_no_change"
+                    )
+                if changed:
+                    result["status"] = "applied"
+                    result["details"] = f"section content upserted from runtime: {section_id_str}"
+                else:
+                    result["details"] = "section content already up-to-date"
+                return result
+
             changed = upsert_section(
                 rel_path,
                 abs_path,
@@ -468,32 +909,109 @@ def apply_action(
                 heading = section_heading or lp.get_section_heading(
                     rel_path, str(section_id), template_profile
                 )
-                result["details"] = f"section upserted: {heading}"
+                if runtime_gate_failures:
+                    result["details"] = (
+                        f"runtime gate failed; fallback section scaffold upserted: {heading}"
+                    )
+                else:
+                    result["details"] = f"section upserted: {heading}"
             else:
-                result["details"] = "section already present or unsupported section_id"
+                if runtime_gate_failures:
+                    result["details"] = (
+                        "runtime gate failed; section already present or unsupported section_id"
+                    )
+                else:
+                    result["details"] = "section already present or unsupported section_id"
             return result
 
         if action_type == "fill_claim":
+            runtime_candidate = attach_runtime_candidate()
             section_id = action.get("section_id")
             claim_id = action.get("claim_id")
+            section_id_str = (
+                section_id.strip() if isinstance(section_id, str) and section_id.strip() else ""
+            )
+            claim_id_str = (
+                claim_id.strip() if isinstance(claim_id, str) and claim_id.strip() else ""
+            )
             required_evidence_types = action.get("required_evidence_types") or []
             if not isinstance(required_evidence_types, list):
                 required_evidence_types = []
-            required_evidence_types = [str(v) for v in required_evidence_types if isinstance(v, str)]
+            required_evidence_types = [
+                str(v).strip()
+                for v in required_evidence_types
+                if isinstance(v, str) and str(v).strip()
+            ]
+
+            runtime_payload = None
+            runtime_gate_failures: list[str] = []
+            if isinstance(runtime_candidate, dict):
+                runtime_payload, runtime_gate_failures = resolve_fill_claim_runtime_payload(
+                    action,
+                    runtime_candidate,
+                    semantic_cfg,
+                )
+                semantic_runtime = result.get("semantic_runtime")
+                if isinstance(semantic_runtime, dict):
+                    semantic_runtime["gate"] = {
+                        "status": "passed" if runtime_payload else "failed",
+                        "failed_checks": runtime_gate_failures,
+                    }
+                    semantic_runtime["consumed"] = bool(runtime_payload)
+                    if not runtime_payload:
+                        semantic_runtime["status"] = "claim_runtime_gate_failed"
+
+            if isinstance(runtime_payload, dict):
+                statement = runtime_payload.get("statement")
+                citations = runtime_payload.get("citations")
+                statement_changed = upsert_claim_statement(
+                    rel_path,
+                    abs_path,
+                    section_id_str,
+                    claim_id_str,
+                    str(statement) if isinstance(statement, str) else "",
+                    citations if isinstance(citations, list) else [],
+                    dry_run,
+                    template_profile,
+                )
+                semantic_runtime = result.get("semantic_runtime")
+                if isinstance(semantic_runtime, dict):
+                    semantic_runtime["status"] = (
+                        "claim_runtime_applied"
+                        if statement_changed
+                        else "claim_runtime_no_change"
+                    )
+                if statement_changed:
+                    result["status"] = "applied"
+                    result["details"] = f"claim statement upserted from runtime: {claim_id_str}"
+                else:
+                    result["details"] = "claim statement already up-to-date"
+                return result
+
             changed = upsert_claim_todo(
                 rel_path,
                 abs_path,
-                str(section_id),
-                str(claim_id),
+                section_id_str,
+                claim_id_str,
                 required_evidence_types,
                 dry_run,
                 template_profile,
             )
             if changed:
                 result["status"] = "applied"
-                result["details"] = f"claim TODO appended: {claim_id}"
+                if runtime_gate_failures:
+                    result["details"] = (
+                        f"runtime gate failed; fallback claim TODO appended: {claim_id_str}"
+                    )
+                else:
+                    result["details"] = f"claim TODO appended: {claim_id_str}"
             else:
-                result["details"] = "claim TODO already exists or invalid claim metadata"
+                if runtime_gate_failures:
+                    result["details"] = (
+                        "runtime gate failed; claim TODO already exists or invalid claim metadata"
+                    )
+                else:
+                    result["details"] = "claim TODO already exists or invalid claim metadata"
             return result
 
         if action_type == "refresh_evidence":
@@ -514,6 +1032,90 @@ def apply_action(
                 )
             else:
                 details = "quality gate requires repair"
+            result["status"] = "applied"
+            result["details"] = details
+            return result
+
+        if action_type == "semantic_rewrite":
+            runtime_candidate = attach_runtime_candidate()
+            section_id = action.get("section_id")
+            section_id_str = (
+                section_id.strip() if isinstance(section_id, str) and section_id.strip() else ""
+            )
+            section_heading = action.get("section_heading")
+            runtime_payload = None
+            runtime_gate_failures: list[str] = []
+            if isinstance(runtime_candidate, dict):
+                runtime_payload, runtime_gate_failures = resolve_update_section_runtime_payload(
+                    runtime_candidate
+                )
+                semantic_runtime = result.get("semantic_runtime")
+                if isinstance(semantic_runtime, dict):
+                    semantic_runtime["gate"] = {
+                        "status": "passed" if runtime_payload else "failed",
+                        "failed_checks": runtime_gate_failures,
+                    }
+                    semantic_runtime["consumed"] = bool(runtime_payload)
+                    if not runtime_payload:
+                        semantic_runtime["status"] = "semantic_rewrite_runtime_gate_failed"
+
+            if isinstance(runtime_payload, dict):
+                runtime_content = runtime_payload.get("content")
+                if section_id_str:
+                    changed = upsert_section_content(
+                        rel_path,
+                        abs_path,
+                        section_id_str,
+                        str(runtime_content) if isinstance(runtime_content, str) else "",
+                        dry_run,
+                        template_profile,
+                        section_heading=section_heading if isinstance(section_heading, str) else None,
+                    )
+                    semantic_runtime = result.get("semantic_runtime")
+                    if isinstance(semantic_runtime, dict):
+                        semantic_runtime["status"] = (
+                            "semantic_rewrite_applied"
+                            if changed
+                            else "semantic_rewrite_no_change"
+                        )
+                    if changed:
+                        result["status"] = "applied"
+                        result["details"] = f"semantic rewrite applied to section: {section_id_str}"
+                    else:
+                        result["details"] = "semantic rewrite content already up-to-date"
+                    return result
+
+                if abs_path.exists():
+                    content_text = (
+                        str(runtime_content).strip() + "\n"
+                        if isinstance(runtime_content, str)
+                        else ""
+                    )
+                    if content_text:
+                        current = abs_path.read_text(encoding="utf-8")
+                        if current != content_text:
+                            write_text(abs_path, content_text, dry_run)
+                            semantic_runtime = result.get("semantic_runtime")
+                            if isinstance(semantic_runtime, dict):
+                                semantic_runtime["status"] = "semantic_rewrite_applied"
+                            result["status"] = "applied"
+                            result["details"] = "semantic rewrite applied to document"
+                            return result
+                        semantic_runtime = result.get("semantic_runtime")
+                        if isinstance(semantic_runtime, dict):
+                            semantic_runtime["status"] = "semantic_rewrite_no_change"
+                        result["details"] = "semantic rewrite content already up-to-date"
+                        return result
+
+            source_rel = normalize(action.get("source_path", ""))
+            backlog_reason = action.get("backlog_reason")
+            details = "semantic rewrite deferred to runtime/manual workflow"
+            if isinstance(backlog_reason, str) and backlog_reason.strip():
+                details += f": reason={backlog_reason.strip()}"
+            if source_rel:
+                details += f", source={source_rel}"
+            if runtime_gate_failures:
+                details += ", runtime gate failed"
             result["status"] = "applied"
             result["details"] = details
             return result
@@ -675,6 +1277,12 @@ def apply_action(
 
 def render_markdown_report(report: dict[str, Any]) -> str:
     language = report.get("language", {})
+    semantic_runtime = report.get("semantic_runtime", {})
+    semantic_runtime_data = (
+        semantic_runtime.get("runtime")
+        if isinstance(semantic_runtime, dict) and isinstance(semantic_runtime.get("runtime"), dict)
+        else {}
+    )
     lines = [
         "# Doc Apply Report",
         "",
@@ -685,6 +1293,10 @@ def render_markdown_report(report: dict[str, Any]) -> str:
         f"- Language primary: {language.get('primary', 'N/A')}",
         f"- Language profile: {language.get('profile', 'N/A')}",
         f"- Language source: {language.get('source', 'N/A')}",
+        f"- Semantic runtime enabled: {semantic_runtime_data.get('enabled', False)}",
+        f"- Semantic runtime mode: {semantic_runtime_data.get('mode', 'N/A')}",
+        f"- Semantic runtime available: {semantic_runtime_data.get('available', False)}",
+        f"- Semantic runtime entries: {semantic_runtime_data.get('entry_count', 0)}",
         "",
         "## Summary",
         "",
@@ -747,6 +1359,10 @@ def main() -> int:
     )
     metadata_policy = dm.resolve_metadata_policy(effective_policy)
     legacy_settings = dl.resolve_legacy_settings(effective_policy)
+    semantic_settings = dsr.resolve_semantic_generation_settings(effective_policy)
+    semantic_runtime_entries, semantic_runtime_state = dsr.load_runtime_report(
+        root, semantic_settings
+    )
 
     with plan_path.open("r", encoding="utf-8") as f:
         plan = json.load(f)
@@ -761,11 +1377,14 @@ def main() -> int:
         "audit",
         "apply-safe",
         "apply-with-archive",
+        "repair",
     }:
         raise SystemExit(f"[ERROR] Unsupported plan mode: {plan_mode}")
 
-    if plan_mode == "audit" and args.mode != "apply-safe":
-        print("[WARN] Applying an audit plan with mode != apply-safe is not recommended.")
+    if plan_mode in {"audit", "repair"} and args.mode != "apply-safe":
+        print(
+            "[WARN] Applying an audit/repair plan with mode != apply-safe is not recommended."
+        )
 
     policy_language_updated = False
     policy_path = root / "docs/.doc-policy.json"
@@ -782,6 +1401,9 @@ def main() -> int:
             template_profile,
             metadata_policy,
             legacy_settings,
+            semantic_settings,
+            semantic_runtime_entries,
+            semantic_runtime_state,
         )
         for action in actions
     ]
@@ -813,6 +1435,37 @@ def main() -> int:
         )
     )
 
+    agents_runtime_candidate: dict[str, Any] | None = None
+    agents_runtime_result: dict[str, Any] | None = None
+    if dsr.should_attempt_runtime_semantics("agents_generate", semantic_settings):
+        agents_runtime_candidate = dsr.select_runtime_entry(
+            {"type": "agents_generate", "path": "AGENTS.md"},
+            semantic_runtime_entries,
+            semantic_settings,
+        )
+        if isinstance(agents_runtime_candidate, dict):
+            agents_runtime_result = {
+                "status": "candidate_loaded",
+                "entry_id": agents_runtime_candidate.get("entry_id"),
+                "candidate_status": agents_runtime_candidate.get("status"),
+                "mode": semantic_settings.get("mode"),
+                "source": semantic_settings.get("source"),
+            }
+        else:
+            state_status = (
+                "runtime_unavailable"
+                if not semantic_runtime_state.get("available", False)
+                else "entry_not_found"
+            )
+            agents_runtime_result = {
+                "status": state_status,
+                "mode": semantic_settings.get("mode"),
+                "source": semantic_settings.get("source"),
+            }
+            state_error = semantic_runtime_state.get("error")
+            if isinstance(state_error, str) and state_error.strip():
+                agents_runtime_result["error"] = state_error.strip()
+
     agents_generation_report: dict[str, Any] | None = None
     if should_generate_agents:
         manifest_data = (
@@ -833,25 +1486,59 @@ def main() -> int:
                 force=False,
             )
             if agents_generation_report.get("status") == "generated":
-                results.append(
-                    {
-                        "id": "AGENTS",
-                        "type": "agents_generate",
-                        "path": "AGENTS.md",
-                        "status": "applied",
-                        "details": "AGENTS generated from policy/manifest/index/facts",
-                    }
-                )
-        except Exception as exc:  # noqa: BLE001
-            results.append(
-                {
+                details = "AGENTS generated from policy/manifest/index/facts"
+                if isinstance(agents_runtime_candidate, dict):
+                    runtime_payload, runtime_gate_failures = resolve_agents_runtime_payload(
+                        agents_runtime_candidate
+                    )
+                    if isinstance(agents_runtime_result, dict):
+                        agents_runtime_result["gate"] = {
+                            "status": "passed" if runtime_payload else "failed",
+                            "failed_checks": runtime_gate_failures,
+                        }
+                        agents_runtime_result["consumed"] = bool(runtime_payload)
+                    if runtime_payload:
+                        write_text(
+                            root / "AGENTS.md",
+                            str(runtime_payload.get("content", "")),
+                            args.dry_run,
+                        )
+                        details = "AGENTS generated from runtime semantic candidate"
+                        if isinstance(agents_runtime_result, dict):
+                            agents_runtime_result["status"] = "agents_runtime_applied"
+                    else:
+                        details = (
+                            "AGENTS generated via deterministic fallback (runtime gate failed)"
+                        )
+                        if isinstance(agents_runtime_result, dict):
+                            agents_runtime_result["status"] = "agents_runtime_gate_failed"
+                if isinstance(agents_generation_report, dict) and isinstance(
+                    agents_runtime_result, dict
+                ):
+                    agents_generation_report["semantic_runtime"] = dict(
+                        agents_runtime_result
+                    )
+                agent_result: dict[str, Any] = {
                     "id": "AGENTS",
                     "type": "agents_generate",
                     "path": "AGENTS.md",
-                    "status": "error",
-                    "details": f"agents generation failed: {exc}",
+                    "status": "applied",
+                    "details": details,
                 }
-            )
+                if isinstance(agents_runtime_result, dict):
+                    agent_result["semantic_runtime"] = dict(agents_runtime_result)
+                results.append(agent_result)
+        except Exception as exc:  # noqa: BLE001
+            error_result: dict[str, Any] = {
+                "id": "AGENTS",
+                "type": "agents_generate",
+                "path": "AGENTS.md",
+                "status": "error",
+                "details": f"agents generation failed: {exc}",
+            }
+            if isinstance(agents_runtime_result, dict):
+                error_result["semantic_runtime"] = dict(agents_runtime_result)
+            results.append(error_result)
 
     summary = {
         "total_actions": len(results),
@@ -874,6 +1561,10 @@ def main() -> int:
         },
         "summary": summary,
         "results": results,
+        "semantic_runtime": {
+            "settings": semantic_settings,
+            "runtime": semantic_runtime_state,
+        },
         "agents_generation": agents_generation_report
         or {
             "status": "skipped",
@@ -901,6 +1592,13 @@ def main() -> int:
     print(
         "[INFO] Language primary="
         f"{language_settings['primary']} profile={language_settings['profile']} source={language_settings['source']}"
+    )
+    print(
+        "[INFO] Semantic runtime "
+        f"enabled={semantic_settings.get('enabled')} "
+        f"mode={semantic_settings.get('mode')} "
+        f"available={semantic_runtime_state.get('available')} "
+        f"entries={semantic_runtime_state.get('entry_count')}"
     )
 
     return 1 if summary["errors"] > 0 else 0

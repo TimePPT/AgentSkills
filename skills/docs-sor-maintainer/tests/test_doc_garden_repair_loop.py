@@ -32,6 +32,7 @@ class DocGardenRepairLoopTests(unittest.TestCase):
         ]
         policy["doc_gardening"]["enabled"] = True
         policy["doc_gardening"]["apply_mode"] = "apply-safe"
+        policy["doc_gardening"]["repair_plan_mode"] = "repair"
         policy["doc_gardening"]["max_repair_iterations"] = 1
         policy["doc_gardening"]["fail_on_drift"] = True
         policy["doc_gardening"]["fail_on_freshness"] = True
@@ -135,7 +136,7 @@ class DocGardenRepairLoopTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.tempdir.cleanup()
 
-    def test_repair_loop_respects_max_iterations(self) -> None:
+    def test_doc_garden_repair_loop_switches_to_repair_mode(self) -> None:
         cmd = [sys.executable, str(SCRIPT_DIR / "doc_garden.py"), "--root", str(self.root)]
         proc = subprocess.run(cmd, capture_output=True, text=True)
 
@@ -146,6 +147,30 @@ class DocGardenRepairLoopTests(unittest.TestCase):
         self.assertEqual(report.get("summary", {}).get("status"), "failed")
         self.assertEqual(report.get("repair", {}).get("attempts"), 1)
         self.assertEqual(report.get("repair", {}).get("max_iterations"), 1)
+        self.assertEqual(report.get("settings", {}).get("repair_plan_mode"), "repair")
+
+        cycles = report.get("repair", {}).get("cycles") or []
+        self.assertGreaterEqual(len(cycles), 2)
+        self.assertEqual(cycles[0].get("label"), "run")
+        self.assertEqual(cycles[0].get("plan_mode"), "audit")
+        self.assertEqual(cycles[1].get("label"), "repair-1")
+        self.assertEqual(cycles[1].get("plan_mode"), "repair")
+
+        plan_steps = [
+            step
+            for step in (report.get("steps") or [])
+            if str(step.get("name", "")).endswith(":plan")
+        ]
+        self.assertEqual(len(plan_steps), 2)
+        first_cmd = plan_steps[0].get("command", [])
+        second_cmd = plan_steps[1].get("command", [])
+        self.assertIsInstance(first_cmd, list)
+        self.assertIsInstance(second_cmd, list)
+
+        first_mode = first_cmd[first_cmd.index("--mode") + 1]
+        second_mode = second_cmd[second_cmd.index("--mode") + 1]
+        self.assertEqual(first_mode, "audit")
+        self.assertEqual(second_mode, "repair")
 
     def test_collect_semantic_backlog_and_render(self) -> None:
         validate_report = {
@@ -174,6 +199,12 @@ class DocGardenRepairLoopTests(unittest.TestCase):
         markdown = doc_garden.render_report_markdown(report)
         self.assertIn("## Semantic Backlog", markdown)
         self.assertIn("legacy/a.md", markdown)
+
+    def test_is_repairable_drift_accepts_semantic_rewrite(self) -> None:
+        validate_report = {
+            "drift": {"actions": ["A001 semantic_rewrite docs/history/legacy/a.md"]}
+        }
+        self.assertTrue(doc_garden.is_repairable_drift(validate_report))
 
 
 if __name__ == "__main__":

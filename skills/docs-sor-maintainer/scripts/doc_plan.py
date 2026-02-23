@@ -28,10 +28,18 @@ ACTIONABLE_TYPES = {
     "update_section",
     "fill_claim",
     "refresh_evidence",
+    "semantic_rewrite",
     "quality_repair",
     "migrate_legacy",
     "archive_legacy",
     "legacy_manual_review",
+}
+REPAIRABLE_ACTION_TYPES = {
+    "update_section",
+    "fill_claim",
+    "refresh_evidence",
+    "semantic_rewrite",
+    "quality_repair",
 }
 
 
@@ -58,9 +66,25 @@ def summarize_semantic_decisions(
     return dict(Counter(decisions))
 
 
+def summarize_fallback_auto_migrate(records: list[dict[str, Any]]) -> int:
+    return sum(
+        1
+        for record in records
+        if isinstance(record, dict)
+        and bool(record.get("fallback_auto_migrate", False))
+        and str(record.get("decision")) == "auto_migrate"
+    )
+
+
 def build_semantic_action_fields(record: dict[str, Any] | None) -> dict[str, Any]:
     if not isinstance(record, dict):
         return {}
+    decision_source = record.get("decision_source")
+    normalized_source = (
+        str(decision_source).strip()
+        if isinstance(decision_source, str) and str(decision_source).strip()
+        else "semantic"
+    )
     return {
         "semantic_category": record.get("category"),
         "semantic_confidence": record.get("confidence"),
@@ -70,7 +94,7 @@ def build_semantic_action_fields(record: dict[str, Any] | None) -> dict[str, Any
         "semantic_engine": record.get("engine"),
         "semantic_provider": record.get("provider"),
         "semantic_model": record.get("model"),
-        "decision_source": "semantic",
+        "decision_source": normalized_source,
     }
 
 
@@ -106,6 +130,7 @@ def maybe_write_semantic_report(root: Path, plan: dict[str, Any]) -> Path | None
         "summary": {
             "candidate_count": len(entries),
             "decision_counts": summarize_semantic_decisions(entries),
+            "fallback_auto_migrate_count": summarize_fallback_auto_migrate(entries),
         },
     }
     report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -434,14 +459,31 @@ def build_plan(
     legacy_candidates = dl.discover_legacy_sources(root, legacy_settings)
     legacy_semantic_records: list[dict[str, Any]] = []
     legacy_semantic_index: dict[str, dict[str, Any]] = {}
+    runtime_semantic_index: dict[str, dict[str, Any]] = {}
+    runtime_semantic_state: dict[str, Any] = {
+        "available": False,
+        "entry_count": 0,
+        "error": None,
+    }
     semantic_settings = (
         legacy_settings.get("semantic")
         if isinstance(legacy_settings.get("semantic"), dict)
         else {}
     )
+    semantic_provider = str(semantic_settings.get("provider") or "").strip()
+    if semantic_settings.get("enabled", False) and semantic_provider == "agent_runtime":
+        runtime_semantic_index, runtime_semantic_state = dl.load_semantic_report_index(
+            root, legacy_settings
+        )
     if semantic_settings.get("enabled", False):
         for source_rel in legacy_candidates:
-            semantic_record = dl.classify_legacy_source(root, source_rel, legacy_settings)
+            semantic_record = dl.classify_legacy_source(
+                root,
+                source_rel,
+                legacy_settings,
+                runtime_semantic_index=runtime_semantic_index,
+                runtime_semantic_state=runtime_semantic_state,
+            )
             legacy_semantic_records.append(semantic_record)
             legacy_semantic_index[source_rel] = semantic_record
     legacy_target_files = sorted(
@@ -786,6 +828,57 @@ def build_plan(
         else:
             gate = quality_report.get("gate") or {}
             failed_checks = gate.get("failed_checks") or []
+            semantic = (
+                quality_report.get("semantic")
+                if isinstance(quality_report.get("semantic"), dict)
+                else {}
+            )
+            semantic_backlog = (
+                semantic.get("backlog")
+                if isinstance(semantic.get("backlog"), list)
+                else []
+            )
+            emitted_semantic_rewrite: set[tuple[str, str, str]] = set()
+            for item in semantic_backlog:
+                if not isinstance(item, dict):
+                    continue
+                backlog_reason = (
+                    str(item.get("reason")).strip()
+                    if isinstance(item.get("reason"), str)
+                    else "semantic_backlog"
+                )
+                source_path = (
+                    normalize_rel(str(item.get("source_path")).strip())
+                    if isinstance(item.get("source_path"), str)
+                    and str(item.get("source_path")).strip()
+                    else ""
+                )
+                target_path = (
+                    normalize_rel(str(item.get("target_path")).strip())
+                    if isinstance(item.get("target_path"), str)
+                    and str(item.get("target_path")).strip()
+                    else ""
+                )
+                action_path = target_path or source_path or "docs/.legacy-semantic-report.json"
+                dedupe_key = (action_path, source_path, backlog_reason)
+                if dedupe_key in emitted_semantic_rewrite:
+                    continue
+                emitted_semantic_rewrite.add(dedupe_key)
+                evidence = [f"semantic backlog reason: {backlog_reason}"]
+                if source_path:
+                    evidence.append(f"source_path={source_path}")
+                if target_path:
+                    evidence.append(f"target_path={target_path}")
+                add_action(
+                    "semantic_rewrite",
+                    "semantic",
+                    action_path,
+                    "semantic backlog requires rewrite",
+                    evidence,
+                    source_path=source_path,
+                    target_path=target_path,
+                    backlog_reason=backlog_reason,
+                )
             if gate.get("status") != "passed":
                 metrics = quality_report.get("metrics") or {}
                 add_action(
@@ -952,6 +1045,13 @@ def build_plan(
                     template="managed",
                 )
 
+    if mode == "repair":
+        actions = [
+            action
+            for action in actions
+            if str(action.get("type")) in REPAIRABLE_ACTION_TYPES
+        ]
+
     counts: dict[str, int] = {}
     section_action_counts: dict[str, int] = {}
     claim_action_counts: dict[str, int] = {}
@@ -1003,8 +1103,23 @@ def build_plan(
                         "auto_migrate_threshold"
                     ),
                     "review_threshold": semantic_settings.get("review_threshold"),
+                    "allow_fallback_auto_migrate": semantic_settings.get(
+                        "allow_fallback_auto_migrate", False
+                    ),
                     "report_path": legacy_settings.get("semantic_report_path"),
+                    "report_available": runtime_semantic_state.get("available", False)
+                    if semantic_provider == "agent_runtime"
+                    else True,
+                    "report_entry_count": runtime_semantic_state.get("entry_count", 0)
+                    if semantic_provider == "agent_runtime"
+                    else len(legacy_semantic_records),
+                    "report_error": runtime_semantic_state.get("error")
+                    if semantic_provider == "agent_runtime"
+                    else None,
                     "decision_counts": summarize_semantic_decisions(
+                        legacy_semantic_records
+                    ),
+                    "fallback_auto_migrate_count": summarize_fallback_auto_migrate(
                         legacy_semantic_records
                     ),
                 },
@@ -1048,7 +1163,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--mode",
         required=True,
-        choices=["bootstrap", "audit", "apply-safe", "apply-with-archive"],
+        choices=["bootstrap", "audit", "apply-safe", "apply-with-archive", "repair"],
         help="Planning mode",
     )
     parser.add_argument("--facts", help="Path to repo facts JSON from repo_scan.py")

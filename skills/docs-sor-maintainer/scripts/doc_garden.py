@@ -13,6 +13,7 @@ from typing import Any
 DEFAULT_GARDENING_POLICY = {
     "enabled": True,
     "apply_mode": "apply-safe",
+    "repair_plan_mode": "audit",
     "fail_on_drift": True,
     "fail_on_freshness": True,
     "max_repair_iterations": 2,
@@ -56,6 +57,13 @@ def resolve_doc_gardening_settings(policy: dict[str, Any] | None) -> dict[str, A
         "apply-with-archive",
     }:
         settings["apply_mode"] = apply_mode
+    repair_plan_mode = raw.get("repair_plan_mode")
+    if isinstance(repair_plan_mode, str) and repair_plan_mode in {
+        "audit",
+        "apply-with-archive",
+        "repair",
+    }:
+        settings["repair_plan_mode"] = repair_plan_mode
     settings["fail_on_drift"] = bool(
         raw.get("fail_on_drift", settings["fail_on_drift"])
     )
@@ -124,7 +132,13 @@ def is_repairable_drift(validate_report: dict[str, Any] | None) -> bool:
     actions = drift.get("actions") or []
     if not isinstance(actions, list) or not actions:
         return False
-    repairable = {"update_section", "fill_claim", "refresh_evidence", "quality_repair"}
+    repairable = {
+        "update_section",
+        "fill_claim",
+        "refresh_evidence",
+        "semantic_rewrite",
+        "quality_repair",
+    }
     for note in actions:
         if not isinstance(note, str):
             return False
@@ -208,8 +222,19 @@ def render_report_markdown(report: dict[str, Any]) -> str:
                 f"- Attempts: {repair.get('attempts', 0)}",
                 f"- Max iterations: {repair.get('max_iterations', 0)}",
                 f"- Repairable drift: {repair.get('repairable_drift')}",
+                f"- Initial plan mode: {repair.get('initial_plan_mode')}",
+                f"- Repair plan mode: {repair.get('repair_plan_mode')}",
             ]
         )
+        cycles = repair.get("cycles")
+        if isinstance(cycles, list) and cycles:
+            cycle_modes = ", ".join(
+                f"{str(item.get('label', 'UNKNOWN'))}:{str(item.get('plan_mode', 'UNKNOWN'))}"
+                for item in cycles
+                if isinstance(item, dict)
+            )
+            if cycle_modes:
+                lines.append(f"- Cycle modes: {cycle_modes}")
 
     semantic_backlog = report.get("semantic_backlog") or {}
     if semantic_backlog:
@@ -252,6 +277,11 @@ def parse_args() -> argparse.Namespace:
         help="Planning mode used by gardening run",
     )
     parser.add_argument(
+        "--repair-plan-mode",
+        choices=["audit", "apply-with-archive", "repair"],
+        help="Planning mode used by repair rounds (defaults to policy)",
+    )
+    parser.add_argument(
         "--apply-mode",
         choices=["none", "apply-safe", "apply-with-archive"],
         help="Apply mode override; defaults to policy doc_gardening.apply_mode",
@@ -292,6 +322,10 @@ def main() -> int:
     gardening_settings = resolve_doc_gardening_settings(policy)
 
     apply_mode = args.apply_mode or gardening_settings["apply_mode"]
+    initial_plan_mode = args.plan_mode
+    repair_plan_mode = args.repair_plan_mode or str(
+        gardening_settings.get("repair_plan_mode", "audit")
+    )
     fail_on_drift = resolve_bool(
         args.fail_on_drift, args.no_fail_on_drift, gardening_settings["fail_on_drift"]
     )
@@ -321,6 +355,7 @@ def main() -> int:
             "root": str(root),
             "settings": {
                 "plan_mode": args.plan_mode,
+                "repair_plan_mode": repair_plan_mode,
                 "apply_mode": apply_mode,
                 "fail_on_drift": fail_on_drift,
                 "fail_on_freshness": fail_on_freshness,
@@ -347,6 +382,7 @@ def main() -> int:
         return 0
 
     steps: list[dict[str, Any]] = []
+    cycle_plan_modes: list[dict[str, Any]] = []
     repair_attempts = 0
     last_validate_report: dict[str, Any] | None = None
 
@@ -355,7 +391,9 @@ def main() -> int:
         steps.append(step)
         return step["returncode"] == 0
 
-    def run_cycle(label: str) -> bool:
+    def run_cycle(label: str, plan_mode: str) -> bool:
+        cycle_record = {"label": label, "plan_mode": plan_mode}
+        cycle_plan_modes.append(cycle_record)
         ok = exec_or_stop(
             f"{label}:scan",
             [
@@ -377,7 +415,7 @@ def main() -> int:
                     "--root",
                     str(root),
                     "--mode",
-                    args.plan_mode,
+                    plan_mode,
                     "--facts",
                     str(facts_abs),
                     "--output",
@@ -445,10 +483,11 @@ def main() -> int:
 
         nonlocal last_validate_report
         last_validate_report = load_json_object(root / "docs/.doc-validate-report.json")
+        cycle_record["success"] = ok
         return ok
 
     cycle_index = 0
-    ok = run_cycle("run")
+    ok = run_cycle("run", initial_plan_mode)
     while (
         not ok
         and not args.skip_validate
@@ -458,7 +497,7 @@ def main() -> int:
     ):
         repair_attempts += 1
         cycle_index += 1
-        ok = run_cycle(f"repair-{cycle_index}")
+        ok = run_cycle(f"repair-{cycle_index}", repair_plan_mode)
 
     plan_data = load_json_object(plan_abs) or {}
     apply_report_data = load_json_object(root / "docs/.doc-apply-report.json") or {}
@@ -469,7 +508,8 @@ def main() -> int:
         "generated_at": utc_now(),
         "root": str(root),
         "settings": {
-            "plan_mode": args.plan_mode,
+            "plan_mode": initial_plan_mode,
+            "repair_plan_mode": repair_plan_mode,
             "apply_mode": apply_mode,
             "fail_on_drift": fail_on_drift,
             "fail_on_freshness": fail_on_freshness,
@@ -499,6 +539,9 @@ def main() -> int:
             "attempts": repair_attempts,
             "max_iterations": max_repair_iterations,
             "repairable_drift": is_repairable_drift(last_validate_report),
+            "initial_plan_mode": initial_plan_mode,
+            "repair_plan_mode": repair_plan_mode,
+            "cycles": cycle_plan_modes,
         },
         "semantic_backlog": {
             "count": len(semantic_backlog),

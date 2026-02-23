@@ -1,12 +1,12 @@
 {
   "meta": {
-    "generated_at": "2026-02-23T15:44:21.117935+00:00",
+    "generated_at": "2026-02-22T09:09:54.089646+00:00",
     "root": "/Users/tompoet/AgentSkills",
     "mode": "audit",
     "policy_path": "docs/.doc-policy.json",
     "manifest_path": "docs/.doc-manifest.json",
     "manifest_source": "existing",
-    "manifest_profile": "medium",
+    "manifest_profile": "small",
     "manifest_changed": false,
     "manifest_effective": {
       "version": 1,
@@ -18,13 +18,8 @@
           "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md",
           "docs/exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md",
           "docs/exec-plans/active/docs-sor-roadmap-v2.2-phase-f-agent-runtime-semantic-hardening.md",
-          "docs/exec-plans/active/docs-sor-roadmap-v2.4-dual-replica-sync-ci-convergence.md",
-          "docs/exec-plans/active/docs-sor-roadmap-v2.5-hybrid-template-llm-governance.md",
           "docs/exec-plans/active/docs-sor-roadmap-v2.md",
           "docs/exec-plans/completed/README.md",
-          "docs/exec-plans/completed/docs-sor-legacy-migration-automation-closeout-2026-02-22.md",
-          "docs/exec-plans/completed/docs-sor-roadmap-v2.1-closeout-2026-02-22.md",
-          "docs/exec-plans/completed/docs-sor-roadmap-v2.1-phase-e-closeout-2026-02-22.md",
           "docs/exec-plans/completed/docs-sor-roadmap-v2.2-phase-f-closeout-2026-02-22.md",
           "docs/index.md",
           "docs/references/doc_spec_schema.md",
@@ -43,8 +38,6 @@
           "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-test-matrix.md",
           "docs/exec-plans/completed/docs-sor-roadmap-v2-closeout-2026-02-22.md",
           "docs/exec-plans/completed/docs-sor-roadmap-v2.3-phase-f5-closeout-2026-02-22.md",
-          "docs/exec-plans/completed/docs-sor-roadmap-v2.4-closeout-2026-02-23.md",
-          "docs/exec-plans/completed/docs-sor-roadmap-v2.5-closeout-2026-02-23.md",
           "docs/glossary.md",
           "docs/references/legacy-semantic-migration-acceptance-template.md"
         ]
@@ -87,7 +80,7 @@
         "enabled": true,
         "source": "goal_include",
         "evidence": [
-          "file_count=122",
+          "file_count=107",
           "enabled by doc_goals.include"
         ],
         "required_files": [
@@ -102,7 +95,7 @@
         "source": "goal_include",
         "evidence": [
           "ci_configs=1",
-          "file_count=122",
+          "file_count=107",
           "enabled by doc_goals.include"
         ],
         "required_files": [],
@@ -118,7 +111,7 @@
         "enabled": true,
         "source": "signal",
         "evidence": [
-          "docs_markdown_count=26"
+          "docs_markdown_count=19"
         ],
         "required_files": [],
         "required_dirs": [],
@@ -184,13 +177,8 @@
         "model": "agent-runtime-report-v1",
         "auto_migrate_threshold": 0.85,
         "review_threshold": 0.6,
-        "allow_fallback_auto_migrate": false,
         "report_path": "docs/.legacy-semantic-report.json",
-        "report_available": true,
-        "report_entry_count": 0,
-        "report_error": null,
-        "decision_counts": {},
-        "fallback_auto_migrate_count": 0
+        "decision_counts": {}
       }
     },
     "language": {

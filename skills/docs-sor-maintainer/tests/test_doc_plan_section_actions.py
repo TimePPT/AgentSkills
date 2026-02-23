@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from unittest import mock
 from datetime import datetime, timezone
 from pathlib import Path
 import sys
@@ -151,10 +152,12 @@ class DocPlanSectionActionTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.tempdir.cleanup()
 
-    def _build_plan(self, facts: dict[str, object]) -> dict[str, object]:
+    def _build_plan(
+        self, facts: dict[str, object], *, mode: str = "audit"
+    ) -> dict[str, object]:
         return doc_plan.build_plan(
             root=self.root,
-            mode="audit",
+            mode=mode,
             facts=facts,
             policy_path=self.root / "docs/.doc-policy.json",
             manifest_path=self.root / "docs/.doc-manifest.json",
@@ -255,6 +258,76 @@ class DocPlanSectionActionTests(unittest.TestCase):
         self.assertEqual(repair.get("reason"), "doc-quality gate failed")
         self.assertIn("min_evidence_coverage", repair.get("failed_checks", []))
         self.assertTrue(repair.get("evidence"))
+
+    def test_doc_plan_repair_mode_filters_actions(self) -> None:
+        (self.root / "docs/runbook.md").write_text(
+            lp.get_managed_template("docs/runbook.md", "zh-CN"), encoding="utf-8"
+        )
+        (self.root / "docs/index.md").write_text("# 文档索引\n", encoding="utf-8")
+        facts = {
+            "generated_at": utc_now(),
+            "modules": ["skills"],
+            "manifests": {"go.mod": False, "package.json": False, "pyproject.toml": False},
+        }
+
+        plan = self._build_plan(facts, mode="repair")
+        actions = plan.get("actions") or []
+        action_types = {str(action.get("type")) for action in actions if isinstance(action, dict)}
+
+        self.assertTrue(action_types)
+        self.assertTrue(
+            action_types.issubset(doc_plan.REPAIRABLE_ACTION_TYPES),
+            msg=f"unexpected action types in repair mode: {sorted(action_types)}",
+        )
+
+    def test_plan_emits_semantic_rewrite_from_quality_backlog(self) -> None:
+        (self.root / "docs/runbook.md").write_text(
+            lp.get_managed_template("docs/runbook.md", "zh-CN"), encoding="utf-8"
+        )
+        facts = {
+            "generated_at": utc_now(),
+            "modules": ["skills"],
+            "manifests": {"go.mod": False, "package.json": False, "pyproject.toml": False},
+        }
+        mocked_quality_report = {
+            "gate": {
+                "status": "failed",
+                "failed_checks": ["max_semantic_conflicts"],
+            },
+            "metrics": {
+                "evidence_coverage": 1.0,
+                "unknown_claims": 0,
+                "unresolved_todo": 0,
+                "conflicts": 0,
+                "citation_issues": 0,
+            },
+            "semantic": {
+                "backlog": [
+                    {
+                        "source_path": "legacy/a.md",
+                        "target_path": "docs/history/legacy/legacy/a.md",
+                        "reason": "semantic_conflict",
+                    }
+                ]
+            },
+        }
+
+        with mock.patch.object(
+            doc_plan.doc_quality, "evaluate_quality", return_value=mocked_quality_report
+        ):
+            plan = self._build_plan(facts)
+
+        actions = plan.get("actions") or []
+        semantic_rewrites = [
+            action for action in actions if action.get("type") == "semantic_rewrite"
+        ]
+        self.assertEqual(len(semantic_rewrites), 1)
+        rewrite = semantic_rewrites[0]
+        self.assertEqual(
+            rewrite.get("path"), "docs/history/legacy/legacy/a.md"
+        )
+        self.assertEqual(rewrite.get("source_path"), "legacy/a.md")
+        self.assertEqual(rewrite.get("backlog_reason"), "semantic_conflict")
 
 
 if __name__ == "__main__":

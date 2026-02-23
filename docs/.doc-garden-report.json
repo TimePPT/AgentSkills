@@ -1,9 +1,10 @@
 {
-  "generated_at": "2026-02-22T03:29:44.571203+00:00",
+  "generated_at": "2026-02-23T15:44:21.615031+00:00",
   "root": "/Users/tompoet/AgentSkills",
   "settings": {
     "plan_mode": "audit",
-    "apply_mode": "none",
+    "repair_plan_mode": "repair",
+    "apply_mode": "apply-safe",
     "fail_on_drift": true,
     "fail_on_freshness": true,
     "skip_validate": false,
@@ -14,14 +15,14 @@
       "name": "run:scan",
       "command": [
         "/Users/tompoet/.pyenv/versions/3.12.12/bin/python3",
-        "/Users/tompoet/AgentSkills/.agents/skills/docs-sor-maintainer/scripts/repo_scan.py",
+        "/Users/tompoet/AgentSkills/skills/docs-sor-maintainer/scripts/repo_scan.py",
         "--root",
         "/Users/tompoet/AgentSkills",
         "--output",
         "/Users/tompoet/AgentSkills/docs/.repo-facts.json"
       ],
-      "started_at": "2026-02-22T03:29:44.033828+00:00",
-      "finished_at": "2026-02-22T03:29:44.216648+00:00",
+      "started_at": "2026-02-23T15:44:20.710372+00:00",
+      "finished_at": "2026-02-23T15:44:21.054605+00:00",
       "returncode": 0,
       "stdout": "[OK] Wrote facts to /Users/tompoet/AgentSkills/docs/.repo-facts.json\n",
       "stderr": "",
@@ -31,7 +32,7 @@
       "name": "run:plan",
       "command": [
         "/Users/tompoet/.pyenv/versions/3.12.12/bin/python3",
-        "/Users/tompoet/AgentSkills/.agents/skills/docs-sor-maintainer/scripts/doc_plan.py",
+        "/Users/tompoet/AgentSkills/skills/docs-sor-maintainer/scripts/doc_plan.py",
         "--root",
         "/Users/tompoet/AgentSkills",
         "--mode",
@@ -41,10 +42,29 @@
         "--output",
         "/Users/tompoet/AgentSkills/docs/.doc-plan.json"
       ],
-      "started_at": "2026-02-22T03:29:44.216712+00:00",
-      "finished_at": "2026-02-22T03:29:44.274865+00:00",
+      "started_at": "2026-02-23T15:44:21.054680+00:00",
+      "finished_at": "2026-02-23T15:44:21.122223+00:00",
       "returncode": 0,
       "stdout": "[OK] Wrote plan to /Users/tompoet/AgentSkills/docs/.doc-plan.json\n[INFO] Action count: 0\n[INFO] Semantic report: /Users/tompoet/AgentSkills/docs/.legacy-semantic-report.json\n[INFO] Language primary=zh-CN profile=zh-CN source=policy_locked\n",
+      "stderr": "",
+      "status": "ok"
+    },
+    {
+      "name": "run:apply",
+      "command": [
+        "/Users/tompoet/.pyenv/versions/3.12.12/bin/python3",
+        "/Users/tompoet/AgentSkills/skills/docs-sor-maintainer/scripts/doc_apply.py",
+        "--root",
+        "/Users/tompoet/AgentSkills",
+        "--plan",
+        "/Users/tompoet/AgentSkills/docs/.doc-plan.json",
+        "--mode",
+        "apply-safe"
+      ],
+      "started_at": "2026-02-23T15:44:21.122289+00:00",
+      "finished_at": "2026-02-23T15:44:21.159812+00:00",
+      "returncode": 0,
+      "stdout": "[OK] Processed 0 actions\n[INFO] Applied=0 Skipped=0 Errors=0\n[INFO] Language primary=zh-CN profile=zh-CN source=policy_locked\n[INFO] Semantic runtime enabled=True mode=hybrid available=False entries=0\n",
       "stderr": "",
       "status": "ok"
     },
@@ -52,14 +72,14 @@
       "name": "run:scan-post-apply",
       "command": [
         "/Users/tompoet/.pyenv/versions/3.12.12/bin/python3",
-        "/Users/tompoet/AgentSkills/.agents/skills/docs-sor-maintainer/scripts/repo_scan.py",
+        "/Users/tompoet/AgentSkills/skills/docs-sor-maintainer/scripts/repo_scan.py",
         "--root",
         "/Users/tompoet/AgentSkills",
         "--output",
         "/Users/tompoet/AgentSkills/docs/.repo-facts.json"
       ],
-      "started_at": "2026-02-22T03:29:44.274920+00:00",
-      "finished_at": "2026-02-22T03:29:44.459419+00:00",
+      "started_at": "2026-02-23T15:44:21.159878+00:00",
+      "finished_at": "2026-02-23T15:44:21.466220+00:00",
       "returncode": 0,
       "stdout": "[OK] Wrote facts to /Users/tompoet/AgentSkills/docs/.repo-facts.json\n",
       "stderr": "",
@@ -69,7 +89,7 @@
       "name": "run:synthesize",
       "command": [
         "/Users/tompoet/.pyenv/versions/3.12.12/bin/python3",
-        "/Users/tompoet/AgentSkills/.agents/skills/docs-sor-maintainer/scripts/doc_synthesize.py",
+        "/Users/tompoet/AgentSkills/skills/docs-sor-maintainer/scripts/doc_synthesize.py",
         "--root",
         "/Users/tompoet/AgentSkills",
         "--plan",
@@ -79,8 +99,8 @@
         "--output",
         "/Users/tompoet/AgentSkills/docs/.doc-evidence-map.json"
       ],
-      "started_at": "2026-02-22T03:29:44.459481+00:00",
-      "finished_at": "2026-02-22T03:29:44.488538+00:00",
+      "started_at": "2026-02-23T15:44:21.466322+00:00",
+      "finished_at": "2026-02-23T15:44:21.498385+00:00",
       "returncode": 0,
       "stdout": "[OK] Wrote evidence map to /Users/tompoet/AgentSkills/docs/.doc-evidence-map.json\n[INFO] claims=4 supported=4 unknown=0 missing=0\n",
       "stderr": "",
@@ -90,7 +110,7 @@
       "name": "run:validate",
       "command": [
         "/Users/tompoet/.pyenv/versions/3.12.12/bin/python3",
-        "/Users/tompoet/AgentSkills/.agents/skills/docs-sor-maintainer/scripts/doc_validate.py",
+        "/Users/tompoet/AgentSkills/skills/docs-sor-maintainer/scripts/doc_validate.py",
         "--root",
         "/Users/tompoet/AgentSkills",
         "--facts",
@@ -98,8 +118,8 @@
         "--fail-on-drift",
         "--fail-on-freshness"
       ],
-      "started_at": "2026-02-22T03:29:44.488586+00:00",
-      "finished_at": "2026-02-22T03:29:44.570562+00:00",
+      "started_at": "2026-02-23T15:44:21.498465+00:00",
+      "finished_at": "2026-02-23T15:44:21.614602+00:00",
       "returncode": 0,
       "stdout": "[OK] Wrote validate report to /Users/tompoet/AgentSkills/docs/.doc-validate-report.json\n[INFO] errors=0 warnings=0 drift=0\n",
       "stderr": "",
@@ -111,8 +131,8 @@
     "action_counts": {}
   },
   "apply": {
-    "total_actions": 4,
-    "applied": 4,
+    "total_actions": 0,
+    "applied": 0,
     "skipped": 0,
     "errors": 0
   },
@@ -126,7 +146,16 @@
   "repair": {
     "attempts": 0,
     "max_iterations": 2,
-    "repairable_drift": false
+    "repairable_drift": false,
+    "initial_plan_mode": "audit",
+    "repair_plan_mode": "repair",
+    "cycles": [
+      {
+        "label": "run",
+        "plan_mode": "audit",
+        "success": true
+      }
+    ]
   },
   "semantic_backlog": {
     "count": 0,
@@ -134,8 +163,8 @@
   },
   "summary": {
     "status": "passed",
-    "apply_mode": "none",
-    "step_count": 5,
+    "apply_mode": "apply-safe",
+    "step_count": 6,
     "failed_step_count": 0
   }
 }

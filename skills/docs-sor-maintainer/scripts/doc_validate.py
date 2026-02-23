@@ -21,6 +21,12 @@ import doc_quality  # noqa: E402
 import doc_spec  # noqa: E402
 
 LINK_PATTERN = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
+EXEC_PLAN_STATUS_PATTERN = re.compile(
+    r"<!--\s*exec-plan-status:\s*([a-zA-Z_-]+)\s*-->"
+)
+EXEC_PLAN_CLOSEOUT_PATTERN = re.compile(
+    r"<!--\s*exec-plan-closeout:\s*([^\s][^>]*)\s*-->"
+)
 
 
 def utc_now() -> str:
@@ -214,6 +220,55 @@ def check_drift(
     return len(actionable) > 0, len(actionable), notes
 
 
+def check_exec_plan_closeout(
+    root: Path,
+) -> tuple[list[str], list[str], dict[str, Any]]:
+    errors: list[str] = []
+    warnings: list[str] = []
+    metrics = {
+        "active_exec_plan_files": 0,
+        "completed_declared_files": 0,
+        "missing_closeout_link_files": 0,
+        "missing_closeout_target_files": 0,
+    }
+
+    active_dir = root / "docs/exec-plans/active"
+    if not active_dir.exists():
+        return errors, warnings, metrics
+
+    for file_path in sorted(active_dir.rglob("*.md")):
+        if not file_path.is_file():
+            continue
+        rel = normalize(str(file_path.relative_to(root)))
+        metrics["active_exec_plan_files"] += 1
+        text = file_path.read_text(encoding="utf-8", errors="replace")
+
+        status_match = EXEC_PLAN_STATUS_PATTERN.search(text)
+        if status_match is None:
+            continue
+
+        status = status_match.group(1).strip().lower()
+        if status != "completed":
+            continue
+        metrics["completed_declared_files"] += 1
+
+        closeout_match = EXEC_PLAN_CLOSEOUT_PATTERN.search(text)
+        if closeout_match is None:
+            metrics["missing_closeout_link_files"] += 1
+            errors.append(f"exec-plan closeout missing link marker: {rel}")
+            continue
+
+        closeout_rel = normalize(closeout_match.group(1).strip())
+        closeout_abs = root / closeout_rel
+        if not closeout_abs.exists():
+            metrics["missing_closeout_target_files"] += 1
+            errors.append(
+                f"exec-plan closeout target missing for {rel}: {closeout_rel}"
+            )
+
+    return errors, warnings, metrics
+
+
 def check_legacy_coverage(
     root: Path,
     policy: dict[str, Any],
@@ -235,10 +290,12 @@ def check_legacy_coverage(
             "semantic_auto_migrate_count": 0,
             "semantic_manual_review_count": 0,
             "semantic_skip_count": 0,
+            "fallback_auto_migrate_count": 0,
             "semantic_low_confidence_count": 0,
             "semantic_conflict_count": 0,
             "structured_section_completeness": 1.0,
             "semantic_missing_source_marker_auto_count": 0,
+            "denylist_migration_count": 0,
         },
         "unresolved_sources": [],
         "semantic": {
@@ -250,6 +307,7 @@ def check_legacy_coverage(
             "low_confidence_auto_sources": [],
             "incomplete_sources": [],
             "missing_source_marker_auto_sources": [],
+            "denylist_migration_sources": [],
         },
         "errors": [],
         "warnings": [],
@@ -269,7 +327,17 @@ def check_legacy_coverage(
     )
     report["metrics"]["registry_entries"] = len(entries)
 
+    semantic_settings = (
+        settings.get("semantic")
+        if isinstance(settings.get("semantic"), dict)
+        else {}
+    )
+    denylist = {normalize(str(value)) for value in (semantic_settings.get("denylist_files") or [])}
+    denylist_names = {Path(item).name for item in denylist}
+
     semantic_skip_sources: set[str] = set()
+    denylist_semantic_migration_sources: set[str] = set()
+    semantic_entries: list[dict[str, Any]] = []
     semantic_report_rel = normalize(str(settings.get("semantic_report_path", "")))
     semantic_report_path = root / semantic_report_rel if semantic_report_rel else None
     if semantic_report_path and semantic_report_path.exists():
@@ -287,13 +355,27 @@ def check_legacy_coverage(
                 continue
             source_path = item.get("source_path")
             decision = item.get("decision")
+            normalized_source = (
+                normalize(source_path)
+                if isinstance(source_path, str) and source_path.strip()
+                else None
+            )
             if (
-                isinstance(source_path, str)
-                and source_path.strip()
+                isinstance(normalized_source, str)
                 and isinstance(decision, str)
                 and decision.strip() == "skip"
             ):
-                semantic_skip_sources.add(normalize(source_path))
+                semantic_skip_sources.add(normalized_source)
+            if (
+                isinstance(normalized_source, str)
+                and isinstance(decision, str)
+                and decision.strip() == "auto_migrate"
+                and (
+                    normalized_source in denylist
+                    or Path(normalized_source).name in denylist_names
+                )
+            ):
+                denylist_semantic_migration_sources.add(normalized_source)
 
     completed_sources = [rel for rel in candidates if dl.has_completed_entry(registry, rel)]
     unresolved_sources = [
@@ -337,6 +419,8 @@ def check_legacy_coverage(
                 )
 
         if status in {"migrated", "archived"}:
+            if normalized_source in denylist or Path(normalized_source).name in denylist_names:
+                denylist_semantic_migration_sources.add(normalized_source)
             if not target_rel or not (root / target_rel).exists():
                 report["metrics"]["missing_target_docs"] += 1
                 errors.append(
@@ -363,6 +447,9 @@ def check_legacy_coverage(
     report["metrics"]["semantic_skip_count"] = int(
         semantic_metrics.get("semantic_skip_count", 0)
     )
+    report["metrics"]["fallback_auto_migrate_count"] = int(
+        semantic_metrics.get("fallback_auto_migrate_count", 0)
+    )
     report["metrics"]["semantic_low_confidence_count"] = int(
         semantic_metrics.get("semantic_low_confidence_count", 0)
     )
@@ -375,6 +462,14 @@ def check_legacy_coverage(
     report["metrics"]["semantic_missing_source_marker_auto_count"] = int(
         semantic_metrics.get("missing_source_marker_auto_count", 0)
     )
+    denylist_migration_sources = sorted(denylist_semantic_migration_sources)
+    report["metrics"]["denylist_migration_count"] = len(denylist_migration_sources)
+    report["semantic"]["denylist_migration_sources"] = denylist_migration_sources
+    if denylist_migration_sources:
+        errors.append(
+            "semantic gate failed: denylist sources attempted migration: "
+            + ", ".join(denylist_migration_sources[:20])
+        )
 
     if semantic_quality.get("enabled", False):
         thresholds = semantic_quality.get("thresholds") or {}
@@ -397,6 +492,13 @@ def check_legacy_coverage(
         ):
             semantic_gate_failures.append(
                 "semantic gate failed: semantic conflicts exceed threshold"
+            )
+        if (
+            report["metrics"]["fallback_auto_migrate_count"]
+            > int(thresholds.get("max_fallback_auto_migrate", 0))
+        ):
+            semantic_gate_failures.append(
+                "semantic gate failed: fallback auto migration exceeds threshold"
             )
         if report["metrics"]["structured_section_completeness"] < float(
             thresholds.get("min_structured_section_completeness", 0.95)
@@ -581,6 +683,11 @@ def main() -> int:
     has_drift, drift_count, drift_notes = check_drift(
         root, policy_path, manifest_path, facts
     )
+    exec_plan_errors, exec_plan_warnings, exec_plan_metrics = check_exec_plan_closeout(
+        root
+    )
+    errors.extend(exec_plan_errors)
+    warnings.extend(exec_plan_warnings)
 
     has_stale_metadata = metadata_metrics.get("stale_docs", 0) > 0
     passed = (
@@ -627,14 +734,32 @@ def main() -> int:
             "semantic_skip_count": legacy_report.get("metrics", {}).get(
                 "semantic_skip_count", 0
             ),
+            "fallback_auto_migrate_count": legacy_report.get("metrics", {}).get(
+                "fallback_auto_migrate_count", 0
+            ),
             "semantic_low_confidence_count": legacy_report.get("metrics", {}).get(
                 "semantic_low_confidence_count", 0
             ),
             "semantic_conflict_count": legacy_report.get("metrics", {}).get(
                 "semantic_conflict_count", 0
             ),
+            "denylist_migration_count": legacy_report.get("metrics", {}).get(
+                "denylist_migration_count", 0
+            ),
             "structured_section_completeness": legacy_report.get("metrics", {}).get(
                 "structured_section_completeness", 1.0
+            ),
+            "active_exec_plan_files": exec_plan_metrics.get(
+                "active_exec_plan_files", 0
+            ),
+            "completed_declared_exec_plans": exec_plan_metrics.get(
+                "completed_declared_files", 0
+            ),
+            "missing_exec_plan_closeout_links": exec_plan_metrics.get(
+                "missing_closeout_link_files", 0
+            ),
+            "missing_exec_plan_closeout_targets": exec_plan_metrics.get(
+                "missing_closeout_target_files", 0
             ),
         },
         "errors": errors,
@@ -673,6 +798,11 @@ def main() -> int:
             "metrics": {},
         },
         "legacy": legacy_report,
+        "exec_plan_closeout": {
+            "errors": exec_plan_errors,
+            "warnings": exec_plan_warnings,
+            "metrics": exec_plan_metrics,
+        },
     }
 
     output_path.parent.mkdir(parents=True, exist_ok=True)

@@ -1,6 +1,8 @@
 <!-- doc-owner: docs-maintainer -->
-<!-- doc-last-reviewed: 2026-02-21 -->
+<!-- doc-last-reviewed: 2026-02-22 -->
 <!-- doc-review-cycle-days: 90 -->
+<!-- exec-plan-status: completed -->
+<!-- exec-plan-closeout: docs/exec-plans/completed/docs-sor-legacy-migration-automation-closeout-2026-02-22.md -->
 
 # Docs SoR Legacy 继承与集中归档自动化规划
 

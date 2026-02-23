@@ -45,15 +45,16 @@ DEFAULT_SEMANTIC_CATEGORIES = [
 ]
 DEFAULT_SEMANTIC_SETTINGS = {
     "enabled": False,
-    "engine": "deterministic_mock",
-    "provider": "deterministic_mock",
-    "model": "deterministic-mock-v1",
+    "engine": "llm",
+    "provider": "agent_runtime",
+    "model": "agent-runtime-report-v1",
     "auto_migrate_threshold": 0.85,
     "review_threshold": 0.60,
     "max_chars_per_doc": 20000,
     "categories": list(DEFAULT_SEMANTIC_CATEGORIES),
     "denylist_files": ["README.md", "AGENTS.md"],
     "fail_closed": True,
+    "allow_fallback_auto_migrate": False,
 }
 _SEMANTIC_CATEGORY_SIGNALS = {
     "requirement": ["requirement", "requirements", "需求", "spec", "scope"],
@@ -157,23 +158,19 @@ def _normalize_denylist_files(value: Any) -> list[str]:
 
 
 def resolve_legacy_semantic_settings(legacy_raw: dict[str, Any]) -> dict[str, Any]:
-    semantic_raw = (
-        legacy_raw.get("semantic")
-        if isinstance(legacy_raw.get("semantic"), dict)
-        else {}
-    )
+    semantic_raw = legacy_raw.get("semantic") if isinstance(legacy_raw.get("semantic"), dict) else {}
     enabled = bool(semantic_raw.get("enabled", DEFAULT_SEMANTIC_SETTINGS["enabled"]))
-    engine = str(
-        semantic_raw.get("engine", DEFAULT_SEMANTIC_SETTINGS["engine"])
-    ).strip() or str(DEFAULT_SEMANTIC_SETTINGS["engine"])
-    provider = str(
-        semantic_raw.get("provider", DEFAULT_SEMANTIC_SETTINGS["provider"])
-    ).strip()
+    engine = str(semantic_raw.get("engine", DEFAULT_SEMANTIC_SETTINGS["engine"])).strip() or str(
+        DEFAULT_SEMANTIC_SETTINGS["engine"]
+    )
+    provider = str(semantic_raw.get("provider", DEFAULT_SEMANTIC_SETTINGS["provider"])).strip()
     if not provider:
         provider = (
-            "deterministic_mock"
-            if engine in {"llm", "deterministic_mock"}
-            else str(DEFAULT_SEMANTIC_SETTINGS["provider"])
+            "agent_runtime"
+            if engine == "llm"
+            else (
+                "deterministic_mock" if engine == "deterministic_mock" else str(DEFAULT_SEMANTIC_SETTINGS["provider"])
+            )
         )
     model = str(semantic_raw.get("model", DEFAULT_SEMANTIC_SETTINGS["model"])).strip()
     if not model:
@@ -202,24 +199,22 @@ def resolve_legacy_semantic_settings(legacy_raw: dict[str, Any]) -> dict[str, An
         "auto_migrate_threshold": auto_threshold,
         "review_threshold": review_threshold,
         "max_chars_per_doc": _normalize_positive_int(
-            semantic_raw.get(
-                "max_chars_per_doc", DEFAULT_SEMANTIC_SETTINGS["max_chars_per_doc"]
-            ),
+            semantic_raw.get("max_chars_per_doc", DEFAULT_SEMANTIC_SETTINGS["max_chars_per_doc"]),
             int(DEFAULT_SEMANTIC_SETTINGS["max_chars_per_doc"]),
         ),
         "categories": _normalize_semantic_categories(semantic_raw.get("categories")),
-        "denylist_files": _normalize_denylist_files(
-            semantic_raw.get("denylist_files")
-        ),
-        "fail_closed": bool(
-            semantic_raw.get("fail_closed", DEFAULT_SEMANTIC_SETTINGS["fail_closed"])
+        "denylist_files": _normalize_denylist_files(semantic_raw.get("denylist_files")),
+        "fail_closed": bool(semantic_raw.get("fail_closed", DEFAULT_SEMANTIC_SETTINGS["fail_closed"])),
+        "allow_fallback_auto_migrate": bool(
+            semantic_raw.get(
+                "allow_fallback_auto_migrate",
+                DEFAULT_SEMANTIC_SETTINGS["allow_fallback_auto_migrate"],
+            )
         ),
     }
 
 
-def _resolve_semantic_decision(
-    category: str, confidence: float, semantic_settings: dict[str, Any]
-) -> str:
+def _resolve_semantic_decision(category: str, confidence: float, semantic_settings: dict[str, Any]) -> str:
     if category == "not_migratable":
         return "skip"
     auto_threshold = float(semantic_settings.get("auto_migrate_threshold", 0.85))
@@ -229,6 +224,63 @@ def _resolve_semantic_decision(
     if confidence >= review_threshold:
         return "manual_review"
     return "skip"
+
+
+def _normalize_semantic_decision(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    decision = value.strip()
+    if decision in {"auto_migrate", "manual_review", "skip"}:
+        return decision
+    return None
+
+
+def load_semantic_report_index(
+    root: Path,
+    settings: dict[str, Any],
+) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
+    semantic_report_rel = normalize_rel(str(settings.get("semantic_report_path", "")).strip())
+    metadata: dict[str, Any] = {
+        "report_path": semantic_report_rel,
+        "available": False,
+        "entry_count": 0,
+        "error": None,
+    }
+    if not semantic_report_rel:
+        metadata["error"] = "semantic_report_path is empty"
+        return {}, metadata
+
+    report_path = (root / semantic_report_rel).resolve()
+    if not report_path.exists():
+        metadata["error"] = f"semantic report not found: {semantic_report_rel}"
+        return {}, metadata
+
+    try:
+        payload = json.loads(report_path.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001
+        metadata["error"] = f"semantic report unreadable: {exc}"
+        return {}, metadata
+    if not isinstance(payload, dict):
+        metadata["error"] = "semantic report root must be object"
+        return {}, metadata
+
+    entries_raw = payload.get("entries")
+    if not isinstance(entries_raw, list):
+        metadata["error"] = "semantic report entries must be list"
+        return {}, metadata
+
+    index: dict[str, dict[str, Any]] = {}
+    for item in entries_raw:
+        if not isinstance(item, dict):
+            continue
+        source_path = item.get("source_path")
+        if not isinstance(source_path, str) or not source_path.strip():
+            continue
+        index[normalize_rel(source_path)] = item
+
+    metadata["available"] = True
+    metadata["entry_count"] = len(index)
+    return index, metadata
 
 
 def _classify_with_deterministic_mock(
@@ -269,29 +321,112 @@ def _classify_with_deterministic_mock(
     }
 
 
-def _resolve_semantic_provider(
-    source_rel: str, content: str, semantic_settings: dict[str, Any]
+def _classify_with_agent_runtime(
+    source_rel: str,
+    semantic_settings: dict[str, Any],
+    mapping_table: dict[str, str],
+    runtime_entry: dict[str, Any] | None,
+    runtime_state: dict[str, Any] | None,
 ) -> dict[str, Any]:
-    providers = {
-        "deterministic_mock": _classify_with_deterministic_mock,
+    state = runtime_state if isinstance(runtime_state, dict) else {}
+    runtime_available = bool(state.get("available", False))
+    runtime_error = state.get("error")
+    normalized_source = normalize_rel(source_rel)
+
+    if isinstance(runtime_entry, dict):
+        category_raw = runtime_entry.get("category")
+        category = (
+            str(category_raw).strip()
+            if isinstance(category_raw, str) and str(category_raw).strip()
+            else "not_migratable"
+        )
+        confidence = _normalize_confidence(runtime_entry.get("confidence"), 0.0)
+        decision = _normalize_semantic_decision(runtime_entry.get("decision"))
+        if decision is None:
+            decision = _resolve_semantic_decision(category, confidence, semantic_settings)
+        rationale_raw = runtime_entry.get("rationale")
+        rationale = (
+            str(rationale_raw).strip()
+            if isinstance(rationale_raw, str) and str(rationale_raw).strip()
+            else "agent runtime semantic report matched source_path"
+        )
+        signals_raw = runtime_entry.get("signals")
+        signals: list[str] = []
+        if isinstance(signals_raw, list):
+            for item in signals_raw:
+                if isinstance(item, str) and item.strip():
+                    signals.append(item.strip())
+        if not signals:
+            signals = ["agent_runtime_report"]
+
+        provider_raw = runtime_entry.get("provider")
+        provider = (
+            str(provider_raw).strip()
+            if isinstance(provider_raw, str) and str(provider_raw).strip()
+            else "agent_runtime"
+        )
+        model_raw = runtime_entry.get("model")
+        model = (
+            str(model_raw).strip()
+            if isinstance(model_raw, str) and str(model_raw).strip()
+            else str(semantic_settings.get("model") or DEFAULT_SEMANTIC_SETTINGS["model"])
+        )
+        return {
+            "source_path": normalized_source,
+            "category": category,
+            "confidence": round(confidence, 4),
+            "rationale": rationale,
+            "signals": sorted(set(signals)),
+            "decision": decision,
+            "provider": provider,
+            "model": model,
+            "decision_source": "semantic",
+            "fallback_auto_migrate": False,
+        }
+
+    allow_fallback_auto = bool(semantic_settings.get("allow_fallback_auto_migrate", False))
+    mapping_hit = normalized_source in mapping_table
+    fallback_decision = "manual_review" if semantic_settings.get("fail_closed", True) else "skip"
+    fallback_auto = False
+    signals = ["agent_runtime_fallback"]
+    rationale = "agent runtime semantic report missing source entry"
+    if not runtime_available:
+        rationale = "agent runtime semantic report unavailable"
+        if isinstance(runtime_error, str) and runtime_error.strip():
+            rationale = f"{rationale}: {runtime_error.strip()}"
+
+    if allow_fallback_auto and mapping_hit:
+        fallback_decision = "auto_migrate"
+        fallback_auto = True
+        signals.append("mapping_table")
+        rationale = "fallback auto migration allowed by mapping_table"
+    elif mapping_hit:
+        signals.append("mapping_table")
+
+    return {
+        "source_path": normalized_source,
+        "category": "not_migratable",
+        "confidence": 0.0,
+        "rationale": rationale,
+        "signals": sorted(set(signals)),
+        "decision": fallback_decision,
+        "provider": "agent_runtime",
+        "model": str(semantic_settings.get("model") or DEFAULT_SEMANTIC_SETTINGS["model"]),
+        "decision_source": "fallback",
+        "fallback_auto_migrate": fallback_auto,
     }
-    provider_name = str(semantic_settings.get("provider", "deterministic_mock"))
-    classifier = providers.get(provider_name)
-    if classifier is None:
-        raise ValueError(f"unsupported semantic provider: {provider_name}")
-    result = classifier(source_rel, content, semantic_settings)
-    result["provider"] = provider_name
-    return result
 
 
 def classify_legacy_source(
-    root: Path, source_rel: str, settings: dict[str, Any]
+    root: Path,
+    source_rel: str,
+    settings: dict[str, Any],
+    runtime_semantic_index: dict[str, dict[str, Any]] | None = None,
+    runtime_semantic_state: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     source_rel = normalize_rel(source_rel)
     semantic_settings = (
-        settings.get("semantic")
-        if isinstance(settings.get("semantic"), dict)
-        else resolve_legacy_semantic_settings({})
+        settings.get("semantic") if isinstance(settings.get("semantic"), dict) else resolve_legacy_semantic_settings({})
     )
     if not semantic_settings.get("enabled", False):
         return {
@@ -306,6 +441,9 @@ def classify_legacy_source(
             "model": semantic_settings.get("model"),
         }
 
+    provider_name = str(semantic_settings.get("provider", DEFAULT_SEMANTIC_SETTINGS["provider"])).strip() or str(
+        DEFAULT_SEMANTIC_SETTINGS["provider"]
+    )
     denylist = set(semantic_settings.get("denylist_files") or [])
     denylist_names = {Path(item).name for item in denylist}
     if source_rel in denylist or Path(source_rel).name in denylist_names:
@@ -317,8 +455,44 @@ def classify_legacy_source(
             "signals": ["denylist_files"],
             "decision": "skip",
             "engine": semantic_settings.get("engine"),
-            "provider": semantic_settings.get("provider"),
+            "provider": provider_name,
             "model": semantic_settings.get("model"),
+            "decision_source": "semantic",
+            "fallback_auto_migrate": False,
+        }
+
+    if provider_name == "agent_runtime":
+        runtime_index = runtime_semantic_index if isinstance(runtime_semantic_index, dict) else {}
+        runtime_state = runtime_semantic_state if isinstance(runtime_semantic_state, dict) else {}
+        runtime_entry = runtime_index.get(source_rel)
+        result = _classify_with_agent_runtime(
+            source_rel=source_rel,
+            semantic_settings=semantic_settings,
+            mapping_table=settings.get("mapping_table") if isinstance(settings.get("mapping_table"), dict) else {},
+            runtime_entry=runtime_entry if isinstance(runtime_entry, dict) else None,
+            runtime_state=runtime_state,
+        )
+        result["engine"] = semantic_settings.get("engine")
+        if not isinstance(result.get("provider"), str) or not str(result.get("provider")).strip():
+            result["provider"] = provider_name
+        if not isinstance(result.get("model"), str) or not str(result.get("model")).strip():
+            result["model"] = semantic_settings.get("model")
+        return result
+
+    if provider_name != "deterministic_mock":
+        fallback_decision = "manual_review" if semantic_settings.get("fail_closed", True) else "skip"
+        return {
+            "source_path": source_rel,
+            "category": "not_migratable",
+            "confidence": 0.0,
+            "rationale": f"semantic provider failure: unsupported semantic provider: {provider_name}",
+            "signals": ["provider-error"],
+            "decision": fallback_decision,
+            "engine": semantic_settings.get("engine"),
+            "provider": provider_name,
+            "model": semantic_settings.get("model"),
+            "decision_source": "fallback",
+            "fallback_auto_migrate": False,
         }
 
     source_abs = root / source_rel
@@ -334,15 +508,17 @@ def classify_legacy_source(
             "signals": ["read-error"],
             "decision": fallback_decision,
             "engine": semantic_settings.get("engine"),
-            "provider": semantic_settings.get("provider"),
+            "provider": provider_name,
             "model": semantic_settings.get("model"),
+            "decision_source": "fallback",
+            "fallback_auto_migrate": False,
         }
 
     max_chars = int(semantic_settings.get("max_chars_per_doc", 20000))
     content = raw_content[:max_chars]
     truncated = len(raw_content) > max_chars
     try:
-        result = _resolve_semantic_provider(source_rel, content, semantic_settings)
+        result = _classify_with_deterministic_mock(source_rel, content, semantic_settings)
     except Exception as exc:  # noqa: BLE001
         fallback_decision = "manual_review" if semantic_settings.get("fail_closed", True) else "skip"
         return {
@@ -353,15 +529,20 @@ def classify_legacy_source(
             "signals": ["provider-error"],
             "decision": fallback_decision,
             "engine": semantic_settings.get("engine"),
-            "provider": semantic_settings.get("provider"),
+            "provider": provider_name,
             "model": semantic_settings.get("model"),
+            "decision_source": "fallback",
+            "fallback_auto_migrate": False,
         }
 
     result["source_path"] = source_rel
     result["engine"] = semantic_settings.get("engine")
+    result["provider"] = provider_name
     result["model"] = semantic_settings.get("model")
     result["truncated"] = truncated
     result["analyzed_chars"] = len(content)
+    result["decision_source"] = "semantic"
+    result["fallback_auto_migrate"] = False
     return result
 
 
@@ -373,49 +554,23 @@ def resolve_legacy_settings(policy: dict[str, Any] | None) -> dict[str, Any]:
     )
 
     enabled = bool(raw.get("enabled", DEFAULT_LEGACY_SETTINGS["enabled"]))
-    include_globs = _normalize_globs(
-        raw.get("include_globs", DEFAULT_LEGACY_SETTINGS["include_globs"])
+    include_globs = _normalize_globs(raw.get("include_globs", DEFAULT_LEGACY_SETTINGS["include_globs"]))
+    exclude_globs = _normalize_globs(raw.get("exclude_globs", DEFAULT_LEGACY_SETTINGS["exclude_globs"]))
+    archive_root = normalize_rel(str(raw.get("archive_root", DEFAULT_LEGACY_SETTINGS["archive_root"])))
+    mapping_strategy = str(raw.get("mapping_strategy", DEFAULT_LEGACY_SETTINGS["mapping_strategy"])).strip() or str(
+        DEFAULT_LEGACY_SETTINGS["mapping_strategy"]
     )
-    exclude_globs = _normalize_globs(
-        raw.get("exclude_globs", DEFAULT_LEGACY_SETTINGS["exclude_globs"])
-    )
-    archive_root = normalize_rel(
-        str(raw.get("archive_root", DEFAULT_LEGACY_SETTINGS["archive_root"]))
-    )
-    mapping_strategy = str(
-        raw.get("mapping_strategy", DEFAULT_LEGACY_SETTINGS["mapping_strategy"])
-    ).strip() or str(DEFAULT_LEGACY_SETTINGS["mapping_strategy"])
     if mapping_strategy not in {"path_based", "tag_based", "manual_table"}:
         mapping_strategy = "path_based"
-    target_root = normalize_rel(
-        str(raw.get("target_root", DEFAULT_LEGACY_SETTINGS["target_root"]))
-    )
-    target_doc = normalize_rel(
-        str(raw.get("target_doc", DEFAULT_LEGACY_SETTINGS["target_doc"]))
-    )
-    registry_path = normalize_rel(
-        str(raw.get("registry_path", DEFAULT_LEGACY_SETTINGS["registry_path"]))
-    )
-    allow_non_markdown = bool(
-        raw.get("allow_non_markdown", DEFAULT_LEGACY_SETTINGS["allow_non_markdown"])
-    )
-    exempt_sources = _normalize_globs(
-        raw.get("exempt_sources", DEFAULT_LEGACY_SETTINGS["exempt_sources"])
-    )
-    mapping_table = _normalize_mapping_table(
-        raw.get("mapping_table", DEFAULT_LEGACY_SETTINGS["mapping_table"])
-    )
-    fail_on_legacy_drift = bool(
-        raw.get(
-            "fail_on_legacy_drift", DEFAULT_LEGACY_SETTINGS["fail_on_legacy_drift"]
-        )
-    )
+    target_root = normalize_rel(str(raw.get("target_root", DEFAULT_LEGACY_SETTINGS["target_root"])))
+    target_doc = normalize_rel(str(raw.get("target_doc", DEFAULT_LEGACY_SETTINGS["target_doc"])))
+    registry_path = normalize_rel(str(raw.get("registry_path", DEFAULT_LEGACY_SETTINGS["registry_path"])))
+    allow_non_markdown = bool(raw.get("allow_non_markdown", DEFAULT_LEGACY_SETTINGS["allow_non_markdown"]))
+    exempt_sources = _normalize_globs(raw.get("exempt_sources", DEFAULT_LEGACY_SETTINGS["exempt_sources"]))
+    mapping_table = _normalize_mapping_table(raw.get("mapping_table", DEFAULT_LEGACY_SETTINGS["mapping_table"]))
+    fail_on_legacy_drift = bool(raw.get("fail_on_legacy_drift", DEFAULT_LEGACY_SETTINGS["fail_on_legacy_drift"]))
     semantic_report_path = normalize_rel(
-        str(
-            raw.get(
-                "semantic_report_path", DEFAULT_LEGACY_SETTINGS["semantic_report_path"]
-            )
-        )
+        str(raw.get("semantic_report_path", DEFAULT_LEGACY_SETTINGS["semantic_report_path"]))
     )
     semantic = resolve_legacy_semantic_settings(raw)
 
@@ -489,11 +644,7 @@ def resolve_target_path(source_rel: str, settings: dict[str, Any]) -> str:
     strategy = settings.get("mapping_strategy", "path_based")
     if strategy == "path_based":
         source_path = Path(source_rel)
-        filename = (
-            source_path.name
-            if source_path.suffix.lower() == ".md"
-            else f"{source_path.name}.md"
-        )
+        filename = source_path.name if source_path.suffix.lower() == ".md" else f"{source_path.name}.md"
         target = Path(str(settings.get("target_root", "docs/history/legacy")))
         return normalize_rel(str(target / source_path.parent / filename))
 
@@ -534,9 +685,7 @@ def _truncate_text(text: str, max_chars: int) -> str:
     return text[: max_chars - 3].rstrip() + "..."
 
 
-def _extract_lines_by_keywords(
-    lines: list[str], keywords: list[str], max_items: int
-) -> list[str]:
+def _extract_lines_by_keywords(lines: list[str], keywords: list[str], max_items: int) -> list[str]:
     lowered_keywords = [k.lower() for k in keywords]
     out: list[str] = []
     for line in lines:
@@ -704,15 +853,9 @@ def render_structured_migration_entry(
         f"<!-- legacy-migrated-at: {migrated_at} -->",
         "",
     ]
-    lines.extend(
-        _render_structured_section(summary_heading, payload["summary"], summary_fallback)
-    )
-    lines.extend(
-        _render_structured_section(key_facts_heading, payload["key_facts"], key_facts_fallback)
-    )
-    lines.extend(
-        _render_structured_section(decisions_heading, payload["decisions"], decisions_fallback)
-    )
+    lines.extend(_render_structured_section(summary_heading, payload["summary"], summary_fallback))
+    lines.extend(_render_structured_section(key_facts_heading, payload["key_facts"], key_facts_fallback))
+    lines.extend(_render_structured_section(decisions_heading, payload["decisions"], decisions_fallback))
     lines.extend(_render_structured_section(risks_heading, payload["risks"], risks_fallback))
     lines.extend(_render_structured_section(trace_heading, payload["trace"], key_facts_fallback))
     lines.extend(
@@ -783,9 +926,7 @@ def save_registry(path: Path, registry: dict[str, Any], dry_run: bool) -> None:
         f.write("\n")
 
 
-def upsert_registry_entry(
-    registry: dict[str, Any], source_rel: str, patch: dict[str, Any]
-) -> dict[str, Any]:
+def upsert_registry_entry(registry: dict[str, Any], source_rel: str, patch: dict[str, Any]) -> dict[str, Any]:
     source_key = normalize_rel(source_rel)
     entries = registry.setdefault("entries", {})
     current = entries.get(source_key) if isinstance(entries.get(source_key), dict) else {}

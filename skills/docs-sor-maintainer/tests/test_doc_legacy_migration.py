@@ -17,6 +17,7 @@ import doc_apply  # noqa: E402
 import doc_legacy as dl  # noqa: E402
 import doc_metadata as dm  # noqa: E402
 import doc_plan  # noqa: E402
+import doc_quality  # noqa: E402
 import doc_validate  # noqa: E402
 import language_profiles as lp  # noqa: E402
 
@@ -40,6 +41,9 @@ class DocLegacyMigrationTests(unittest.TestCase):
         self,
         *,
         semantic_enabled: bool = False,
+        semantic_provider: str = "deterministic_mock",
+        semantic_model: str = "gpt-5-codex",
+        allow_fallback_auto_migrate: bool = False,
         include_globs: list[str] | None = None,
         exclude_globs: list[str] | None = None,
     ) -> dict[str, object]:
@@ -61,8 +65,8 @@ class DocLegacyMigrationTests(unittest.TestCase):
             "semantic": {
                 "enabled": semantic_enabled,
                 "engine": "llm",
-                "provider": "deterministic_mock",
-                "model": "gpt-5-codex",
+                "provider": semantic_provider,
+                "model": semantic_model,
                 "auto_migrate_threshold": 0.85,
                 "review_threshold": 0.60,
                 "max_chars_per_doc": 20000,
@@ -76,6 +80,7 @@ class DocLegacyMigrationTests(unittest.TestCase):
                 ],
                 "denylist_files": ["README.md", "AGENTS.md"],
                 "fail_closed": True,
+                "allow_fallback_auto_migrate": allow_fallback_auto_migrate,
             },
         }
         (self.root / "docs/.doc-policy.json").write_text(
@@ -363,6 +368,462 @@ class DocLegacyMigrationTests(unittest.TestCase):
         self.assertIsNotNone(agents_entry)
         self.assertEqual((agents_entry or {}).get("decision"), "skip")
         self.assertEqual((agents_entry or {}).get("category"), "not_migratable")
+
+    def test_legacy_semantic_agent_runtime_report_consumption(self) -> None:
+        self._write_policy(
+            semantic_enabled=True,
+            semantic_provider="agent_runtime",
+            semantic_model="runtime-model-v1",
+        )
+        self._write_manifest()
+        (self.root / "legacy/high.md").write_text("# High\n", encoding="utf-8")
+        (self.root / "legacy/mid.md").write_text("# Mid\n", encoding="utf-8")
+        (self.root / "legacy/low.md").write_text("# Low\n", encoding="utf-8")
+        (self.root / "docs/.legacy-semantic-report.json").write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "entries": [
+                        {
+                            "source_path": "legacy/high.md",
+                            "category": "plan",
+                            "confidence": 0.92,
+                            "decision": "auto_migrate",
+                            "rationale": "runtime detected migration candidate",
+                            "provider": "agent_runtime",
+                            "model": "runtime-model-v1",
+                        },
+                        {
+                            "source_path": "legacy/mid.md",
+                            "category": "plan",
+                            "confidence": 0.71,
+                            "decision": "manual_review",
+                            "provider": "agent_runtime",
+                            "model": "runtime-model-v1",
+                        },
+                        {
+                            "source_path": "legacy/low.md",
+                            "category": "not_migratable",
+                            "confidence": 0.12,
+                            "decision": "skip",
+                            "provider": "agent_runtime",
+                            "model": "runtime-model-v1",
+                        },
+                    ],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        plan = doc_plan.build_plan(
+            root=self.root,
+            mode="apply-with-archive",
+            facts={"generated_at": utc_now()},
+            policy_path=self.root / "docs/.doc-policy.json",
+            manifest_path=self.root / "docs/.doc-manifest.json",
+        )
+
+        actions = plan.get("actions") or []
+        actions_by_source: dict[str, set[str]] = {}
+        for action in actions:
+            if not isinstance(action, dict):
+                continue
+            source = action.get("source_path") or action.get("path")
+            if not isinstance(source, str):
+                continue
+            actions_by_source.setdefault(source, set()).add(str(action.get("type")))
+
+        self.assertIn("migrate_legacy", actions_by_source.get("legacy/high.md", set()))
+        self.assertIn("archive_legacy", actions_by_source.get("legacy/high.md", set()))
+        self.assertEqual(actions_by_source.get("legacy/mid.md"), {"legacy_manual_review"})
+        self.assertNotIn("legacy/low.md", actions_by_source)
+
+        semantic_meta = (
+            ((plan.get("meta") or {}).get("legacy_sources") or {}).get("semantic") or {}
+        )
+        self.assertEqual(semantic_meta.get("provider"), "agent_runtime")
+        self.assertTrue(semantic_meta.get("report_available"))
+        self.assertEqual(semantic_meta.get("report_entry_count"), 3)
+        self.assertEqual(semantic_meta.get("fallback_auto_migrate_count"), 0)
+
+        semantic_entries = plan.get("legacy_semantic_report") or []
+        high = next(
+            (
+                item
+                for item in semantic_entries
+                if isinstance(item, dict) and item.get("source_path") == "legacy/high.md"
+            ),
+            None,
+        )
+        self.assertIsNotNone(high)
+        self.assertEqual((high or {}).get("provider"), "agent_runtime")
+        self.assertEqual((high or {}).get("decision_source"), "semantic")
+        self.assertEqual((high or {}).get("model"), "runtime-model-v1")
+
+    def test_legacy_semantic_fallback_no_auto_migrate(self) -> None:
+        self._write_policy(
+            semantic_enabled=True,
+            semantic_provider="agent_runtime",
+            allow_fallback_auto_migrate=False,
+        )
+        self._write_manifest()
+        (self.root / "legacy/fallback.md").write_text("fallback scenario\n", encoding="utf-8")
+
+        plan = doc_plan.build_plan(
+            root=self.root,
+            mode="apply-with-archive",
+            facts={"generated_at": utc_now()},
+            policy_path=self.root / "docs/.doc-policy.json",
+            manifest_path=self.root / "docs/.doc-manifest.json",
+        )
+
+        actions = plan.get("actions") or []
+        source_actions = [
+            action
+            for action in actions
+            if isinstance(action, dict)
+            and (
+                action.get("source_path") == "legacy/fallback.md"
+                or action.get("path") == "legacy/fallback.md"
+            )
+        ]
+        self.assertEqual([action.get("type") for action in source_actions], ["legacy_manual_review"])
+
+        semantic_entries = plan.get("legacy_semantic_report") or []
+        fallback_entry = next(
+            (
+                item
+                for item in semantic_entries
+                if isinstance(item, dict) and item.get("source_path") == "legacy/fallback.md"
+            ),
+            None,
+        )
+        self.assertIsNotNone(fallback_entry)
+        self.assertEqual((fallback_entry or {}).get("decision"), "manual_review")
+        self.assertEqual((fallback_entry or {}).get("decision_source"), "fallback")
+        self.assertFalse(bool((fallback_entry or {}).get("fallback_auto_migrate")))
+
+        semantic_meta = (
+            ((plan.get("meta") or {}).get("legacy_sources") or {}).get("semantic") or {}
+        )
+        self.assertFalse(semantic_meta.get("report_available"))
+        self.assertEqual(semantic_meta.get("fallback_auto_migrate_count"), 0)
+
+    def test_validate_blocks_denylist_migration(self) -> None:
+        policy = self._write_policy(
+            semantic_enabled=True,
+            semantic_provider="agent_runtime",
+            include_globs=["legacy/**", "AGENTS.md"],
+            exclude_globs=[],
+        )
+        self._write_manifest()
+        settings = dl.resolve_legacy_settings(policy)
+        source_rel = "AGENTS.md"
+        (self.root / source_rel).write_text("# AGENTS\n", encoding="utf-8")
+        target_rel = dl.resolve_target_path(source_rel, settings)
+        archive_rel = dl.resolve_archive_path(source_rel, settings)
+        (self.root / Path(target_rel)).parent.mkdir(parents=True, exist_ok=True)
+        (self.root / target_rel).write_text(
+            dl.render_target_header("zh-CN")
+            + "\n"
+            + dl.render_migration_entry(source_rel, "# AGENTS\n", archive_rel, "zh-CN"),
+            encoding="utf-8",
+        )
+        (self.root / Path(archive_rel)).parent.mkdir(parents=True, exist_ok=True)
+        (self.root / archive_rel).write_text("# AGENTS\n", encoding="utf-8")
+
+        registry = dl.load_registry(self.root / str(settings["registry_path"]))
+        dl.upsert_registry_entry(
+            registry,
+            source_rel,
+            {
+                "status": "archived",
+                "target_path": target_rel,
+                "archive_path": archive_rel,
+                "decision_source": "semantic",
+                "category": "plan",
+                "confidence": 0.99,
+                "semantic_model": "runtime-model-v1",
+            },
+        )
+        dl.save_registry(self.root / str(settings["registry_path"]), registry, dry_run=False)
+
+        (self.root / "docs/.legacy-semantic-report.json").write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "entries": [
+                        {
+                            "source_path": source_rel,
+                            "decision": "auto_migrate",
+                            "category": "plan",
+                            "confidence": 0.99,
+                            "provider": "agent_runtime",
+                            "model": "runtime-model-v1",
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        errors, warnings, report = doc_validate.check_legacy_coverage(self.root, policy)
+        self.assertEqual(warnings, [])
+        self.assertTrue(
+            any("denylist sources attempted migration" in message for message in errors)
+        )
+        self.assertEqual(report.get("metrics", {}).get("denylist_migration_count"), 1)
+
+    def test_legacy_semantic_agent_runtime_missing_fields(self) -> None:
+        self._write_policy(
+            semantic_enabled=True,
+            semantic_provider="agent_runtime",
+        )
+        self._write_manifest()
+        (self.root / "legacy/missing-fields.md").write_text(
+            "runtime missing fields\n", encoding="utf-8"
+        )
+        (self.root / "docs/.legacy-semantic-report.json").write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "entries": [
+                        {
+                            "source_path": "legacy/missing-fields.md",
+                            "category": "plan",
+                            "confidence": 0.92,
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        plan = doc_plan.build_plan(
+            root=self.root,
+            mode="apply-with-archive",
+            facts={"generated_at": utc_now()},
+            policy_path=self.root / "docs/.doc-policy.json",
+            manifest_path=self.root / "docs/.doc-manifest.json",
+        )
+        semantic_entries = plan.get("legacy_semantic_report") or []
+        entry = next(
+            (
+                item
+                for item in semantic_entries
+                if isinstance(item, dict)
+                and item.get("source_path") == "legacy/missing-fields.md"
+            ),
+            None,
+        )
+        self.assertIsNotNone(entry)
+        self.assertEqual((entry or {}).get("decision"), "auto_migrate")
+        self.assertEqual((entry or {}).get("provider"), "agent_runtime")
+        self.assertEqual((entry or {}).get("decision_source"), "semantic")
+        self.assertEqual((entry or {}).get("model"), "gpt-5-codex")
+
+    def test_legacy_semantic_partial_runtime_report_uses_fallback_without_auto(self) -> None:
+        self._write_policy(
+            semantic_enabled=True,
+            semantic_provider="agent_runtime",
+            allow_fallback_auto_migrate=False,
+        )
+        self._write_manifest()
+        (self.root / "legacy/has-entry.md").write_text("has entry\n", encoding="utf-8")
+        (self.root / "legacy/missing-entry.md").write_text("missing entry\n", encoding="utf-8")
+        (self.root / "docs/.legacy-semantic-report.json").write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "entries": [
+                        {
+                            "source_path": "legacy/has-entry.md",
+                            "category": "plan",
+                            "confidence": 0.91,
+                            "decision": "auto_migrate",
+                            "provider": "agent_runtime",
+                            "model": "runtime-model-v1",
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        plan = doc_plan.build_plan(
+            root=self.root,
+            mode="apply-with-archive",
+            facts={"generated_at": utc_now()},
+            policy_path=self.root / "docs/.doc-policy.json",
+            manifest_path=self.root / "docs/.doc-manifest.json",
+        )
+        actions = plan.get("actions") or []
+        has_entry_action_types = {
+            str(action.get("type"))
+            for action in actions
+            if isinstance(action, dict)
+            and str(action.get("source_path")) == "legacy/has-entry.md"
+        }
+        missing_entry_action_types = {
+            str(action.get("type"))
+            for action in actions
+            if isinstance(action, dict)
+            and (
+                str(action.get("source_path")) == "legacy/missing-entry.md"
+                or str(action.get("path")) == "legacy/missing-entry.md"
+            )
+        }
+        self.assertIn("migrate_legacy", has_entry_action_types)
+        self.assertEqual(missing_entry_action_types, {"legacy_manual_review"})
+
+        semantic_entries = plan.get("legacy_semantic_report") or []
+        missing_entry = next(
+            (
+                item
+                for item in semantic_entries
+                if isinstance(item, dict)
+                and item.get("source_path") == "legacy/missing-entry.md"
+            ),
+            None,
+        )
+        self.assertIsNotNone(missing_entry)
+        self.assertEqual((missing_entry or {}).get("decision"), "manual_review")
+        self.assertEqual((missing_entry or {}).get("decision_source"), "fallback")
+        self.assertFalse(bool((missing_entry or {}).get("fallback_auto_migrate")))
+
+    def test_legacy_semantic_mapping_table_allows_controlled_fallback_auto(self) -> None:
+        policy = self._write_policy(
+            semantic_enabled=True,
+            semantic_provider="agent_runtime",
+            allow_fallback_auto_migrate=True,
+        )
+        policy["legacy_sources"]["mapping_table"] = {  # type: ignore[index]
+            "legacy/controlled.md": "docs/history/legacy/custom-controlled.md"
+        }
+        policy["doc_quality_gates"] = {
+            "enabled": True,
+            "min_evidence_coverage": 0.0,
+            "max_conflicts": 10,
+            "max_unknown_claims": 10,
+            "max_unresolved_todo": 10,
+            "max_stale_metrics_days": 0,
+            "max_semantic_conflicts": 10,
+            "max_semantic_low_confidence_auto": 10,
+            "max_fallback_auto_migrate": 1,
+            "min_structured_section_completeness": 0.0,
+            "fail_on_quality_gate": True,
+            "fail_on_semantic_gate": True,
+        }
+        (self.root / "docs/.doc-policy.json").write_text(
+            json.dumps(policy, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+        self._write_manifest()
+        (self.root / "legacy/controlled.md").write_text("controlled fallback\n", encoding="utf-8")
+
+        plan = doc_plan.build_plan(
+            root=self.root,
+            mode="apply-with-archive",
+            facts={"generated_at": utc_now()},
+            policy_path=self.root / "docs/.doc-policy.json",
+            manifest_path=self.root / "docs/.doc-manifest.json",
+        )
+
+        actions = plan.get("actions") or []
+        controlled_action_types = {
+            str(action.get("type"))
+            for action in actions
+            if isinstance(action, dict)
+            and str(action.get("source_path")) == "legacy/controlled.md"
+        }
+        self.assertEqual(controlled_action_types, {"migrate_legacy", "archive_legacy"})
+
+        semantic_entries = plan.get("legacy_semantic_report") or []
+        controlled_entry = next(
+            (
+                item
+                for item in semantic_entries
+                if isinstance(item, dict)
+                and item.get("source_path") == "legacy/controlled.md"
+            ),
+            None,
+        )
+        self.assertIsNotNone(controlled_entry)
+        self.assertEqual((controlled_entry or {}).get("decision"), "auto_migrate")
+        self.assertEqual((controlled_entry or {}).get("decision_source"), "fallback")
+        self.assertTrue(bool((controlled_entry or {}).get("fallback_auto_migrate")))
+
+        report_path = doc_plan.maybe_write_semantic_report(self.root, plan)
+        self.assertIsNotNone(report_path)
+        quality_report = doc_quality.evaluate_semantic_migration_quality(
+            root=self.root,
+            policy=policy,
+        )
+        self.assertTrue(quality_report.get("enabled"))
+        self.assertEqual(
+            (quality_report.get("metrics") or {}).get("fallback_auto_migrate_count"),
+            1,
+        )
+
+    def test_validate_blocks_fallback_auto_migrate_when_threshold_zero(self) -> None:
+        policy = self._write_policy(
+            semantic_enabled=True,
+            semantic_provider="agent_runtime",
+            allow_fallback_auto_migrate=True,
+        )
+        policy["legacy_sources"]["mapping_table"] = {  # type: ignore[index]
+            "legacy/fallback-auto.md": "docs/history/legacy/fallback-auto.md"
+        }
+        policy["doc_quality_gates"] = {
+            "enabled": True,
+            "min_evidence_coverage": 0.0,
+            "max_conflicts": 10,
+            "max_unknown_claims": 10,
+            "max_unresolved_todo": 10,
+            "max_stale_metrics_days": 0,
+            "max_semantic_conflicts": 10,
+            "max_semantic_low_confidence_auto": 10,
+            "max_fallback_auto_migrate": 0,
+            "min_structured_section_completeness": 0.0,
+            "fail_on_quality_gate": True,
+            "fail_on_semantic_gate": True,
+        }
+        (self.root / "docs/.doc-policy.json").write_text(
+            json.dumps(policy, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+        self._write_manifest()
+        (self.root / "legacy/fallback-auto.md").write_text("fallback auto\n", encoding="utf-8")
+
+        plan = doc_plan.build_plan(
+            root=self.root,
+            mode="audit",
+            facts={"generated_at": utc_now()},
+            policy_path=self.root / "docs/.doc-policy.json",
+            manifest_path=self.root / "docs/.doc-manifest.json",
+        )
+        report_path = doc_plan.maybe_write_semantic_report(self.root, plan)
+        self.assertIsNotNone(report_path)
+
+        errors, warnings, report = doc_validate.check_legacy_coverage(self.root, policy)
+        self.assertEqual(warnings, [])
+        self.assertTrue(
+            any(
+                "fallback auto migration exceeds threshold" in message
+                for message in errors
+            )
+        )
+        self.assertEqual(report.get("metrics", {}).get("fallback_auto_migrate_count"), 1)
 
     def test_apply_structured_migration_and_registry_semantic_fields(self) -> None:
         policy = self._write_policy(semantic_enabled=True)

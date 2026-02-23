@@ -1,5 +1,5 @@
 <!-- doc-owner: docs-maintainer -->
-<!-- doc-last-reviewed: 2026-02-22 -->
+<!-- doc-last-reviewed: 2026-02-23 -->
 <!-- doc-review-cycle-days: 90 -->
 
 # 运行手册
@@ -115,4 +115,5 @@ python3 -m py_compile "$SKILL_DIR"/scripts/*.py
 5. 若 legacy 扫描误纳入 `README*` / `AGENTS*`，优先检查 `legacy_sources.exclude_globs` 与 denylist 配置是否生效。
 6. 若语义输入缺席，应进入保守降级（`manual_review/skip`）；默认 gate 要求 `fallback_auto_migrate_count==0`。
 7. 若 validate 报告出现 `denylist_migration_count>0`，视为误迁移阻断，必须先修复策略或数据，不允许放行。
-8. 若 active 计划声明 `completed`，必须同时提供 `exec-plan-closeout` marker 且目标文档可达，否则 validate 会阻断。
+8. 若 plan 出现 `semantic_rewrite`，需补充 runtime 候选或转人工审查；不得绕过 gate 直接改写 SoR 文档。
+9. 若 active 计划声明 `completed`，必须同时提供 `exec-plan-closeout` marker 且目标文档可达，否则 validate 会阻断。

@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-02-22T03:29:44.485113+00:00",
+  "generated_at": "2026-02-23T15:44:21.494462+00:00",
   "root": "/Users/tompoet/AgentSkills",
   "plan": "/Users/tompoet/AgentSkills/docs/.doc-plan.json",
   "spec": "/Users/tompoet/AgentSkills/docs/.doc-spec.json",
   "facts": "/Users/tompoet/AgentSkills/docs/.repo-facts.json",
   "plan_meta": {
-    "generated_at": "2026-02-22T03:29:44.270892+00:00",
+    "generated_at": "2026-02-23T15:44:21.117935+00:00",
     "root": "/Users/tompoet/AgentSkills",
     "mode": "audit",
     "policy_path": "docs/.doc-policy.json",
     "manifest_path": "docs/.doc-manifest.json",
     "manifest_source": "existing",
-    "manifest_profile": "small",
+    "manifest_profile": "medium",
     "manifest_changed": false,
     "manifest_effective": {
       "version": 1,
@@ -20,8 +20,17 @@
           "docs/.doc-spec.json",
           "docs/architecture.md",
           "docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md",
           "docs/exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.2-phase-f-agent-runtime-semantic-hardening.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.4-dual-replica-sync-ci-convergence.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.5-hybrid-template-llm-governance.md",
           "docs/exec-plans/active/docs-sor-roadmap-v2.md",
+          "docs/exec-plans/completed/README.md",
+          "docs/exec-plans/completed/docs-sor-legacy-migration-automation-closeout-2026-02-22.md",
+          "docs/exec-plans/completed/docs-sor-roadmap-v2.1-closeout-2026-02-22.md",
+          "docs/exec-plans/completed/docs-sor-roadmap-v2.1-phase-e-closeout-2026-02-22.md",
+          "docs/exec-plans/completed/docs-sor-roadmap-v2.2-phase-f-closeout-2026-02-22.md",
           "docs/index.md",
           "docs/references/doc_spec_schema.md",
           "docs/runbook.md"
@@ -35,13 +44,20 @@
       },
       "optional": {
         "files": [
-          "docs/glossary.md"
+          "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-acceptance-report.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-test-matrix.md",
+          "docs/exec-plans/completed/docs-sor-roadmap-v2-closeout-2026-02-22.md",
+          "docs/exec-plans/completed/docs-sor-roadmap-v2.3-phase-f5-closeout-2026-02-22.md",
+          "docs/exec-plans/completed/docs-sor-roadmap-v2.4-closeout-2026-02-23.md",
+          "docs/exec-plans/completed/docs-sor-roadmap-v2.5-closeout-2026-02-23.md",
+          "docs/glossary.md",
+          "docs/references/legacy-semantic-migration-acceptance-template.md"
         ]
       },
       "archive_dir": "docs/archive"
     },
     "manifest_reasoning": [
-      "include_files=3"
+      "include_files=6"
     ],
     "capability_decisions": [
       {
@@ -76,7 +92,7 @@
         "enabled": true,
         "source": "goal_include",
         "evidence": [
-          "file_count=90",
+          "file_count=122",
           "enabled by doc_goals.include"
         ],
         "required_files": [
@@ -91,7 +107,7 @@
         "source": "goal_include",
         "evidence": [
           "ci_configs=1",
-          "file_count=90",
+          "file_count=122",
           "enabled by doc_goals.include"
         ],
         "required_files": [],
@@ -107,7 +123,7 @@
         "enabled": true,
         "source": "signal",
         "evidence": [
-          "docs_markdown_count=10"
+          "docs_markdown_count=26"
         ],
         "required_files": [],
         "required_dirs": [],
@@ -169,12 +185,17 @@
       "semantic": {
         "enabled": true,
         "engine": "llm",
-        "provider": "deterministic_mock",
-        "model": "gpt-5-codex",
+        "provider": "agent_runtime",
+        "model": "agent-runtime-report-v1",
         "auto_migrate_threshold": 0.85,
         "review_threshold": 0.6,
+        "allow_fallback_auto_migrate": false,
         "report_path": "docs/.legacy-semantic-report.json",
-        "decision_counts": {}
+        "report_available": true,
+        "report_entry_count": 0,
+        "report_error": null,
+        "decision_counts": {},
+        "fallback_auto_migrate_count": 0
       }
     },
     "language": {
@@ -271,7 +292,7 @@
             {
               "claim_id": "runbook.dev_commands",
               "status": "supported",
-              "statement": "当前开发命令集合为：REPO_ROOT=\"/Users/tompoet/AgentSkills\", SKILL_DIR=\"$REPO_ROOT/.agents/skills/docs-sor-maintainer\", PYTHON_BIN=\"${PYTHON_BIN:-python3}\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/repo_scan.py\" --root \"$REPO_ROOT\" --output \"$REPO_ROOT/docs/.repo-facts.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode bootstrap --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan-bootstrap.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_apply.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan-bootstrap.json\" --mode bootstrap, \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode apply-safe --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan-apply-safe.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_apply.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan-apply-safe.json\" --mode apply-safe, \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_synthesize.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan-apply-safe.json\" --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-evidence-map.json\"",
+              "statement": "当前开发命令集合为：REPO_ROOT=\"/Users/tompoet/AgentSkills\", PYTHON_BIN=\"${PYTHON_BIN:-python3}\", CODEX_HOME_RESOLVED=\"${CODEX_HOME:-$HOME/.codex}\", if [ -n \"${SKILL_DIR:-}\" ]; then, [ -d \"$SKILL_DIR/scripts\" ] || { echo \"invalid SKILL_DIR: $SKILL_DIR\" >&2; exit 2; }, elif [ -d \"$REPO_ROOT/skills/docs-sor-maintainer/scripts\" ]; then, SKILL_DIR=\"$REPO_ROOT/skills/docs-sor-maintainer\", elif [ -d \"$REPO_ROOT/.agents/skills/docs-sor-maintainer/scripts\" ]; then, SKILL_DIR=\"$REPO_ROOT/.agents/skills/docs-sor-maintainer\", elif [ -d \"$CODEX_HOME_RESOLVED/skills/docs-sor-maintainer/scripts\" ]; then, SKILL_DIR=\"$CODEX_HOME_RESOLVED/skills/docs-sor-maintainer\", else, echo \"docs-sor-maintainer not found\" >&2, exit 2, fi, \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/repo_scan.py\" --root \"$REPO_ROOT\" --output \"$REPO_ROOT/docs/.repo-facts.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode bootstrap --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan-bootstrap.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_apply.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan-bootstrap.json\" --mode bootstrap, \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode apply-safe --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan-apply-safe.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_apply.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan-apply-safe.json\" --mode apply-safe, \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_synthesize.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan-apply-safe.json\" --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-evidence-map.json\"",
               "statement_template": "当前开发命令集合为：{commands}",
               "required_evidence_types": [
                 "runbook.dev_commands"
@@ -283,8 +304,20 @@
                   "type": "runbook.dev_commands",
                   "value": [
                     "REPO_ROOT=\"/Users/tompoet/AgentSkills\"",
-                    "SKILL_DIR=\"$REPO_ROOT/.agents/skills/docs-sor-maintainer\"",
                     "PYTHON_BIN=\"${PYTHON_BIN:-python3}\"",
+                    "CODEX_HOME_RESOLVED=\"${CODEX_HOME:-$HOME/.codex}\"",
+                    "if [ -n \"${SKILL_DIR:-}\" ]; then",
+                    "[ -d \"$SKILL_DIR/scripts\" ] || { echo \"invalid SKILL_DIR: $SKILL_DIR\" >&2; exit 2; }",
+                    "elif [ -d \"$REPO_ROOT/skills/docs-sor-maintainer/scripts\" ]; then",
+                    "SKILL_DIR=\"$REPO_ROOT/skills/docs-sor-maintainer\"",
+                    "elif [ -d \"$REPO_ROOT/.agents/skills/docs-sor-maintainer/scripts\" ]; then",
+                    "SKILL_DIR=\"$REPO_ROOT/.agents/skills/docs-sor-maintainer\"",
+                    "elif [ -d \"$CODEX_HOME_RESOLVED/skills/docs-sor-maintainer/scripts\" ]; then",
+                    "SKILL_DIR=\"$CODEX_HOME_RESOLVED/skills/docs-sor-maintainer\"",
+                    "else",
+                    "echo \"docs-sor-maintainer not found\" >&2",
+                    "exit 2",
+                    "fi",
                     "\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/repo_scan.py\" --root \"$REPO_ROOT\" --output \"$REPO_ROOT/docs/.repo-facts.json\"",
                     "\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode bootstrap --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan-bootstrap.json\"",
                     "\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_apply.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan-bootstrap.json\" --mode bootstrap",
@@ -307,7 +340,7 @@
             {
               "claim_id": "runbook.validation_commands",
               "status": "supported",
-              "statement": "当前校验命令集合为：\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_validate.py\" --root \"$REPO_ROOT\" --facts \"$REPO_ROOT/docs/.repo-facts.json\" --fail-on-drift --fail-on-freshness --output \"$REPO_ROOT/docs/.doc-validate-report.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_quality.py\" --root \"$REPO_ROOT\" --output \"$REPO_ROOT/docs/.doc-quality-report.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_garden.py\" --root \"$REPO_ROOT\" --apply-mode apply-safe --fail-on-drift --fail-on-freshness, python3 -m py_compile \"$SKILL_DIR\"/scripts/*.py",
+              "statement": "当前校验命令集合为：\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_validate.py\" --root \"$REPO_ROOT\" --facts \"$REPO_ROOT/docs/.repo-facts.json\" --fail-on-drift --fail-on-freshness --output \"$REPO_ROOT/docs/.doc-validate-report.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_quality.py\" --root \"$REPO_ROOT\" --output \"$REPO_ROOT/docs/.doc-quality-report.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_garden.py\" --root \"$REPO_ROOT\" --apply-mode apply-safe --repair-plan-mode repair --fail-on-drift --fail-on-freshness, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_legacy_migration, python3 -m unittest discover -s skills/docs-sor-maintainer/tests -p 'test_*.py', \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/repo_scan.py\" --root \"$REPO_ROOT\" --output \"$REPO_ROOT/docs/.repo-facts.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode audit --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode audit --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan-phase-f-audit.json\", python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_agents_validate, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_garden_repair_loop, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_validate_exec_plan_closeout, python3 -m py_compile \"$SKILL_DIR\"/scripts/*.py",
               "statement_template": "当前校验命令集合为：{commands}",
               "required_evidence_types": [
                 "runbook.validation_commands"
@@ -320,7 +353,15 @@
                   "value": [
                     "\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_validate.py\" --root \"$REPO_ROOT\" --facts \"$REPO_ROOT/docs/.repo-facts.json\" --fail-on-drift --fail-on-freshness --output \"$REPO_ROOT/docs/.doc-validate-report.json\"",
                     "\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_quality.py\" --root \"$REPO_ROOT\" --output \"$REPO_ROOT/docs/.doc-quality-report.json\"",
-                    "\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_garden.py\" --root \"$REPO_ROOT\" --apply-mode apply-safe --fail-on-drift --fail-on-freshness",
+                    "\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_garden.py\" --root \"$REPO_ROOT\" --apply-mode apply-safe --repair-plan-mode repair --fail-on-drift --fail-on-freshness",
+                    "python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_legacy_migration",
+                    "python3 -m unittest discover -s skills/docs-sor-maintainer/tests -p 'test_*.py'",
+                    "\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/repo_scan.py\" --root \"$REPO_ROOT\" --output \"$REPO_ROOT/docs/.repo-facts.json\"",
+                    "\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode audit --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan.json\"",
+                    "\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode audit --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan-phase-f-audit.json\"",
+                    "python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_agents_validate",
+                    "python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_garden_repair_loop",
+                    "python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_validate_exec_plan_closeout",
                     "python3 -m py_compile \"$SKILL_DIR\"/scripts/*.py"
                   ]
                 }

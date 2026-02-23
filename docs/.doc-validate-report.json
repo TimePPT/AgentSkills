@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-02-22T14:09:58.564276+00:00",
+  "generated_at": "2026-02-23T15:44:21.610018+00:00",
   "root": "/Users/tompoet/AgentSkills",
   "passed": true,
   "fail_on_drift": true,
@@ -7,10 +7,10 @@
   "metrics": {
     "errors": 0,
     "warnings": 0,
-    "checked_links": 18,
+    "checked_links": 25,
     "drift_action_count": 0,
     "facts_loaded": true,
-    "metadata_checked_docs": 16,
+    "metadata_checked_docs": 23,
     "metadata_missing_fields": 0,
     "metadata_invalid_fields": 0,
     "metadata_stale_docs": 0,
@@ -31,8 +31,8 @@
     "semantic_conflict_count": 0,
     "denylist_migration_count": 0,
     "structured_section_completeness": 1.0,
-    "active_exec_plan_files": 7,
-    "completed_declared_exec_plans": 1,
+    "active_exec_plan_files": 9,
+    "completed_declared_exec_plans": 7,
     "missing_exec_plan_closeout_links": 0,
     "missing_exec_plan_closeout_targets": 0
   },
@@ -49,7 +49,7 @@
     "warnings": []
   },
   "doc_quality": {
-    "generated_at": "2026-02-22T14:09:58.504307+00:00",
+    "generated_at": "2026-02-23T15:44:21.538481+00:00",
     "root": "/Users/tompoet/AgentSkills",
     "enabled": true,
     "doc_spec": {
@@ -143,13 +143,13 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 1
+        "age_days": 2
       },
       {
         "path": "docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md",
         "values": {
           "doc-owner": "docs-maintainer",
-          "doc-last-reviewed": "2026-02-21",
+          "doc-last-reviewed": "2026-02-22",
           "doc-review-cycle-days": "90"
         },
         "missing": [],
@@ -167,7 +167,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 0
+        "age_days": 1
       },
       {
         "path": "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-test-matrix.md",
@@ -179,7 +179,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 0
+        "age_days": 1
       },
       {
         "path": "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md",
@@ -191,7 +191,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 0
+        "age_days": 1
       },
       {
         "path": "docs/exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md",
@@ -203,13 +203,37 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 0
+        "age_days": 1
       },
       {
         "path": "docs/exec-plans/active/docs-sor-roadmap-v2.2-phase-f-agent-runtime-semantic-hardening.md",
         "values": {
           "doc-owner": "docs-maintainer",
           "doc-last-reviewed": "2026-02-22",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 1
+      },
+      {
+        "path": "docs/exec-plans/active/docs-sor-roadmap-v2.4-dual-replica-sync-ci-convergence.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-22",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 1
+      },
+      {
+        "path": "docs/exec-plans/active/docs-sor-roadmap-v2.5-hybrid-template-llm-governance.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-23",
           "doc-review-cycle-days": "90"
         },
         "missing": [],
@@ -227,7 +251,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 0
+        "age_days": 1
       },
       {
         "path": "docs/exec-plans/completed/README.md",
@@ -239,7 +263,19 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 0
+        "age_days": 1
+      },
+      {
+        "path": "docs/exec-plans/completed/docs-sor-legacy-migration-automation-closeout-2026-02-22.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-22",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 1
       },
       {
         "path": "docs/exec-plans/completed/docs-sor-roadmap-v2-closeout-2026-02-22.md",
@@ -251,7 +287,31 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 0
+        "age_days": 1
+      },
+      {
+        "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.1-closeout-2026-02-22.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-22",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 1
+      },
+      {
+        "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.1-phase-e-closeout-2026-02-22.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-22",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 1
       },
       {
         "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.2-phase-f-closeout-2026-02-22.md",
@@ -263,7 +323,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 0
+        "age_days": 1
       },
       {
         "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.3-phase-f5-closeout-2026-02-22.md",
@@ -275,13 +335,37 @@
         "missing": [],
         "invalid": [],
         "stale": false,
+        "age_days": 1
+      },
+      {
+        "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.4-closeout-2026-02-23.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-23",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 0
+      },
+      {
+        "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.5-closeout-2026-02-23.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-23",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
         "age_days": 0
       },
       {
         "path": "docs/index.md",
         "values": {
           "doc-owner": "docs-maintainer",
-          "doc-last-reviewed": "2026-02-22",
+          "doc-last-reviewed": "2026-02-23",
           "doc-review-cycle-days": "90"
         },
         "missing": [],
@@ -299,7 +383,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 1
+        "age_days": 2
       },
       {
         "path": "docs/references/legacy-semantic-migration-acceptance-template.md",
@@ -311,13 +395,13 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 0
+        "age_days": 1
       },
       {
         "path": "docs/runbook.md",
         "values": {
           "doc-owner": "docs-maintainer",
-          "doc-last-reviewed": "2026-02-22",
+          "doc-last-reviewed": "2026-02-23",
           "doc-review-cycle-days": "90"
         },
         "missing": [],
@@ -328,7 +412,7 @@
     ]
   },
   "agents": {
-    "generated_at": "2026-02-22T14:09:58.504997+00:00",
+    "generated_at": "2026-02-23T15:44:21.539711+00:00",
     "root": "/Users/tompoet/AgentSkills",
     "enabled": true,
     "settings": {
@@ -339,7 +423,8 @@
         "docs/index.md",
         "docs/.doc-policy.json",
         "docs/.doc-manifest.json",
-        "docs/runbook.md"
+        "docs/runbook.md",
+        "docs/exec-plans/active/docs-sor-roadmap-v2.5-hybrid-template-llm-governance.md"
       ],
       "sync_on_manifest_change": true,
       "fail_on_agents_drift": true,
@@ -352,7 +437,7 @@
     "errors": [],
     "warnings": [],
     "metrics": {
-      "line_count": 49,
+      "line_count": 52,
       "missing_headings": 0,
       "missing_required_links": 0,
       "broken_links": 0,
@@ -484,8 +569,8 @@
     "errors": [],
     "warnings": [],
     "metrics": {
-      "active_exec_plan_files": 7,
-      "completed_declared_files": 1,
+      "active_exec_plan_files": 9,
+      "completed_declared_files": 7,
       "missing_closeout_link_files": 0,
       "missing_closeout_target_files": 0
     }

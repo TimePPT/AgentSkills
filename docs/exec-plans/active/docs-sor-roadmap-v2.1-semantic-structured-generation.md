@@ -1,6 +1,8 @@
 <!-- doc-owner: docs-maintainer -->
 <!-- doc-last-reviewed: 2026-02-22 -->
 <!-- doc-review-cycle-days: 90 -->
+<!-- exec-plan-status: completed -->
+<!-- exec-plan-closeout: docs/exec-plans/completed/docs-sor-roadmap-v2.1-closeout-2026-02-22.md -->
 
 # Docs SoR Maintainer V2.1 需求策划：语义判定与结构化生成
 

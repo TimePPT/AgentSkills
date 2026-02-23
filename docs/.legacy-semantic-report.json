@@ -1,16 +1,17 @@
 {
   "version": 1,
-  "generated_at": "2026-02-22T05:42:00.836492+00:00",
+  "generated_at": "2026-02-23T15:44:21.117935+00:00",
   "root": "/Users/tompoet/AgentSkills",
   "mode": "audit",
   "engine": "llm",
-  "provider": "deterministic_mock",
-  "model": "gpt-5-codex",
+  "provider": "agent_runtime",
+  "model": "agent-runtime-report-v1",
   "auto_migrate_threshold": 0.85,
   "review_threshold": 0.6,
   "entries": [],
   "summary": {
     "candidate_count": 0,
-    "decision_counts": {}
+    "decision_counts": {},
+    "fallback_auto_migrate_count": 0
   }
 }

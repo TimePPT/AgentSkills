@@ -22,7 +22,9 @@
       "docs/exec-plans/active/docs-sor-roadmap-v2.md",
       "docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md",
       "docs/exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md",
-      "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md"
+      "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.2-phase-f-agent-runtime-semantic-hardening.md",
+      "docs/exec-plans/completed/docs-sor-roadmap-v2.2-phase-f-closeout-2026-02-22.md"
     ],
     "include_dirs": [],
     "exclude_files": [],
@@ -43,6 +45,7 @@
   "doc_gardening": {
     "enabled": true,
     "apply_mode": "apply-safe",
+    "repair_plan_mode": "repair",
     "fail_on_drift": true,
     "fail_on_freshness": true,
     "max_repair_iterations": 2,
@@ -58,6 +61,7 @@
     "max_stale_metrics_days": 7,
     "max_semantic_conflicts": 0,
     "max_semantic_low_confidence_auto": 0,
+    "max_fallback_auto_migrate": 0,
     "min_structured_section_completeness": 0.95,
     "fail_on_quality_gate": true,
     "fail_on_semantic_gate": true
@@ -70,10 +74,35 @@
       "docs/index.md",
       "docs/.doc-policy.json",
       "docs/.doc-manifest.json",
-      "docs/runbook.md"
+      "docs/runbook.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.5-hybrid-template-llm-governance.md"
     ],
     "sync_on_manifest_change": true,
     "fail_on_agents_drift": true
+  },
+  "semantic_generation": {
+    "enabled": true,
+    "mode": "hybrid",
+    "source": "invoking_agent",
+    "runtime_report_path": "docs/.semantic-runtime-report.json",
+    "fail_closed": true,
+    "allow_fallback_template": true,
+    "allow_external_llm_api": false,
+    "max_output_chars_per_section": 4000,
+    "required_evidence_prefixes": [
+      "repo_scan.",
+      "runbook.",
+      "semantic_report."
+    ],
+    "deny_paths": [
+      "docs/adr/**"
+    ],
+    "actions": {
+      "update_section": true,
+      "fill_claim": true,
+      "migrate_legacy": true,
+      "agents_generate": true
+    }
   },
   "legacy_sources": {
     "enabled": true,
@@ -100,6 +129,8 @@
       "skills/**",
       "**/__pycache__/**",
       "**/*.pyc",
+      "**/README*.md",
+      "**/AGENTS*.md",
       "README.md",
       "AGENTS.md"
     ],
@@ -119,8 +150,8 @@
     "semantic": {
       "enabled": true,
       "engine": "llm",
-      "provider": "deterministic_mock",
-      "model": "gpt-5-codex",
+      "provider": "agent_runtime",
+      "model": "agent-runtime-report-v1",
       "auto_migrate_threshold": 0.85,
       "review_threshold": 0.6,
       "max_chars_per_doc": 20000,
@@ -136,7 +167,8 @@
         "README.md",
         "AGENTS.md"
       ],
-      "fail_closed": true
+      "fail_closed": true,
+      "allow_fallback_auto_migrate": false
     }
   },
   "allow_auto_update": [

@@ -133,6 +133,9 @@ def get_semantic_quality_thresholds(policy: dict[str, Any]) -> dict[str, Any]:
         "max_semantic_low_confidence_auto": int(
             quality_policy.get("max_semantic_low_confidence_auto", 0)
         ),
+        "max_fallback_auto_migrate": int(
+            quality_policy.get("max_fallback_auto_migrate", 0)
+        ),
         "min_structured_section_completeness": float(
             quality_policy.get("min_structured_section_completeness", 0.95)
         ),
@@ -201,6 +204,7 @@ def evaluate_semantic_migration_quality(
             "semantic_auto_migrate_count": 0,
             "semantic_manual_review_count": 0,
             "semantic_skip_count": 0,
+            "fallback_auto_migrate_count": 0,
             "semantic_low_confidence_count": 0,
             "semantic_conflict_count": 0,
             "structured_section_completeness": 1.0,
@@ -228,6 +232,15 @@ def evaluate_semantic_migration_quality(
         decision_counter.get("manual_review", 0)
     )
     result["metrics"]["semantic_skip_count"] = int(decision_counter.get("skip", 0))
+    result["metrics"]["fallback_auto_migrate_count"] = sum(
+        1
+        for item in semantic_entries
+        if str(item.get("decision")) == "auto_migrate"
+        and (
+            bool(item.get("fallback_auto_migrate", False))
+            or str(item.get("decision_source")) == "fallback"
+        )
+    )
 
     semantic_by_source: dict[str, dict[str, Any]] = {}
     for item in semantic_entries:
@@ -468,12 +481,6 @@ def evaluate_quality(
     supported = sum(1 for c in claims if c.get("status") == "supported")
     unknown = sum(1 for c in claims if c.get("status") == "unknown")
     missing = sum(1 for c in claims if c.get("status") == "missing")
-    todo_count = sum(
-        1
-        for c in claims
-        if isinstance(c.get("statement"), str)
-        and "TODO" in c.get("statement")
-    )
     unresolved_todo = sum(
         1
         for c in claims
@@ -511,6 +518,9 @@ def evaluate_quality(
         "max_semantic_low_confidence_auto": semantic_thresholds[
             "max_semantic_low_confidence_auto"
         ],
+        "max_fallback_auto_migrate": semantic_thresholds[
+            "max_fallback_auto_migrate"
+        ],
         "min_structured_section_completeness": semantic_thresholds[
             "min_structured_section_completeness"
         ],
@@ -544,6 +554,11 @@ def evaluate_quality(
                 > int(thresholds["max_semantic_low_confidence_auto"])
             ):
                 failed_checks.append("max_semantic_low_confidence_auto")
+            if (
+                int(semantic_metrics.get("fallback_auto_migrate_count", 0))
+                > int(thresholds["max_fallback_auto_migrate"])
+            ):
+                failed_checks.append("max_fallback_auto_migrate")
             if (
                 float(semantic_metrics.get("structured_section_completeness", 1.0))
                 < float(thresholds["min_structured_section_completeness"])
@@ -584,6 +599,11 @@ def evaluate_quality(
             "semantic_skip_count": (
                 (semantic_quality.get("metrics") or {}).get(
                     "semantic_skip_count", 0
+                )
+            ),
+            "fallback_auto_migrate_count": (
+                (semantic_quality.get("metrics") or {}).get(
+                    "fallback_auto_migrate_count", 0
                 )
             ),
             "semantic_low_confidence_count": (
