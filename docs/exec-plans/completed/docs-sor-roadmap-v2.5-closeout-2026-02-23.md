@@ -1,5 +1,5 @@
 <!-- doc-owner: docs-maintainer -->
-<!-- doc-last-reviewed: 2026-02-23 -->
+<!-- doc-last-reviewed: 2026-02-24 -->
 <!-- doc-review-cycle-days: 90 -->
 
 # Docs SoR Roadmap V2.5 收口报告（2026-02-23）
@@ -48,6 +48,13 @@
 ## 3. 验收结论
 
 V2.5 验收 Checklist 全部满足，计划状态由 `active` 变更为 `completed`。
+
+## 3.1 补充说明（2026-02-24）
+
+针对后续审阅识别出的 `agent_strict` 与 `semantic_generation` 执行语义缺口，已通过 remediation 计划完成修复并二次验收，详见：
+
+- `docs/exec-plans/active/docs-sor-roadmap-v2.5-remediation-agent-strict-policy-enforcement.md`
+- `docs/exec-plans/completed/docs-sor-roadmap-v2.5-remediation-closeout-2026-02-24.md`
 
 ## 4. 偏差与遗留风险
 

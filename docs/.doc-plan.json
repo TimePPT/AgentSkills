@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at": "2026-02-23T15:44:21.117935+00:00",
+    "generated_at": "2026-02-24T13:57:33.336522+00:00",
     "root": "/Users/tompoet/AgentSkills",
     "mode": "audit",
     "policy_path": "docs/.doc-policy.json",
@@ -20,12 +20,14 @@
           "docs/exec-plans/active/docs-sor-roadmap-v2.2-phase-f-agent-runtime-semantic-hardening.md",
           "docs/exec-plans/active/docs-sor-roadmap-v2.4-dual-replica-sync-ci-convergence.md",
           "docs/exec-plans/active/docs-sor-roadmap-v2.5-hybrid-template-llm-governance.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.5-remediation-agent-strict-policy-enforcement.md",
           "docs/exec-plans/active/docs-sor-roadmap-v2.md",
           "docs/exec-plans/completed/README.md",
           "docs/exec-plans/completed/docs-sor-legacy-migration-automation-closeout-2026-02-22.md",
           "docs/exec-plans/completed/docs-sor-roadmap-v2.1-closeout-2026-02-22.md",
           "docs/exec-plans/completed/docs-sor-roadmap-v2.1-phase-e-closeout-2026-02-22.md",
           "docs/exec-plans/completed/docs-sor-roadmap-v2.2-phase-f-closeout-2026-02-22.md",
+          "docs/exec-plans/completed/docs-sor-roadmap-v2.5-remediation-closeout-2026-02-24.md",
           "docs/index.md",
           "docs/references/doc_spec_schema.md",
           "docs/runbook.md"
@@ -52,7 +54,7 @@
       "archive_dir": "docs/archive"
     },
     "manifest_reasoning": [
-      "include_files=6"
+      "include_files=8"
     ],
     "capability_decisions": [
       {
@@ -87,7 +89,7 @@
         "enabled": true,
         "source": "goal_include",
         "evidence": [
-          "file_count=122",
+          "file_count=125",
           "enabled by doc_goals.include"
         ],
         "required_files": [
@@ -102,7 +104,7 @@
         "source": "goal_include",
         "evidence": [
           "ci_configs=1",
-          "file_count=122",
+          "file_count=125",
           "enabled by doc_goals.include"
         ],
         "required_files": [],
@@ -118,7 +120,7 @@
         "enabled": true,
         "source": "signal",
         "evidence": [
-          "docs_markdown_count=26"
+          "docs_markdown_count=28"
         ],
         "required_files": [],
         "required_dirs": [],

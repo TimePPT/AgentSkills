@@ -1,5 +1,5 @@
 <!-- doc-owner: docs-maintainer -->
-<!-- doc-last-reviewed: 2026-02-23 -->
+<!-- doc-last-reviewed: 2026-02-24 -->
 <!-- doc-review-cycle-days: 90 -->
 
 # 文档索引
@@ -21,6 +21,7 @@
 ## 已完成但保留在 active 的历史计划（标记 completed）
 
 - [docs/exec-plans/active/docs-sor-roadmap-v2.5-hybrid-template-llm-governance.md](./exec-plans/active/docs-sor-roadmap-v2.5-hybrid-template-llm-governance.md)
+- [docs/exec-plans/active/docs-sor-roadmap-v2.5-remediation-agent-strict-policy-enforcement.md](./exec-plans/active/docs-sor-roadmap-v2.5-remediation-agent-strict-policy-enforcement.md)
 - [docs/exec-plans/active/docs-sor-roadmap-v2.4-dual-replica-sync-ci-convergence.md](./exec-plans/active/docs-sor-roadmap-v2.4-dual-replica-sync-ci-convergence.md)
 - [docs/exec-plans/active/docs-sor-roadmap-v2.md](./exec-plans/active/docs-sor-roadmap-v2.md)
 - [docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md](./exec-plans/active/docs-sor-legacy-migration-automation-plan.md)
@@ -44,6 +45,7 @@
 - [docs/exec-plans/completed/docs-sor-roadmap-v2.3-phase-f5-closeout-2026-02-22.md](./exec-plans/completed/docs-sor-roadmap-v2.3-phase-f5-closeout-2026-02-22.md)
 - [docs/exec-plans/completed/docs-sor-roadmap-v2.4-closeout-2026-02-23.md](./exec-plans/completed/docs-sor-roadmap-v2.4-closeout-2026-02-23.md)
 - [docs/exec-plans/completed/docs-sor-roadmap-v2.5-closeout-2026-02-23.md](./exec-plans/completed/docs-sor-roadmap-v2.5-closeout-2026-02-23.md)
+- [docs/exec-plans/completed/docs-sor-roadmap-v2.5-remediation-closeout-2026-02-24.md](./exec-plans/completed/docs-sor-roadmap-v2.5-remediation-closeout-2026-02-24.md)
 
 ## 操作流程
 
@@ -59,6 +61,6 @@
 - 本轮文档目标：
   - 固化当前 codebase 的结构与操作约束；
   - 历史计划（V2/V2.1/Phase E/F/F5）已补齐 completed 收口标记与收口文档。
-  - V2.5（模板兜底 + Agent 语义增益）已完成收口，当前待进入下一阶段规划。
+  - V2.5（模板兜底 + Agent 语义增益）与 remediation（agent_strict + semantic policy 执行语义）均已完成收口。
   - V2.4 已按策略变更收口并废弃开发，详见：
     `docs/exec-plans/completed/docs-sor-roadmap-v2.4-closeout-2026-02-23.md`。

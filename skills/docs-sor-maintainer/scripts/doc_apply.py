@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import hashlib
 import json
 import re
@@ -706,6 +707,38 @@ def build_summary_hash(entry_content: str) -> str:
     return hashlib.sha256(entry_content.encode("utf-8")).hexdigest()
 
 
+def is_agent_strict_mode(semantic_settings: dict[str, Any]) -> bool:
+    return str(semantic_settings.get("mode", "")).strip() == "agent_strict"
+
+
+def resolve_runtime_fallback_allowed(semantic_settings: dict[str, Any]) -> bool:
+    if is_agent_strict_mode(semantic_settings):
+        return False
+    if not bool(semantic_settings.get("fail_closed", True)):
+        return True
+    return bool(semantic_settings.get("allow_fallback_template", True))
+
+
+def is_runtime_path_denied(rel_path: str, semantic_settings: dict[str, Any]) -> bool:
+    deny_paths = semantic_settings.get("deny_paths")
+    if not isinstance(deny_paths, list):
+        return False
+    normalized = normalize(rel_path)
+    for pattern in deny_paths:
+        if not isinstance(pattern, str) or not pattern.strip():
+            continue
+        if fnmatch.fnmatch(normalized, pattern.strip()):
+            return True
+    return False
+
+
+def runtime_required_for_action(action_type: str, semantic_settings: dict[str, Any]) -> bool:
+    return bool(
+        is_agent_strict_mode(semantic_settings)
+        and dsr.should_attempt_runtime_semantics(action_type, semantic_settings)
+    )
+
+
 def apply_action(
     root: Path,
     action: dict[str, Any],
@@ -742,12 +775,21 @@ def apply_action(
     runtime_state = (
         semantic_runtime_state if isinstance(semantic_runtime_state, dict) else {}
     )
+    fallback_allowed = resolve_runtime_fallback_allowed(semantic_cfg)
 
-    def attach_runtime_candidate() -> dict[str, Any] | None:
+    def attach_runtime_candidate() -> tuple[dict[str, Any] | None, list[str]]:
+        failures: list[str] = []
         if not isinstance(action_type, str):
-            return None
+            return None, failures
         if not dsr.should_attempt_runtime_semantics(action_type, semantic_cfg):
-            return None
+            return None, failures
+        if is_runtime_path_denied(rel_path, semantic_cfg):
+            result["semantic_runtime"] = {
+                "status": "path_denied",
+                "mode": semantic_cfg.get("mode"),
+                "source": semantic_cfg.get("source"),
+            }
+            return None, ["path_denied"]
         candidate = dsr.select_runtime_entry(action, runtime_entries, semantic_cfg)
         if isinstance(candidate, dict):
             result["semantic_runtime"] = {
@@ -757,7 +799,7 @@ def apply_action(
                 "mode": semantic_cfg.get("mode"),
                 "source": semantic_cfg.get("source"),
             }
-            return candidate
+            return candidate, failures
 
         state_status = (
             "runtime_unavailable"
@@ -773,7 +815,11 @@ def apply_action(
         if isinstance(state_error, str) and state_error.strip():
             semantic_state["error"] = state_error.strip()
         result["semantic_runtime"] = semantic_state
-        return None
+        if state_status == "runtime_unavailable":
+            failures.append("runtime_unavailable")
+        elif state_status == "entry_not_found":
+            failures.append("runtime_entry_not_found")
+        return None, failures
 
     try:
         if action_type == "add":
@@ -848,7 +894,7 @@ def apply_action(
             return result
 
         if action_type == "update_section":
-            runtime_candidate = attach_runtime_candidate()
+            runtime_candidate, runtime_candidate_failures = attach_runtime_candidate()
             section_id = action.get("section_id")
             section_heading = action.get("section_heading")
             section_id_str = (
@@ -856,11 +902,12 @@ def apply_action(
             )
 
             runtime_payload = None
-            runtime_gate_failures: list[str] = []
+            runtime_gate_failures: list[str] = list(runtime_candidate_failures)
             if isinstance(runtime_candidate, dict):
                 runtime_payload, runtime_gate_failures = resolve_update_section_runtime_payload(
                     runtime_candidate
                 )
+                runtime_gate_failures = list(runtime_candidate_failures) + runtime_gate_failures
                 semantic_runtime = result.get("semantic_runtime")
                 if isinstance(semantic_runtime, dict):
                     semantic_runtime["gate"] = {
@@ -896,6 +943,33 @@ def apply_action(
                     result["details"] = "section content already up-to-date"
                 return result
 
+            if runtime_required_for_action("update_section", semantic_cfg):
+                result["status"] = "error"
+                result["details"] = (
+                    "agent_strict requires runtime semantic candidate with passing gate for update_section"
+                )
+                semantic_runtime = result.get("semantic_runtime")
+                if isinstance(semantic_runtime, dict):
+                    semantic_runtime["status"] = "runtime_required"
+                    semantic_runtime["required"] = True
+                return result
+
+            if runtime_gate_failures and not fallback_allowed:
+                result["status"] = "skipped"
+                result["details"] = (
+                    "runtime semantics unavailable or gate failed, and fallback blocked by semantic policy"
+                )
+                semantic_runtime = result.get("semantic_runtime")
+                if isinstance(semantic_runtime, dict):
+                    semantic_runtime["status"] = "fallback_blocked"
+                    semantic_runtime["required"] = False
+                    semantic_runtime["fallback_allowed"] = False
+                    semantic_runtime["gate"] = {
+                        "status": "failed",
+                        "failed_checks": runtime_gate_failures,
+                    }
+                return result
+
             changed = upsert_section(
                 rel_path,
                 abs_path,
@@ -925,7 +999,7 @@ def apply_action(
             return result
 
         if action_type == "fill_claim":
-            runtime_candidate = attach_runtime_candidate()
+            runtime_candidate, runtime_candidate_failures = attach_runtime_candidate()
             section_id = action.get("section_id")
             claim_id = action.get("claim_id")
             section_id_str = (
@@ -944,13 +1018,14 @@ def apply_action(
             ]
 
             runtime_payload = None
-            runtime_gate_failures: list[str] = []
+            runtime_gate_failures: list[str] = list(runtime_candidate_failures)
             if isinstance(runtime_candidate, dict):
                 runtime_payload, runtime_gate_failures = resolve_fill_claim_runtime_payload(
                     action,
                     runtime_candidate,
                     semantic_cfg,
                 )
+                runtime_gate_failures = list(runtime_candidate_failures) + runtime_gate_failures
                 semantic_runtime = result.get("semantic_runtime")
                 if isinstance(semantic_runtime, dict):
                     semantic_runtime["gate"] = {
@@ -986,6 +1061,33 @@ def apply_action(
                     result["details"] = f"claim statement upserted from runtime: {claim_id_str}"
                 else:
                     result["details"] = "claim statement already up-to-date"
+                return result
+
+            if runtime_required_for_action("fill_claim", semantic_cfg):
+                result["status"] = "error"
+                result["details"] = (
+                    "agent_strict requires runtime semantic candidate with passing gate for fill_claim"
+                )
+                semantic_runtime = result.get("semantic_runtime")
+                if isinstance(semantic_runtime, dict):
+                    semantic_runtime["status"] = "runtime_required"
+                    semantic_runtime["required"] = True
+                return result
+
+            if runtime_gate_failures and not fallback_allowed:
+                result["status"] = "skipped"
+                result["details"] = (
+                    "runtime semantics unavailable or gate failed, and fallback blocked by semantic policy"
+                )
+                semantic_runtime = result.get("semantic_runtime")
+                if isinstance(semantic_runtime, dict):
+                    semantic_runtime["status"] = "fallback_blocked"
+                    semantic_runtime["required"] = False
+                    semantic_runtime["fallback_allowed"] = False
+                    semantic_runtime["gate"] = {
+                        "status": "failed",
+                        "failed_checks": runtime_gate_failures,
+                    }
                 return result
 
             changed = upsert_claim_todo(
@@ -1037,18 +1139,19 @@ def apply_action(
             return result
 
         if action_type == "semantic_rewrite":
-            runtime_candidate = attach_runtime_candidate()
+            runtime_candidate, runtime_candidate_failures = attach_runtime_candidate()
             section_id = action.get("section_id")
             section_id_str = (
                 section_id.strip() if isinstance(section_id, str) and section_id.strip() else ""
             )
             section_heading = action.get("section_heading")
             runtime_payload = None
-            runtime_gate_failures: list[str] = []
+            runtime_gate_failures: list[str] = list(runtime_candidate_failures)
             if isinstance(runtime_candidate, dict):
                 runtime_payload, runtime_gate_failures = resolve_update_section_runtime_payload(
                     runtime_candidate
                 )
+                runtime_gate_failures = list(runtime_candidate_failures) + runtime_gate_failures
                 semantic_runtime = result.get("semantic_runtime")
                 if isinstance(semantic_runtime, dict):
                     semantic_runtime["gate"] = {
@@ -1106,6 +1209,33 @@ def apply_action(
                             semantic_runtime["status"] = "semantic_rewrite_no_change"
                         result["details"] = "semantic rewrite content already up-to-date"
                         return result
+
+            if runtime_required_for_action("semantic_rewrite", semantic_cfg):
+                result["status"] = "error"
+                result["details"] = (
+                    "agent_strict requires runtime semantic candidate with passing gate for semantic_rewrite"
+                )
+                semantic_runtime = result.get("semantic_runtime")
+                if isinstance(semantic_runtime, dict):
+                    semantic_runtime["status"] = "runtime_required"
+                    semantic_runtime["required"] = True
+                return result
+
+            if runtime_gate_failures and not fallback_allowed:
+                result["status"] = "skipped"
+                result["details"] = (
+                    "runtime semantics unavailable or gate failed, and fallback blocked by semantic policy"
+                )
+                semantic_runtime = result.get("semantic_runtime")
+                if isinstance(semantic_runtime, dict):
+                    semantic_runtime["status"] = "fallback_blocked"
+                    semantic_runtime["required"] = False
+                    semantic_runtime["fallback_allowed"] = False
+                    semantic_runtime["gate"] = {
+                        "status": "failed",
+                        "failed_checks": runtime_gate_failures,
+                    }
+                return result
 
             source_rel = normalize(action.get("source_path", ""))
             backlog_reason = action.get("backlog_reason")
@@ -1437,108 +1567,164 @@ def main() -> int:
 
     agents_runtime_candidate: dict[str, Any] | None = None
     agents_runtime_result: dict[str, Any] | None = None
-    if dsr.should_attempt_runtime_semantics("agents_generate", semantic_settings):
-        agents_runtime_candidate = dsr.select_runtime_entry(
-            {"type": "agents_generate", "path": "AGENTS.md"},
-            semantic_runtime_entries,
-            semantic_settings,
-        )
-        if isinstance(agents_runtime_candidate, dict):
+    agents_runtime_payload: dict[str, Any] | None = None
+    agents_runtime_gate_failures: list[str] = []
+    agents_runtime_enabled = dsr.should_attempt_runtime_semantics(
+        "agents_generate", semantic_settings
+    )
+    agents_runtime_required = runtime_required_for_action(
+        "agents_generate", semantic_settings
+    )
+    agents_fallback_allowed = resolve_runtime_fallback_allowed(semantic_settings)
+    if agents_runtime_enabled:
+        if is_runtime_path_denied("AGENTS.md", semantic_settings):
+            agents_runtime_gate_failures = ["path_denied"]
             agents_runtime_result = {
-                "status": "candidate_loaded",
-                "entry_id": agents_runtime_candidate.get("entry_id"),
-                "candidate_status": agents_runtime_candidate.get("status"),
+                "status": "path_denied",
                 "mode": semantic_settings.get("mode"),
                 "source": semantic_settings.get("source"),
             }
         else:
-            state_status = (
-                "runtime_unavailable"
-                if not semantic_runtime_state.get("available", False)
-                else "entry_not_found"
+            agents_runtime_candidate = dsr.select_runtime_entry(
+                {"type": "agents_generate", "path": "AGENTS.md"},
+                semantic_runtime_entries,
+                semantic_settings,
             )
-            agents_runtime_result = {
-                "status": state_status,
-                "mode": semantic_settings.get("mode"),
-                "source": semantic_settings.get("source"),
-            }
-            state_error = semantic_runtime_state.get("error")
-            if isinstance(state_error, str) and state_error.strip():
-                agents_runtime_result["error"] = state_error.strip()
+            if isinstance(agents_runtime_candidate, dict):
+                agents_runtime_result = {
+                    "status": "candidate_loaded",
+                    "entry_id": agents_runtime_candidate.get("entry_id"),
+                    "candidate_status": agents_runtime_candidate.get("status"),
+                    "mode": semantic_settings.get("mode"),
+                    "source": semantic_settings.get("source"),
+                }
+                agents_runtime_payload, agents_runtime_gate_failures = (
+                    resolve_agents_runtime_payload(agents_runtime_candidate)
+                )
+                agents_runtime_result["gate"] = {
+                    "status": "passed" if agents_runtime_payload else "failed",
+                    "failed_checks": agents_runtime_gate_failures,
+                }
+                agents_runtime_result["consumed"] = bool(agents_runtime_payload)
+            else:
+                state_status = (
+                    "runtime_unavailable"
+                    if not semantic_runtime_state.get("available", False)
+                    else "entry_not_found"
+                )
+                agents_runtime_gate_failures = (
+                    ["runtime_unavailable"]
+                    if state_status == "runtime_unavailable"
+                    else ["runtime_entry_not_found"]
+                )
+                agents_runtime_result = {
+                    "status": state_status,
+                    "mode": semantic_settings.get("mode"),
+                    "source": semantic_settings.get("source"),
+                }
+                state_error = semantic_runtime_state.get("error")
+                if isinstance(state_error, str) and state_error.strip():
+                    agents_runtime_result["error"] = state_error.strip()
 
     agents_generation_report: dict[str, Any] | None = None
     if should_generate_agents:
-        manifest_data = (
-            plan_meta.get("manifest_effective")
-            if isinstance(plan_meta.get("manifest_effective"), dict)
-            else load_json_mapping(root / "docs/.doc-manifest.json")
-        ) or {}
-        facts_data = load_json_mapping(root / "docs/.repo-facts.json") or {}
-        try:
-            _, agents_generation_report = doc_agents.generate_agents_artifacts(
-                root=root,
-                policy=effective_policy,
-                manifest=manifest_data,
-                facts=facts_data,
-                output_path=root / "AGENTS.md",
-                report_path=root / "docs/.agents-report.json",
-                dry_run=args.dry_run,
-                force=False,
-            )
-            if agents_generation_report.get("status") == "generated":
-                details = "AGENTS generated from policy/manifest/index/facts"
-                if isinstance(agents_runtime_candidate, dict):
-                    runtime_payload, runtime_gate_failures = resolve_agents_runtime_payload(
-                        agents_runtime_candidate
-                    )
-                    if isinstance(agents_runtime_result, dict):
-                        agents_runtime_result["gate"] = {
-                            "status": "passed" if runtime_payload else "failed",
-                            "failed_checks": runtime_gate_failures,
-                        }
-                        agents_runtime_result["consumed"] = bool(runtime_payload)
-                    if runtime_payload:
-                        write_text(
-                            root / "AGENTS.md",
-                            str(runtime_payload.get("content", "")),
-                            args.dry_run,
-                        )
-                        details = "AGENTS generated from runtime semantic candidate"
-                        if isinstance(agents_runtime_result, dict):
-                            agents_runtime_result["status"] = "agents_runtime_applied"
-                    else:
-                        details = (
-                            "AGENTS generated via deterministic fallback (runtime gate failed)"
-                        )
-                        if isinstance(agents_runtime_result, dict):
-                            agents_runtime_result["status"] = "agents_runtime_gate_failed"
-                if isinstance(agents_generation_report, dict) and isinstance(
-                    agents_runtime_result, dict
-                ):
-                    agents_generation_report["semantic_runtime"] = dict(
-                        agents_runtime_result
-                    )
-                agent_result: dict[str, Any] = {
-                    "id": "AGENTS",
-                    "type": "agents_generate",
-                    "path": "AGENTS.md",
-                    "status": "applied",
-                    "details": details,
-                }
-                if isinstance(agents_runtime_result, dict):
-                    agent_result["semantic_runtime"] = dict(agents_runtime_result)
-                results.append(agent_result)
-        except Exception as exc:  # noqa: BLE001
+        if agents_runtime_required and not isinstance(agents_runtime_payload, dict):
             error_result: dict[str, Any] = {
                 "id": "AGENTS",
                 "type": "agents_generate",
                 "path": "AGENTS.md",
                 "status": "error",
-                "details": f"agents generation failed: {exc}",
+                "details": (
+                    "agent_strict requires runtime semantic candidate with passing gate for agents_generate"
+                ),
             }
             if isinstance(agents_runtime_result, dict):
+                agents_runtime_result["status"] = "runtime_required"
+                agents_runtime_result["required"] = True
                 error_result["semantic_runtime"] = dict(agents_runtime_result)
             results.append(error_result)
+        elif (
+            agents_runtime_enabled
+            and agents_runtime_gate_failures
+            and not agents_fallback_allowed
+        ):
+            skipped_result: dict[str, Any] = {
+                "id": "AGENTS",
+                "type": "agents_generate",
+                "path": "AGENTS.md",
+                "status": "skipped",
+                "details": (
+                    "runtime semantics unavailable or gate failed, and fallback blocked by semantic policy"
+                ),
+            }
+            if isinstance(agents_runtime_result, dict):
+                agents_runtime_result["status"] = "fallback_blocked"
+                agents_runtime_result["required"] = False
+                agents_runtime_result["fallback_allowed"] = False
+                skipped_result["semantic_runtime"] = dict(agents_runtime_result)
+            results.append(skipped_result)
+        else:
+            manifest_data = (
+                plan_meta.get("manifest_effective")
+                if isinstance(plan_meta.get("manifest_effective"), dict)
+                else load_json_mapping(root / "docs/.doc-manifest.json")
+            ) or {}
+            facts_data = load_json_mapping(root / "docs/.repo-facts.json") or {}
+            try:
+                _, agents_generation_report = doc_agents.generate_agents_artifacts(
+                    root=root,
+                    policy=effective_policy,
+                    manifest=manifest_data,
+                    facts=facts_data,
+                    output_path=root / "AGENTS.md",
+                    report_path=root / "docs/.agents-report.json",
+                    dry_run=args.dry_run,
+                    force=False,
+                )
+                if agents_generation_report.get("status") == "generated":
+                    details = "AGENTS generated from policy/manifest/index/facts"
+                    if isinstance(agents_runtime_payload, dict):
+                        write_text(
+                            root / "AGENTS.md",
+                            str(agents_runtime_payload.get("content", "")),
+                            args.dry_run,
+                        )
+                        details = "AGENTS generated from runtime semantic candidate"
+                        if isinstance(agents_runtime_result, dict):
+                            agents_runtime_result["status"] = "agents_runtime_applied"
+                    elif agents_runtime_enabled and agents_runtime_gate_failures:
+                        details = (
+                            "AGENTS generated via deterministic fallback (runtime gate failed)"
+                        )
+                        if isinstance(agents_runtime_result, dict):
+                            agents_runtime_result["status"] = "agents_runtime_gate_failed"
+                    if isinstance(agents_generation_report, dict) and isinstance(
+                        agents_runtime_result, dict
+                    ):
+                        agents_generation_report["semantic_runtime"] = dict(
+                            agents_runtime_result
+                        )
+                    agent_result: dict[str, Any] = {
+                        "id": "AGENTS",
+                        "type": "agents_generate",
+                        "path": "AGENTS.md",
+                        "status": "applied",
+                        "details": details,
+                    }
+                    if isinstance(agents_runtime_result, dict):
+                        agent_result["semantic_runtime"] = dict(agents_runtime_result)
+                    results.append(agent_result)
+            except Exception as exc:  # noqa: BLE001
+                error_result: dict[str, Any] = {
+                    "id": "AGENTS",
+                    "type": "agents_generate",
+                    "path": "AGENTS.md",
+                    "status": "error",
+                    "details": f"agents generation failed: {exc}",
+                }
+                if isinstance(agents_runtime_result, dict):
+                    error_result["semantic_runtime"] = dict(agents_runtime_result)
+                results.append(error_result)
 
     summary = {
         "total_actions": len(results),

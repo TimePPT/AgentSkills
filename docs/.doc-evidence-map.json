@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-02-23T15:44:21.494462+00:00",
+  "generated_at": "2026-02-24T13:57:33.717266+00:00",
   "root": "/Users/tompoet/AgentSkills",
   "plan": "/Users/tompoet/AgentSkills/docs/.doc-plan.json",
   "spec": "/Users/tompoet/AgentSkills/docs/.doc-spec.json",
   "facts": "/Users/tompoet/AgentSkills/docs/.repo-facts.json",
   "plan_meta": {
-    "generated_at": "2026-02-23T15:44:21.117935+00:00",
+    "generated_at": "2026-02-24T13:57:33.336522+00:00",
     "root": "/Users/tompoet/AgentSkills",
     "mode": "audit",
     "policy_path": "docs/.doc-policy.json",
@@ -25,12 +25,14 @@
           "docs/exec-plans/active/docs-sor-roadmap-v2.2-phase-f-agent-runtime-semantic-hardening.md",
           "docs/exec-plans/active/docs-sor-roadmap-v2.4-dual-replica-sync-ci-convergence.md",
           "docs/exec-plans/active/docs-sor-roadmap-v2.5-hybrid-template-llm-governance.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.5-remediation-agent-strict-policy-enforcement.md",
           "docs/exec-plans/active/docs-sor-roadmap-v2.md",
           "docs/exec-plans/completed/README.md",
           "docs/exec-plans/completed/docs-sor-legacy-migration-automation-closeout-2026-02-22.md",
           "docs/exec-plans/completed/docs-sor-roadmap-v2.1-closeout-2026-02-22.md",
           "docs/exec-plans/completed/docs-sor-roadmap-v2.1-phase-e-closeout-2026-02-22.md",
           "docs/exec-plans/completed/docs-sor-roadmap-v2.2-phase-f-closeout-2026-02-22.md",
+          "docs/exec-plans/completed/docs-sor-roadmap-v2.5-remediation-closeout-2026-02-24.md",
           "docs/index.md",
           "docs/references/doc_spec_schema.md",
           "docs/runbook.md"
@@ -57,7 +59,7 @@
       "archive_dir": "docs/archive"
     },
     "manifest_reasoning": [
-      "include_files=6"
+      "include_files=8"
     ],
     "capability_decisions": [
       {
@@ -92,7 +94,7 @@
         "enabled": true,
         "source": "goal_include",
         "evidence": [
-          "file_count=122",
+          "file_count=125",
           "enabled by doc_goals.include"
         ],
         "required_files": [
@@ -107,7 +109,7 @@
         "source": "goal_include",
         "evidence": [
           "ci_configs=1",
-          "file_count=122",
+          "file_count=125",
           "enabled by doc_goals.include"
         ],
         "required_files": [],
@@ -123,7 +125,7 @@
         "enabled": true,
         "source": "signal",
         "evidence": [
-          "docs_markdown_count=26"
+          "docs_markdown_count=28"
         ],
         "required_files": [],
         "required_dirs": [],
@@ -340,7 +342,7 @@
             {
               "claim_id": "runbook.validation_commands",
               "status": "supported",
-              "statement": "当前校验命令集合为：\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_validate.py\" --root \"$REPO_ROOT\" --facts \"$REPO_ROOT/docs/.repo-facts.json\" --fail-on-drift --fail-on-freshness --output \"$REPO_ROOT/docs/.doc-validate-report.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_quality.py\" --root \"$REPO_ROOT\" --output \"$REPO_ROOT/docs/.doc-quality-report.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_garden.py\" --root \"$REPO_ROOT\" --apply-mode apply-safe --repair-plan-mode repair --fail-on-drift --fail-on-freshness, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_legacy_migration, python3 -m unittest discover -s skills/docs-sor-maintainer/tests -p 'test_*.py', \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/repo_scan.py\" --root \"$REPO_ROOT\" --output \"$REPO_ROOT/docs/.repo-facts.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode audit --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode audit --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan-phase-f-audit.json\", python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_agents_validate, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_garden_repair_loop, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_validate_exec_plan_closeout, python3 -m py_compile \"$SKILL_DIR\"/scripts/*.py",
+              "statement": "当前校验命令集合为：\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_validate.py\" --root \"$REPO_ROOT\" --facts \"$REPO_ROOT/docs/.repo-facts.json\" --fail-on-drift --fail-on-freshness --output \"$REPO_ROOT/docs/.doc-validate-report.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_quality.py\" --root \"$REPO_ROOT\" --output \"$REPO_ROOT/docs/.doc-quality-report.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_garden.py\" --root \"$REPO_ROOT\" --apply-mode apply-safe --repair-plan-mode repair --fail-on-drift --fail-on-freshness, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_legacy_migration, python3 -m unittest discover -s skills/docs-sor-maintainer/tests -p 'test_*.py', \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/repo_scan.py\" --root \"$REPO_ROOT\" --output \"$REPO_ROOT/docs/.repo-facts.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode audit --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode audit --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan-phase-f-audit.json\", python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_agents_validate, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_garden_repair_loop, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_validate_exec_plan_closeout, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_semantic_runtime, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_apply_section_actions, python3 -m py_compile \"$SKILL_DIR\"/scripts/*.py",
               "statement_template": "当前校验命令集合为：{commands}",
               "required_evidence_types": [
                 "runbook.validation_commands"
@@ -362,6 +364,8 @@
                     "python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_agents_validate",
                     "python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_garden_repair_loop",
                     "python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_validate_exec_plan_closeout",
+                    "python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_semantic_runtime",
+                    "python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_apply_section_actions",
                     "python3 -m py_compile \"$SKILL_DIR\"/scripts/*.py"
                   ]
                 }

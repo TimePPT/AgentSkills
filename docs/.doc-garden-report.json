@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-02-23T15:44:21.615031+00:00",
+  "generated_at": "2026-02-24T13:57:33.836412+00:00",
   "root": "/Users/tompoet/AgentSkills",
   "settings": {
     "plan_mode": "audit",
@@ -21,8 +21,8 @@
         "--output",
         "/Users/tompoet/AgentSkills/docs/.repo-facts.json"
       ],
-      "started_at": "2026-02-23T15:44:20.710372+00:00",
-      "finished_at": "2026-02-23T15:44:21.054605+00:00",
+      "started_at": "2026-02-24T13:57:32.956560+00:00",
+      "finished_at": "2026-02-24T13:57:33.271066+00:00",
       "returncode": 0,
       "stdout": "[OK] Wrote facts to /Users/tompoet/AgentSkills/docs/.repo-facts.json\n",
       "stderr": "",
@@ -42,8 +42,8 @@
         "--output",
         "/Users/tompoet/AgentSkills/docs/.doc-plan.json"
       ],
-      "started_at": "2026-02-23T15:44:21.054680+00:00",
-      "finished_at": "2026-02-23T15:44:21.122223+00:00",
+      "started_at": "2026-02-24T13:57:33.271127+00:00",
+      "finished_at": "2026-02-24T13:57:33.340222+00:00",
       "returncode": 0,
       "stdout": "[OK] Wrote plan to /Users/tompoet/AgentSkills/docs/.doc-plan.json\n[INFO] Action count: 0\n[INFO] Semantic report: /Users/tompoet/AgentSkills/docs/.legacy-semantic-report.json\n[INFO] Language primary=zh-CN profile=zh-CN source=policy_locked\n",
       "stderr": "",
@@ -61,8 +61,8 @@
         "--mode",
         "apply-safe"
       ],
-      "started_at": "2026-02-23T15:44:21.122289+00:00",
-      "finished_at": "2026-02-23T15:44:21.159812+00:00",
+      "started_at": "2026-02-24T13:57:33.340278+00:00",
+      "finished_at": "2026-02-24T13:57:33.374709+00:00",
       "returncode": 0,
       "stdout": "[OK] Processed 0 actions\n[INFO] Applied=0 Skipped=0 Errors=0\n[INFO] Language primary=zh-CN profile=zh-CN source=policy_locked\n[INFO] Semantic runtime enabled=True mode=hybrid available=False entries=0\n",
       "stderr": "",
@@ -78,8 +78,8 @@
         "--output",
         "/Users/tompoet/AgentSkills/docs/.repo-facts.json"
       ],
-      "started_at": "2026-02-23T15:44:21.159878+00:00",
-      "finished_at": "2026-02-23T15:44:21.466220+00:00",
+      "started_at": "2026-02-24T13:57:33.374765+00:00",
+      "finished_at": "2026-02-24T13:57:33.692804+00:00",
       "returncode": 0,
       "stdout": "[OK] Wrote facts to /Users/tompoet/AgentSkills/docs/.repo-facts.json\n",
       "stderr": "",
@@ -99,8 +99,8 @@
         "--output",
         "/Users/tompoet/AgentSkills/docs/.doc-evidence-map.json"
       ],
-      "started_at": "2026-02-23T15:44:21.466322+00:00",
-      "finished_at": "2026-02-23T15:44:21.498385+00:00",
+      "started_at": "2026-02-24T13:57:33.692861+00:00",
+      "finished_at": "2026-02-24T13:57:33.720819+00:00",
       "returncode": 0,
       "stdout": "[OK] Wrote evidence map to /Users/tompoet/AgentSkills/docs/.doc-evidence-map.json\n[INFO] claims=4 supported=4 unknown=0 missing=0\n",
       "stderr": "",
@@ -118,8 +118,8 @@
         "--fail-on-drift",
         "--fail-on-freshness"
       ],
-      "started_at": "2026-02-23T15:44:21.498465+00:00",
-      "finished_at": "2026-02-23T15:44:21.614602+00:00",
+      "started_at": "2026-02-24T13:57:33.720876+00:00",
+      "finished_at": "2026-02-24T13:57:33.836010+00:00",
       "returncode": 0,
       "stdout": "[OK] Wrote validate report to /Users/tompoet/AgentSkills/docs/.doc-validate-report.json\n[INFO] errors=0 warnings=0 drift=0\n",
       "stderr": "",

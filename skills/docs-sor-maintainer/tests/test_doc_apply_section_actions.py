@@ -318,6 +318,183 @@ class DocApplySectionActionTests(unittest.TestCase):
         self.assertIn("TODO(claim:runbook.dev_commands)", content)
         self.assertNotIn("CLAIM(claim:runbook.dev_commands)", content)
 
+    def test_fill_claim_agent_strict_requires_runtime_candidate(self) -> None:
+        runbook = self.root / "docs/runbook.md"
+        runbook.write_text(
+            lp.get_managed_template("docs/runbook.md", self.profile), encoding="utf-8"
+        )
+        semantic_settings = dsr.resolve_semantic_generation_settings(
+            {
+                "semantic_generation": {
+                    "enabled": True,
+                    "mode": "agent_strict",
+                }
+            }
+        )
+        runtime_state = {
+            "enabled": True,
+            "mode": "agent_strict",
+            "source": "invoking_agent",
+            "available": False,
+            "entry_count": 0,
+            "error": "runtime report not found",
+            "warnings": [],
+        }
+
+        result = doc_apply.apply_action(
+            self.root,
+            {
+                "id": "A007S",
+                "type": "fill_claim",
+                "path": "docs/runbook.md",
+                "section_id": "dev_commands",
+                "claim_id": "runbook.dev_commands",
+                "required_evidence_types": ["repo_scan.modules"],
+            },
+            dry_run=False,
+            language_settings=self.language,
+            template_profile=self.profile,
+            metadata_policy=self.metadata_policy,
+            semantic_settings=semantic_settings,
+            semantic_runtime_entries=[],
+            semantic_runtime_state=runtime_state,
+        )
+
+        self.assertEqual(result["status"], "error")
+        self.assertIn("agent_strict requires runtime semantic candidate", result["details"])
+        semantic_runtime = result.get("semantic_runtime") or {}
+        self.assertEqual(semantic_runtime.get("status"), "runtime_required")
+        content = runbook.read_text(encoding="utf-8")
+        self.assertNotIn("TODO(claim:runbook.dev_commands)", content)
+        self.assertNotIn("CLAIM(claim:runbook.dev_commands)", content)
+
+    def test_fill_claim_fallback_blocked_by_policy(self) -> None:
+        runbook = self.root / "docs/runbook.md"
+        runbook.write_text(
+            lp.get_managed_template("docs/runbook.md", self.profile), encoding="utf-8"
+        )
+        semantic_settings = dsr.resolve_semantic_generation_settings(
+            {
+                "semantic_generation": {
+                    "enabled": True,
+                    "mode": "hybrid",
+                    "allow_fallback_template": False,
+                    "fail_closed": True,
+                }
+            }
+        )
+        runtime_entries = [
+            {
+                "entry_id": "claim-dev-commands",
+                "path": "docs/runbook.md",
+                "action_type": "fill_claim",
+                "section_id": "dev_commands",
+                "claim_id": "runbook.dev_commands",
+                "status": "ok",
+                "statement": "runtime semantic candidate",
+            }
+        ]
+        runtime_state = {
+            "enabled": True,
+            "mode": "hybrid",
+            "source": "invoking_agent",
+            "available": True,
+            "entry_count": 1,
+            "error": None,
+            "warnings": [],
+        }
+
+        result = doc_apply.apply_action(
+            self.root,
+            {
+                "id": "A007P",
+                "type": "fill_claim",
+                "path": "docs/runbook.md",
+                "section_id": "dev_commands",
+                "claim_id": "runbook.dev_commands",
+                "required_evidence_types": ["repo_scan.modules"],
+            },
+            dry_run=False,
+            language_settings=self.language,
+            template_profile=self.profile,
+            metadata_policy=self.metadata_policy,
+            semantic_settings=semantic_settings,
+            semantic_runtime_entries=runtime_entries,
+            semantic_runtime_state=runtime_state,
+        )
+
+        self.assertEqual(result["status"], "skipped")
+        self.assertIn("fallback blocked by semantic policy", result["details"])
+        semantic_runtime = result.get("semantic_runtime") or {}
+        self.assertEqual(semantic_runtime.get("status"), "fallback_blocked")
+        self.assertFalse(semantic_runtime.get("fallback_allowed", True))
+        content = runbook.read_text(encoding="utf-8")
+        self.assertNotIn("TODO(claim:runbook.dev_commands)", content)
+        self.assertNotIn("CLAIM(claim:runbook.dev_commands)", content)
+
+    def test_update_section_path_denied_blocks_runtime_and_fallback(self) -> None:
+        runbook = self.root / "docs/runbook.md"
+        runbook.write_text(
+            lp.get_section_text("docs/runbook.md", "title", self.profile).strip() + "\n",
+            encoding="utf-8",
+        )
+        semantic_settings = dsr.resolve_semantic_generation_settings(
+            {
+                "semantic_generation": {
+                    "enabled": True,
+                    "mode": "hybrid",
+                    "allow_fallback_template": False,
+                    "fail_closed": True,
+                    "deny_paths": ["docs/runbook.md"],
+                }
+            }
+        )
+        runtime_entries = [
+            {
+                "entry_id": "section-custom",
+                "path": "docs/runbook.md",
+                "action_type": "update_section",
+                "section_id": "custom_checks",
+                "status": "ok",
+                "content": "custom runtime content",
+            }
+        ]
+        runtime_state = {
+            "enabled": True,
+            "mode": "hybrid",
+            "source": "invoking_agent",
+            "available": True,
+            "entry_count": 1,
+            "error": None,
+            "warnings": [],
+        }
+
+        result = doc_apply.apply_action(
+            self.root,
+            {
+                "id": "A008D",
+                "type": "update_section",
+                "path": "docs/runbook.md",
+                "section_id": "custom_checks",
+                "section_heading": "## 自定义检查",
+            },
+            dry_run=False,
+            language_settings=self.language,
+            template_profile=self.profile,
+            metadata_policy=self.metadata_policy,
+            semantic_settings=semantic_settings,
+            semantic_runtime_entries=runtime_entries,
+            semantic_runtime_state=runtime_state,
+        )
+
+        self.assertEqual(result["status"], "skipped")
+        semantic_runtime = result.get("semantic_runtime") or {}
+        self.assertEqual(semantic_runtime.get("status"), "fallback_blocked")
+        gate = semantic_runtime.get("gate") or {}
+        self.assertIn("path_denied", gate.get("failed_checks", []))
+        content = runbook.read_text(encoding="utf-8")
+        self.assertNotIn("## 自定义检查", content)
+
     def test_update_section_runtime_content_is_consumed(self) -> None:
         runbook = self.root / "docs/runbook.md"
         runbook.write_text(
@@ -469,6 +646,80 @@ class DocApplySectionActionTests(unittest.TestCase):
         self.assertIn(
             "runtime semantic candidate", str(agent_results[0].get("details", ""))
         )
+
+    def test_agents_generate_agent_strict_requires_runtime_candidate(self) -> None:
+        policy = lp.build_default_policy(primary_language="zh-CN", profile="zh-CN")
+        policy["agents_generation"]["enabled"] = True
+        policy["semantic_generation"]["enabled"] = True
+        policy["semantic_generation"]["mode"] = "agent_strict"
+        (self.root / "docs/.doc-policy.json").write_text(
+            json.dumps(policy, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+
+        manifest = {
+            "version": 1,
+            "required": {
+                "files": ["docs/index.md", "docs/.doc-policy.json", "docs/.doc-manifest.json"],
+                "dirs": [],
+            },
+            "optional": {"files": []},
+            "archive_dir": "docs/archive",
+        }
+        (self.root / "docs/.doc-manifest.json").write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        (self.root / "docs/index.md").write_text("# 文档索引\n", encoding="utf-8")
+        (self.root / "docs/.repo-facts.json").write_text(
+            json.dumps({"modules": ["skills"]}, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        plan_path = self.root / "docs/plan-agents-strict.json"
+        plan_path.write_text(
+            json.dumps(
+                {
+                    "meta": {
+                        "mode": "apply-safe",
+                        "manifest_changed": True,
+                        "manifest_effective": manifest,
+                    },
+                    "actions": [],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        cmd = [
+            sys.executable,
+            str(SCRIPT_DIR / "doc_apply.py"),
+            "--root",
+            str(self.root),
+            "--plan",
+            str(plan_path),
+            "--mode",
+            "apply-safe",
+        ]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        self.assertEqual(proc.returncode, 1, msg=proc.stdout + proc.stderr)
+
+        report = json.loads(
+            (self.root / "docs/.doc-apply-report.json").read_text(encoding="utf-8")
+        )
+        agent_results = [
+            item
+            for item in (report.get("results") or [])
+            if isinstance(item, dict) and item.get("type") == "agents_generate"
+        ]
+        self.assertEqual(len(agent_results), 1)
+        self.assertEqual(agent_results[0].get("status"), "error")
+        self.assertIn(
+            "agent_strict requires runtime semantic candidate",
+            str(agent_results[0].get("details", "")),
+        )
+        self.assertFalse((self.root / "AGENTS.md").exists())
 
 
 if __name__ == "__main__":

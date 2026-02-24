@@ -9,6 +9,7 @@
         "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md",
         "docs/exec-plans/active/docs-sor-roadmap-v2.2-phase-f-agent-runtime-semantic-hardening.md",
         "docs/exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md",
+        "docs/exec-plans/active/docs-sor-roadmap-v2.5-remediation-agent-strict-policy-enforcement.md",
         "docs/exec-plans/active/docs-sor-roadmap-v2.5-hybrid-template-llm-governance.md",
         "docs/exec-plans/active/docs-sor-roadmap-v2.md",
         "docs/exec-plans/completed/README.md",
@@ -16,6 +17,7 @@
         "docs/exec-plans/completed/docs-sor-roadmap-v2.1-closeout-2026-02-22.md",
         "docs/exec-plans/completed/docs-sor-roadmap-v2.1-phase-e-closeout-2026-02-22.md",
         "docs/exec-plans/completed/docs-sor-roadmap-v2.2-phase-f-closeout-2026-02-22.md",
+        "docs/exec-plans/completed/docs-sor-roadmap-v2.5-remediation-closeout-2026-02-24.md",
         "docs/index.md",
         "docs/references/doc_spec_schema.md",
         "docs/runbook.md"

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-02-22T09:09:55.418957+00:00",
+  "generated_at": "2026-02-24T13:57:48.899520+00:00",
   "root": "/Users/tompoet/AgentSkills",
   "enabled": true,
   "doc_spec": {
@@ -20,6 +20,7 @@
     "semantic_auto_migrate_count": 0,
     "semantic_manual_review_count": 0,
     "semantic_skip_count": 0,
+    "fallback_auto_migrate_count": 0,
     "semantic_low_confidence_count": 0,
     "semantic_conflict_count": 0,
     "structured_section_completeness": 1.0,
@@ -32,6 +33,7 @@
     "thresholds": {
       "max_semantic_conflicts": 0,
       "max_semantic_low_confidence_auto": 0,
+      "max_fallback_auto_migrate": 0,
       "min_structured_section_completeness": 0.95,
       "fail_on_semantic_gate": true
     },
@@ -39,6 +41,7 @@
       "semantic_auto_migrate_count": 0,
       "semantic_manual_review_count": 0,
       "semantic_skip_count": 0,
+      "fallback_auto_migrate_count": 0,
       "semantic_low_confidence_count": 0,
       "semantic_conflict_count": 0,
       "structured_section_completeness": 1.0,
@@ -61,6 +64,7 @@
       "max_stale_metrics_days": 7,
       "max_semantic_conflicts": 0,
       "max_semantic_low_confidence_auto": 0,
+      "max_fallback_auto_migrate": 0,
       "min_structured_section_completeness": 0.95
     }
   }

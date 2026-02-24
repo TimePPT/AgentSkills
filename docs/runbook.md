@@ -1,5 +1,5 @@
 <!-- doc-owner: docs-maintainer -->
-<!-- doc-last-reviewed: 2026-02-23 -->
+<!-- doc-last-reviewed: 2026-02-24 -->
 <!-- doc-review-cycle-days: 90 -->
 
 # 运行手册
@@ -98,6 +98,19 @@ python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_garden_repair_l
 python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_legacy_migration
 python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_validate_exec_plan_closeout
 python3 -m unittest discover -s skills/docs-sor-maintainer/tests -p 'test_*.py'
+```
+
+V2.5 修复收敛（agent_strict + semantic policy 执行语义）验收链路：
+
+```bash
+"$PYTHON_BIN" "$SKILL_DIR/scripts/repo_scan.py" --root "$REPO_ROOT" --output "$REPO_ROOT/docs/.repo-facts.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_plan.py" --root "$REPO_ROOT" --mode audit --facts "$REPO_ROOT/docs/.repo-facts.json" --output "$REPO_ROOT/docs/.doc-plan.json"
+python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_semantic_runtime
+python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_apply_section_actions
+python3 -m unittest discover -s skills/docs-sor-maintainer/tests -p 'test_*.py'
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_quality.py" --root "$REPO_ROOT" --output "$REPO_ROOT/docs/.doc-quality-report.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_validate.py" --root "$REPO_ROOT" --facts "$REPO_ROOT/docs/.repo-facts.json" --fail-on-drift --fail-on-freshness --output "$REPO_ROOT/docs/.doc-validate-report.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_garden.py" --root "$REPO_ROOT" --apply-mode apply-safe --repair-plan-mode repair --fail-on-drift --fail-on-freshness
 ```
 
 脚本语法自检：
