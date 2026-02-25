@@ -27,10 +27,12 @@ if [ -n "${SKILL_DIR:-}" ]; then
   }
 elif [ -d "$REPO_ROOT/.agents/skills/docs-sor-maintainer/scripts" ]; then
   SKILL_DIR="$REPO_ROOT/.agents/skills/docs-sor-maintainer"
+elif [ -d "$REPO_ROOT/skills/docs-sor-maintainer/scripts" ]; then
+  SKILL_DIR="$REPO_ROOT/skills/docs-sor-maintainer"
 elif [ -d "$CODEX_HOME_RESOLVED/skills/docs-sor-maintainer/scripts" ]; then
   SKILL_DIR="$CODEX_HOME_RESOLVED/skills/docs-sor-maintainer"
 else
-  echo "docs-sor-maintainer not found. Set SKILL_DIR or install under .agents/skills or \$HOME/.codex/skills." >&2
+  echo "docs-sor-maintainer not found. Set SKILL_DIR or install under .agents/skills, skills or \$HOME/.codex/skills." >&2
   exit 2
 fi
 "$PYTHON_BIN" "$SKILL_DIR/scripts/doc_plan.py" --help >/dev/null

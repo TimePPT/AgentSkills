@@ -41,6 +41,7 @@ BASE_POLICY = {
         "require_owner": True,
         "require_last_reviewed": True,
         "require_review_cycle_days": True,
+        # "docs-maintainer" is the team/role responsible for overall documentation maintenance.
         "default_owner": "docs-maintainer",
         "default_review_cycle_days": 90,
         "ignore_paths": ["docs/archive/**"],
