@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-02-25T07:25:30.889844+00:00",
+  "generated_at": "2026-02-25T14:20:55.332604+00:00",
   "root": "/Users/tompoet/AgentSkills",
   "passed": true,
   "fail_on_drift": true,
@@ -315,7 +315,7 @@
     }
   },
   "doc_quality": {
-    "generated_at": "2026-02-25T07:25:30.795101+00:00",
+    "generated_at": "2026-02-25T14:20:55.237686+00:00",
     "root": "/Users/tompoet/AgentSkills",
     "enabled": true,
     "doc_spec": {
@@ -792,7 +792,7 @@
     ]
   },
   "agents": {
-    "generated_at": "2026-02-25T07:25:30.796197+00:00",
+    "generated_at": "2026-02-25T14:20:55.238497+00:00",
     "root": "/Users/tompoet/AgentSkills",
     "enabled": true,
     "settings": {

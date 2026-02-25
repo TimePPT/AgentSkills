@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-02-25T02:55:15.428232+00:00",
+  "generated_at": "2026-02-25T14:20:55.044612+00:00",
   "root": "/Users/tompoet/AgentSkills",
   "plan": "/Users/tompoet/AgentSkills/docs/.doc-plan.json",
   "spec": "/Users/tompoet/AgentSkills/docs/.doc-spec.json",
   "facts": "/Users/tompoet/AgentSkills/docs/.repo-facts.json",
   "plan_meta": {
-    "generated_at": "2026-02-25T02:55:15.342007+00:00",
+    "generated_at": "2026-02-25T14:20:54.868151+00:00",
     "root": "/Users/tompoet/AgentSkills",
     "mode": "audit",
     "policy_path": "docs/.doc-policy.json",
@@ -100,7 +100,7 @@
         "enabled": true,
         "source": "goal_include",
         "evidence": [
-          "file_count=147",
+          "file_count=148",
           "enabled by doc_goals.include"
         ],
         "required_files": [
@@ -115,7 +115,7 @@
         "source": "goal_include",
         "evidence": [
           "ci_configs=1",
-          "file_count=147",
+          "file_count=148",
           "enabled by doc_goals.include"
         ],
         "required_files": [],
