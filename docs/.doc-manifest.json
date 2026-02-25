@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "required": {
+    "files": [
+      "docs/.doc-spec.json",
+      "docs/.doc-topology.json",
+      "docs/architecture.md",
+      "docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.2-phase-f-agent-runtime-semantic-hardening.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.4-dual-replica-sync-ci-convergence.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.5-hybrid-template-llm-governance.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.5-remediation-agent-strict-policy-enforcement.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.6-acceptance-report.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.md",
+      "docs/exec-plans/completed/README.md",
+      "docs/exec-plans/completed/docs-sor-legacy-migration-automation-closeout-2026-02-22.md",
+      "docs/exec-plans/completed/docs-sor-roadmap-v2.1-closeout-2026-02-22.md",
+      "docs/exec-plans/completed/docs-sor-roadmap-v2.1-phase-e-closeout-2026-02-22.md",
+      "docs/exec-plans/completed/docs-sor-roadmap-v2.2-phase-f-closeout-2026-02-22.md",
+      "docs/exec-plans/completed/docs-sor-roadmap-v2.5-remediation-closeout-2026-02-24.md",
+      "docs/exec-plans/completed/docs-sor-roadmap-v2.6-closeout-2026-02-24.md",
+      "docs/index.md",
+      "docs/references/doc_spec_schema.md",
+      "docs/references/doc_topology_schema.md",
+      "docs/references/exec-plan-closeout-template.md",
+      "docs/runbook.md"
+    ],
+    "dirs": [
+      "docs/exec-plans/active",
+      "docs/exec-plans/completed",
+      "docs/references",
+      "docs/tech-debt"
+    ]
+  },
+  "optional": {
+    "files": [
+      "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-acceptance-report.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-test-matrix.md",
+      "docs/exec-plans/completed/docs-sor-roadmap-v2-closeout-2026-02-22.md",
+      "docs/exec-plans/completed/docs-sor-roadmap-v2.3-phase-f5-closeout-2026-02-22.md",
+      "docs/exec-plans/completed/docs-sor-roadmap-v2.4-closeout-2026-02-23.md",
+      "docs/exec-plans/completed/docs-sor-roadmap-v2.5-closeout-2026-02-23.md",
+      "docs/glossary.md",
+      "docs/references/legacy-semantic-migration-acceptance-template.md"
+    ]
+  },
+  "archive_dir": "docs/archive"
+}

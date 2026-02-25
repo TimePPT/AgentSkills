@@ -41,18 +41,127 @@ BASE_POLICY = {
         "require_owner": True,
         "require_last_reviewed": True,
         "require_review_cycle_days": True,
-        "default_owner": "TODO-owner",
+        "default_owner": "docs-maintainer",
         "default_review_cycle_days": 90,
         "ignore_paths": ["docs/archive/**"],
         "stale_warning_enabled": True,
     },
+    "doc_topology": {
+        "enabled": False,
+        "path": "docs/.doc-topology.json",
+        "enforce_max_depth": True,
+        "max_depth": 3,
+        "fail_on_orphan": True,
+        "fail_on_unreachable": True,
+    },
+    "progressive_disclosure": {
+        "enabled": False,
+        "required_slots": ["summary", "key_facts", "next_steps"],
+        "summary_max_chars": 160,
+        "max_key_facts": 5,
+        "max_next_steps": 3,
+        "fail_on_missing_slots": True,
+    },
     "doc_gardening": {
         "enabled": True,
         "apply_mode": "apply-safe",
+        "repair_plan_mode": "audit",
         "fail_on_drift": True,
         "fail_on_freshness": True,
+        "max_repair_iterations": 2,
         "report_json": "docs/.doc-garden-report.json",
         "report_md": "docs/.doc-garden-report.md",
+    },
+    "doc_quality_gates": {
+        "enabled": False,
+        "min_evidence_coverage": 0.9,
+        "max_conflicts": 0,
+        "max_unknown_claims": 0,
+        "max_unresolved_todo": 0,
+        "max_stale_metrics_days": 7,
+        "min_progressive_slot_completeness": 0.95,
+        "min_next_step_presence": 1.0,
+        "max_section_verbosity_over_budget": 0,
+        "max_semantic_conflicts": 0,
+        "max_semantic_low_confidence_auto": 0,
+        "max_fallback_auto_migrate": 0,
+        "min_structured_section_completeness": 0.95,
+        "fail_on_quality_gate": True,
+        "fail_on_semantic_gate": True,
+    },
+    "agents_generation": {
+        "enabled": True,
+        "mode": "dynamic",
+        "max_lines": 140,
+        "required_links": [
+            "docs/index.md",
+            "docs/.doc-policy.json",
+            "docs/.doc-manifest.json",
+            "docs/runbook.md",
+        ],
+        "sync_on_manifest_change": True,
+        "fail_on_agents_drift": True,
+    },
+    "semantic_generation": {
+        "enabled": True,
+        "mode": "hybrid",
+        "source": "invoking_agent",
+        "runtime_report_path": "docs/.semantic-runtime-report.json",
+        "fail_closed": True,
+        "allow_fallback_template": True,
+        "allow_external_llm_api": False,
+        "max_output_chars_per_section": 4000,
+        "required_evidence_prefixes": ["repo_scan.", "runbook.", "semantic_report."],
+        "deny_paths": ["docs/adr/**"],
+        "actions": {
+            "update_section": True,
+            "fill_claim": True,
+            "migrate_legacy": True,
+            "agents_generate": True,
+        },
+    },
+    "legacy_sources": {
+        "enabled": False,
+        "include_globs": [],
+        "exclude_globs": [
+            "docs/**",
+            "docs/archive/**",
+            ".git/**",
+            ".agents/**",
+            "skills/**",
+            "**/__pycache__/**",
+            "**/*.pyc",
+        ],
+        "archive_root": "docs/archive/legacy",
+        "mapping_strategy": "path_based",
+        "target_root": "docs/history/legacy",
+        "target_doc": "docs/history/legacy-migration.md",
+        "registry_path": "docs/.legacy-migration-map.json",
+        "allow_non_markdown": True,
+        "exempt_sources": [],
+        "mapping_table": {},
+        "fail_on_legacy_drift": True,
+        "semantic_report_path": "docs/.legacy-semantic-report.json",
+        "semantic": {
+            "enabled": False,
+            "engine": "llm",
+            "provider": "agent_runtime",
+            "model": "agent-runtime-report-v1",
+            "auto_migrate_threshold": 0.85,
+            "review_threshold": 0.60,
+            "max_chars_per_doc": 20000,
+            "categories": [
+                "requirement",
+                "plan",
+                "progress",
+                "worklog",
+                "agent_ops",
+                "not_migratable",
+            ],
+            "denylist_files": ["README.md", "AGENTS.md"],
+            "fail_closed": True,
+            "allow_fallback_auto_migrate": False,
+        },
     },
     "allow_auto_update": [
         "docs/index.md",
@@ -403,10 +512,25 @@ AGENTS_MD_TEMPLATES = {
 
 ```bash
 REPO_ROOT="/absolute/path/to/repo"
-SKILL_DIR="$REPO_ROOT/.agents/skills/docs-sor-maintainer"
-python "$SKILL_DIR/scripts/repo_scan.py" --root "$REPO_ROOT" --output "$REPO_ROOT/docs/.repo-facts.json"
-python "$SKILL_DIR/scripts/doc_plan.py" --root "$REPO_ROOT" --mode audit --facts "$REPO_ROOT/docs/.repo-facts.json" --output "$REPO_ROOT/docs/.doc-plan.json"
-python "$SKILL_DIR/scripts/doc_validate.py" --root "$REPO_ROOT" --fail-on-drift --fail-on-freshness
+PYTHON_BIN="${PYTHON_BIN:-python3}"
+command -v "$PYTHON_BIN" >/dev/null || { echo "python not found: $PYTHON_BIN" >&2; exit 2; }
+CODEX_HOME_RESOLVED="${CODEX_HOME:-$HOME/.codex}"
+if [ -n "${SKILL_DIR:-}" ]; then
+  [ -d "$SKILL_DIR/scripts" ] || {
+    echo "invalid SKILL_DIR: $SKILL_DIR (expected scripts/ under this path)" >&2
+    exit 2
+  }
+elif [ -d "$REPO_ROOT/.agents/skills/docs-sor-maintainer/scripts" ]; then
+  SKILL_DIR="$REPO_ROOT/.agents/skills/docs-sor-maintainer"
+elif [ -d "$CODEX_HOME_RESOLVED/skills/docs-sor-maintainer/scripts" ]; then
+  SKILL_DIR="$CODEX_HOME_RESOLVED/skills/docs-sor-maintainer"
+else
+  echo 'docs-sor-maintainer not found. Set SKILL_DIR or install under .agents/skills or $HOME/.codex/skills.' >&2
+  exit 2
+fi
+"$PYTHON_BIN" "$SKILL_DIR/scripts/repo_scan.py" --root "$REPO_ROOT" --output "$REPO_ROOT/docs/.repo-facts.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_plan.py" --root "$REPO_ROOT" --mode audit --facts "$REPO_ROOT/docs/.repo-facts.json" --output "$REPO_ROOT/docs/.doc-plan.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_validate.py" --root "$REPO_ROOT" --fail-on-drift --fail-on-freshness
 ```
 
 ## Guardrails
@@ -431,10 +555,25 @@ Treat `docs/` as the repository system of record.
 
 ```bash
 REPO_ROOT="/absolute/path/to/repo"
-SKILL_DIR="$REPO_ROOT/.agents/skills/docs-sor-maintainer"
-python "$SKILL_DIR/scripts/repo_scan.py" --root "$REPO_ROOT" --output "$REPO_ROOT/docs/.repo-facts.json"
-python "$SKILL_DIR/scripts/doc_plan.py" --root "$REPO_ROOT" --mode audit --facts "$REPO_ROOT/docs/.repo-facts.json" --output "$REPO_ROOT/docs/.doc-plan.json"
-python "$SKILL_DIR/scripts/doc_validate.py" --root "$REPO_ROOT" --fail-on-drift --fail-on-freshness
+PYTHON_BIN="${PYTHON_BIN:-python3}"
+command -v "$PYTHON_BIN" >/dev/null || { echo "python not found: $PYTHON_BIN" >&2; exit 2; }
+CODEX_HOME_RESOLVED="${CODEX_HOME:-$HOME/.codex}"
+if [ -n "${SKILL_DIR:-}" ]; then
+  [ -d "$SKILL_DIR/scripts" ] || {
+    echo "invalid SKILL_DIR: $SKILL_DIR (expected scripts/ under this path)" >&2
+    exit 2
+  }
+elif [ -d "$REPO_ROOT/.agents/skills/docs-sor-maintainer/scripts" ]; then
+  SKILL_DIR="$REPO_ROOT/.agents/skills/docs-sor-maintainer"
+elif [ -d "$CODEX_HOME_RESOLVED/skills/docs-sor-maintainer/scripts" ]; then
+  SKILL_DIR="$CODEX_HOME_RESOLVED/skills/docs-sor-maintainer"
+else
+  echo 'docs-sor-maintainer not found. Set SKILL_DIR or install under .agents/skills or $HOME/.codex/skills.' >&2
+  exit 2
+fi
+"$PYTHON_BIN" "$SKILL_DIR/scripts/repo_scan.py" --root "$REPO_ROOT" --output "$REPO_ROOT/docs/.repo-facts.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_plan.py" --root "$REPO_ROOT" --mode audit --facts "$REPO_ROOT/docs/.repo-facts.json" --output "$REPO_ROOT/docs/.doc-plan.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_validate.py" --root "$REPO_ROOT" --fail-on-drift --fail-on-freshness
 ```
 
 ## Guardrails

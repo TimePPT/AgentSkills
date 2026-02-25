@@ -1,0 +1,263 @@
+{
+  "meta": {
+    "generated_at": "2026-02-21T15:08:33.058029+00:00",
+    "root": "/Users/tompoet/AgentSkills",
+    "mode": "apply-with-archive",
+    "policy_path": "docs/.doc-policy.json",
+    "manifest_path": "docs/.doc-manifest.json",
+    "manifest_source": "existing_additive",
+    "manifest_profile": "small",
+    "manifest_changed": true,
+    "manifest_effective": {
+      "version": 1,
+      "required": {
+        "files": [
+          "docs/.doc-spec.json",
+          "docs/architecture.md",
+          "docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.md",
+          "docs/index.md",
+          "docs/references/doc_spec_schema.md",
+          "docs/runbook.md"
+        ],
+        "dirs": [
+          "docs/exec-plans/active",
+          "docs/exec-plans/completed",
+          "docs/references",
+          "docs/tech-debt"
+        ]
+      },
+      "optional": {
+        "files": [
+          "docs/glossary.md",
+          "docs/history/legacy/README.md"
+        ]
+      },
+      "archive_dir": "docs/archive"
+    },
+    "manifest_reasoning": [
+      "include_files=2",
+      "legacy_sources enabled: append legacy migration targets to optional files"
+    ],
+    "capability_decisions": [
+      {
+        "id": "core.index",
+        "enabled": true,
+        "source": "baseline",
+        "evidence": [
+          "baseline capability is always required"
+        ],
+        "required_files": [
+          "docs/index.md"
+        ],
+        "required_dirs": [],
+        "optional_files": []
+      },
+      {
+        "id": "operations.runbook",
+        "enabled": true,
+        "source": "goal_include",
+        "evidence": [
+          "ci_configs=1",
+          "enabled by doc_goals.include"
+        ],
+        "required_files": [
+          "docs/runbook.md"
+        ],
+        "required_dirs": [],
+        "optional_files": []
+      },
+      {
+        "id": "architecture.overview",
+        "enabled": true,
+        "source": "goal_include",
+        "evidence": [
+          "file_count=73",
+          "enabled by doc_goals.include"
+        ],
+        "required_files": [
+          "docs/architecture.md"
+        ],
+        "required_dirs": [],
+        "optional_files": []
+      },
+      {
+        "id": "planning.workspace",
+        "enabled": true,
+        "source": "goal_include",
+        "evidence": [
+          "ci_configs=1",
+          "enabled by doc_goals.include"
+        ],
+        "required_files": [],
+        "required_dirs": [
+          "docs/exec-plans/active",
+          "docs/exec-plans/completed",
+          "docs/tech-debt"
+        ],
+        "optional_files": []
+      },
+      {
+        "id": "glossary.terms",
+        "enabled": true,
+        "source": "signal",
+        "evidence": [
+          "docs_markdown_count=7"
+        ],
+        "required_files": [],
+        "required_dirs": [],
+        "optional_files": [
+          "docs/glossary.md"
+        ]
+      },
+      {
+        "id": "incident.response",
+        "enabled": false,
+        "source": "disabled",
+        "evidence": [
+          "no enabling signals"
+        ],
+        "required_files": [
+          "docs/incident-response.md"
+        ],
+        "required_dirs": [],
+        "optional_files": []
+      },
+      {
+        "id": "security.posture",
+        "enabled": false,
+        "source": "disabled",
+        "evidence": [
+          "no enabling signals"
+        ],
+        "required_files": [
+          "docs/security.md"
+        ],
+        "required_dirs": [],
+        "optional_files": []
+      },
+      {
+        "id": "compliance.controls",
+        "enabled": false,
+        "source": "disabled",
+        "evidence": [
+          "no enabling signals"
+        ],
+        "required_files": [
+          "docs/compliance.md"
+        ],
+        "required_dirs": [],
+        "optional_files": []
+      }
+    ],
+    "doc_metadata": {
+      "enabled": true,
+      "require_owner": true,
+      "require_last_reviewed": true,
+      "require_review_cycle_days": true
+    },
+    "legacy_sources": {
+      "enabled": true,
+      "mapping_strategy": "path_based",
+      "candidate_count": 1,
+      "target_doc_count": 1
+    },
+    "language": {
+      "primary": "zh-CN",
+      "profile": "zh-CN",
+      "source": "policy_locked"
+    }
+  },
+  "inputs": {
+    "policy_exists": true,
+    "manifest_exists": true,
+    "facts_loaded": true,
+    "doc_spec": {
+      "path": "docs/.doc-spec.json",
+      "exists": true,
+      "error_count": 0,
+      "warning_count": 0,
+      "errors": [],
+      "warnings": []
+    }
+  },
+  "summary": {
+    "action_count": 3,
+    "action_counts": {
+      "sync_manifest": 1,
+      "migrate_legacy": 1,
+      "archive_legacy": 1
+    },
+    "section_action_counts": {},
+    "claim_action_counts": {},
+    "has_actionable_drift": true
+  },
+  "actions": [
+    {
+      "id": "A001",
+      "type": "sync_manifest",
+      "kind": "file",
+      "path": "docs/.doc-manifest.json",
+      "risk": "low",
+      "reason": "manifest requires additive evolution based on repository signals",
+      "evidence": [
+        "include_files=2",
+        "legacy_sources enabled: append legacy migration targets to optional files"
+      ],
+      "manifest_snapshot": {
+        "version": 1,
+        "required": {
+          "files": [
+            "docs/.doc-spec.json",
+            "docs/architecture.md",
+            "docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md",
+            "docs/exec-plans/active/docs-sor-roadmap-v2.md",
+            "docs/index.md",
+            "docs/references/doc_spec_schema.md",
+            "docs/runbook.md"
+          ],
+          "dirs": [
+            "docs/exec-plans/active",
+            "docs/exec-plans/completed",
+            "docs/references",
+            "docs/tech-debt"
+          ]
+        },
+        "optional": {
+          "files": [
+            "docs/glossary.md",
+            "docs/history/legacy/README.md"
+          ]
+        },
+        "archive_dir": "docs/archive"
+      }
+    },
+    {
+      "id": "A002",
+      "type": "migrate_legacy",
+      "kind": "file",
+      "path": "docs/history/legacy/README.md",
+      "risk": "medium",
+      "reason": "legacy source requires SoR migration",
+      "evidence": [
+        "legacy source matched include_globs: README.md",
+        "mapping_strategy=path_based"
+      ],
+      "source_path": "README.md",
+      "archive_path": "docs/archive/legacy/README.md"
+    },
+    {
+      "id": "A003",
+      "type": "archive_legacy",
+      "kind": "file",
+      "path": "docs/archive/legacy/README.md",
+      "risk": "low",
+      "reason": "legacy source archived after successful migration",
+      "evidence": [
+        "migration target: docs/history/legacy/README.md"
+      ],
+      "source_path": "README.md",
+      "target_path": "docs/history/legacy/README.md"
+    }
+  ]
+}

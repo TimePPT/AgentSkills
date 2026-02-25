@@ -1,0 +1,263 @@
+{
+  "meta": {
+    "generated_at": "2026-02-25T14:20:54.868151+00:00",
+    "root": "/Users/tompoet/AgentSkills",
+    "mode": "audit",
+    "policy_path": "docs/.doc-policy.json",
+    "manifest_path": "docs/.doc-manifest.json",
+    "manifest_source": "existing",
+    "manifest_profile": "medium",
+    "manifest_changed": false,
+    "manifest_effective": {
+      "version": 1,
+      "required": {
+        "files": [
+          "docs/.doc-spec.json",
+          "docs/.doc-topology.json",
+          "docs/architecture.md",
+          "docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.2-phase-f-agent-runtime-semantic-hardening.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.4-dual-replica-sync-ci-convergence.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.5-hybrid-template-llm-governance.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.5-remediation-agent-strict-policy-enforcement.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.6-acceptance-report.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.md",
+          "docs/exec-plans/completed/README.md",
+          "docs/exec-plans/completed/docs-sor-legacy-migration-automation-closeout-2026-02-22.md",
+          "docs/exec-plans/completed/docs-sor-roadmap-v2.1-closeout-2026-02-22.md",
+          "docs/exec-plans/completed/docs-sor-roadmap-v2.1-phase-e-closeout-2026-02-22.md",
+          "docs/exec-plans/completed/docs-sor-roadmap-v2.2-phase-f-closeout-2026-02-22.md",
+          "docs/exec-plans/completed/docs-sor-roadmap-v2.5-remediation-closeout-2026-02-24.md",
+          "docs/exec-plans/completed/docs-sor-roadmap-v2.6-closeout-2026-02-24.md",
+          "docs/index.md",
+          "docs/references/doc_spec_schema.md",
+          "docs/references/doc_topology_schema.md",
+          "docs/references/exec-plan-closeout-template.md",
+          "docs/runbook.md"
+        ],
+        "dirs": [
+          "docs/exec-plans/active",
+          "docs/exec-plans/completed",
+          "docs/references",
+          "docs/tech-debt"
+        ]
+      },
+      "optional": {
+        "files": [
+          "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-acceptance-report.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-test-matrix.md",
+          "docs/exec-plans/completed/docs-sor-roadmap-v2-closeout-2026-02-22.md",
+          "docs/exec-plans/completed/docs-sor-roadmap-v2.3-phase-f5-closeout-2026-02-22.md",
+          "docs/exec-plans/completed/docs-sor-roadmap-v2.4-closeout-2026-02-23.md",
+          "docs/exec-plans/completed/docs-sor-roadmap-v2.5-closeout-2026-02-23.md",
+          "docs/glossary.md",
+          "docs/references/legacy-semantic-migration-acceptance-template.md"
+        ]
+      },
+      "archive_dir": "docs/archive"
+    },
+    "manifest_reasoning": [
+      "include_files=12"
+    ],
+    "capability_decisions": [
+      {
+        "id": "core.index",
+        "enabled": true,
+        "source": "baseline",
+        "evidence": [
+          "baseline capability is always required"
+        ],
+        "required_files": [
+          "docs/index.md"
+        ],
+        "required_dirs": [],
+        "optional_files": []
+      },
+      {
+        "id": "operations.runbook",
+        "enabled": true,
+        "source": "goal_include",
+        "evidence": [
+          "ci_configs=1",
+          "enabled by doc_goals.include"
+        ],
+        "required_files": [
+          "docs/runbook.md"
+        ],
+        "required_dirs": [],
+        "optional_files": []
+      },
+      {
+        "id": "architecture.overview",
+        "enabled": true,
+        "source": "goal_include",
+        "evidence": [
+          "file_count=148",
+          "enabled by doc_goals.include"
+        ],
+        "required_files": [
+          "docs/architecture.md"
+        ],
+        "required_dirs": [],
+        "optional_files": []
+      },
+      {
+        "id": "planning.workspace",
+        "enabled": true,
+        "source": "goal_include",
+        "evidence": [
+          "ci_configs=1",
+          "file_count=148",
+          "enabled by doc_goals.include"
+        ],
+        "required_files": [],
+        "required_dirs": [
+          "docs/exec-plans/active",
+          "docs/exec-plans/completed",
+          "docs/tech-debt"
+        ],
+        "optional_files": []
+      },
+      {
+        "id": "glossary.terms",
+        "enabled": true,
+        "source": "signal",
+        "evidence": [
+          "docs_markdown_count=33"
+        ],
+        "required_files": [],
+        "required_dirs": [],
+        "optional_files": [
+          "docs/glossary.md"
+        ]
+      },
+      {
+        "id": "incident.response",
+        "enabled": false,
+        "source": "disabled",
+        "evidence": [
+          "no enabling signals"
+        ],
+        "required_files": [
+          "docs/incident-response.md"
+        ],
+        "required_dirs": [],
+        "optional_files": []
+      },
+      {
+        "id": "security.posture",
+        "enabled": false,
+        "source": "disabled",
+        "evidence": [
+          "no enabling signals"
+        ],
+        "required_files": [
+          "docs/security.md"
+        ],
+        "required_dirs": [],
+        "optional_files": []
+      },
+      {
+        "id": "compliance.controls",
+        "enabled": false,
+        "source": "disabled",
+        "evidence": [
+          "no enabling signals"
+        ],
+        "required_files": [
+          "docs/compliance.md"
+        ],
+        "required_dirs": [],
+        "optional_files": []
+      }
+    ],
+    "doc_metadata": {
+      "enabled": true,
+      "require_owner": true,
+      "require_last_reviewed": true,
+      "require_review_cycle_days": true
+    },
+    "doc_topology": {
+      "enabled": true,
+      "path": "docs/.doc-topology.json",
+      "exists": true,
+      "loaded": true,
+      "errors": [],
+      "warnings": [],
+      "metrics": {
+        "node_count": 30,
+        "managed_markdown_count": 30,
+        "topology_reachable_ratio": 1.0,
+        "topology_orphan_count": 0,
+        "topology_unreachable_count": 0,
+        "topology_max_depth": 2,
+        "topology_depth_limit": 3,
+        "topology_over_depth_count": 0,
+        "navigation_missing_count": 0
+      }
+    },
+    "progressive_disclosure": {
+      "enabled": true,
+      "required_slots": [
+        "summary",
+        "key_facts",
+        "next_steps"
+      ],
+      "summary_max_chars": 160,
+      "max_key_facts": 5,
+      "max_next_steps": 3,
+      "fail_on_missing_slots": true
+    },
+    "legacy_sources": {
+      "enabled": true,
+      "mapping_strategy": "path_based",
+      "candidate_count": 0,
+      "target_doc_count": 0,
+      "semantic": {
+        "enabled": true,
+        "engine": "llm",
+        "provider": "agent_runtime",
+        "model": "agent-runtime-report-v1",
+        "auto_migrate_threshold": 0.85,
+        "review_threshold": 0.6,
+        "allow_fallback_auto_migrate": false,
+        "report_path": "docs/.legacy-semantic-report.json",
+        "report_available": true,
+        "report_entry_count": 0,
+        "report_error": null,
+        "decision_counts": {},
+        "fallback_auto_migrate_count": 0
+      }
+    },
+    "language": {
+      "primary": "zh-CN",
+      "profile": "zh-CN",
+      "source": "policy_locked"
+    }
+  },
+  "inputs": {
+    "policy_exists": true,
+    "manifest_exists": true,
+    "facts_loaded": true,
+    "doc_spec": {
+      "path": "docs/.doc-spec.json",
+      "exists": true,
+      "error_count": 0,
+      "warning_count": 0,
+      "errors": [],
+      "warnings": []
+    }
+  },
+  "summary": {
+    "action_count": 0,
+    "action_counts": {},
+    "section_action_counts": {},
+    "claim_action_counts": {},
+    "has_actionable_drift": false
+  },
+  "legacy_semantic_report": [],
+  "actions": []
+}

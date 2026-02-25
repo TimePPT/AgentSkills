@@ -1,0 +1,958 @@
+{
+  "generated_at": "2026-02-25T14:20:55.332604+00:00",
+  "root": "/Users/tompoet/AgentSkills",
+  "passed": true,
+  "fail_on_drift": true,
+  "fail_on_freshness": true,
+  "metrics": {
+    "errors": 0,
+    "warnings": 0,
+    "checked_links": 33,
+    "drift_action_count": 0,
+    "facts_loaded": true,
+    "metadata_checked_docs": 30,
+    "metadata_missing_fields": 0,
+    "metadata_invalid_fields": 0,
+    "metadata_stale_docs": 0,
+    "doc_spec_exists": true,
+    "doc_spec_errors": 0,
+    "doc_spec_warnings": 0,
+    "topology_enabled": true,
+    "topology_loaded": true,
+    "topology_error_count": 0,
+    "topology_warning_count": 0,
+    "topology_reachable_ratio": 1.0,
+    "topology_orphan_count": 0,
+    "topology_unreachable_count": 0,
+    "topology_max_depth": 2,
+    "topology_depth_limit": 3,
+    "topology_navigation_missing_count": 0,
+    "doc_quality_enabled": true,
+    "doc_quality_failed": false,
+    "agents_validate_enabled": true,
+    "agents_validate_failed": false,
+    "legacy_enabled": true,
+    "legacy_unresolved_sources": 0,
+    "semantic_auto_migrate_count": 0,
+    "semantic_manual_review_count": 0,
+    "semantic_skip_count": 0,
+    "fallback_auto_migrate_count": 0,
+    "semantic_low_confidence_count": 0,
+    "semantic_conflict_count": 0,
+    "denylist_migration_count": 0,
+    "structured_section_completeness": 1.0,
+    "active_exec_plan_files": 12,
+    "completed_declared_exec_plans": 9,
+    "missing_exec_plan_closeout_links": 0,
+    "missing_exec_plan_closeout_targets": 0
+  },
+  "errors": [],
+  "warnings": [],
+  "drift": {
+    "has_drift": false,
+    "actions": []
+  },
+  "doc_spec": {
+    "path": "docs/.doc-spec.json",
+    "exists": true,
+    "errors": [],
+    "warnings": []
+  },
+  "doc_topology": {
+    "enabled": true,
+    "settings": {
+      "enabled": true,
+      "path": "docs/.doc-topology.json",
+      "enforce_max_depth": true,
+      "max_depth": 3,
+      "fail_on_orphan": true,
+      "fail_on_unreachable": true
+    },
+    "path": "docs/.doc-topology.json",
+    "exists": true,
+    "loaded": true,
+    "errors": [],
+    "warnings": [],
+    "metrics": {
+      "node_count": 30,
+      "managed_markdown_count": 30,
+      "topology_reachable_ratio": 1.0,
+      "topology_orphan_count": 0,
+      "topology_unreachable_count": 0,
+      "topology_max_depth": 2,
+      "topology_depth_limit": 3,
+      "topology_over_depth_count": 0,
+      "navigation_missing_count": 0
+    },
+    "contract": {
+      "version": 1,
+      "root": "docs/index.md",
+      "max_depth": 3,
+      "nodes": [
+        {
+          "path": "docs/index.md",
+          "layer": "root",
+          "parent": null,
+          "domain": "core"
+        },
+        {
+          "path": "docs/architecture.md",
+          "layer": "section",
+          "parent": "docs/index.md",
+          "domain": "architecture"
+        },
+        {
+          "path": "docs/runbook.md",
+          "layer": "section",
+          "parent": "docs/index.md",
+          "domain": "operations"
+        },
+        {
+          "path": "docs/references/doc_spec_schema.md",
+          "layer": "section",
+          "parent": "docs/index.md",
+          "domain": "reference"
+        },
+        {
+          "path": "docs/references/doc_topology_schema.md",
+          "layer": "leaf",
+          "parent": "docs/references/doc_spec_schema.md",
+          "domain": "reference"
+        },
+        {
+          "path": "docs/references/legacy-semantic-migration-acceptance-template.md",
+          "layer": "leaf",
+          "parent": "docs/references/doc_spec_schema.md",
+          "domain": "reference"
+        },
+        {
+          "path": "docs/references/exec-plan-closeout-template.md",
+          "layer": "leaf",
+          "parent": "docs/references/doc_spec_schema.md",
+          "domain": "reference"
+        },
+        {
+          "path": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+          "layer": "section",
+          "parent": "docs/index.md",
+          "domain": "planning"
+        },
+        {
+          "path": "docs/exec-plans/active/docs-sor-roadmap-v2.5-hybrid-template-llm-governance.md",
+          "layer": "leaf",
+          "parent": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+          "domain": "planning"
+        },
+        {
+          "path": "docs/exec-plans/active/docs-sor-roadmap-v2.5-remediation-agent-strict-policy-enforcement.md",
+          "layer": "leaf",
+          "parent": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+          "domain": "planning"
+        },
+        {
+          "path": "docs/exec-plans/active/docs-sor-roadmap-v2.4-dual-replica-sync-ci-convergence.md",
+          "layer": "leaf",
+          "parent": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+          "domain": "planning"
+        },
+        {
+          "path": "docs/exec-plans/active/docs-sor-roadmap-v2.md",
+          "layer": "leaf",
+          "parent": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+          "domain": "planning"
+        },
+        {
+          "path": "docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md",
+          "layer": "leaf",
+          "parent": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+          "domain": "planning"
+        },
+        {
+          "path": "docs/exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md",
+          "layer": "leaf",
+          "parent": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+          "domain": "planning"
+        },
+        {
+          "path": "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md",
+          "layer": "leaf",
+          "parent": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+          "domain": "planning"
+        },
+        {
+          "path": "docs/exec-plans/active/docs-sor-roadmap-v2.2-phase-f-agent-runtime-semantic-hardening.md",
+          "layer": "leaf",
+          "parent": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+          "domain": "planning"
+        },
+        {
+          "path": "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-test-matrix.md",
+          "layer": "leaf",
+          "parent": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+          "domain": "evidence"
+        },
+        {
+          "path": "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-acceptance-report.md",
+          "layer": "leaf",
+          "parent": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+          "domain": "evidence"
+        },
+        {
+          "path": "docs/exec-plans/active/docs-sor-roadmap-v2.6-acceptance-report.md",
+          "layer": "leaf",
+          "parent": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+          "domain": "evidence"
+        },
+        {
+          "path": "docs/exec-plans/completed/README.md",
+          "layer": "section",
+          "parent": "docs/index.md",
+          "domain": "history"
+        },
+        {
+          "path": "docs/exec-plans/completed/docs-sor-roadmap-v2-closeout-2026-02-22.md",
+          "layer": "leaf",
+          "parent": "docs/exec-plans/completed/README.md",
+          "domain": "history"
+        },
+        {
+          "path": "docs/exec-plans/completed/docs-sor-legacy-migration-automation-closeout-2026-02-22.md",
+          "layer": "leaf",
+          "parent": "docs/exec-plans/completed/README.md",
+          "domain": "history"
+        },
+        {
+          "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.1-closeout-2026-02-22.md",
+          "layer": "leaf",
+          "parent": "docs/exec-plans/completed/README.md",
+          "domain": "history"
+        },
+        {
+          "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.1-phase-e-closeout-2026-02-22.md",
+          "layer": "leaf",
+          "parent": "docs/exec-plans/completed/README.md",
+          "domain": "history"
+        },
+        {
+          "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.2-phase-f-closeout-2026-02-22.md",
+          "layer": "leaf",
+          "parent": "docs/exec-plans/completed/README.md",
+          "domain": "history"
+        },
+        {
+          "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.3-phase-f5-closeout-2026-02-22.md",
+          "layer": "leaf",
+          "parent": "docs/exec-plans/completed/README.md",
+          "domain": "history"
+        },
+        {
+          "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.4-closeout-2026-02-23.md",
+          "layer": "leaf",
+          "parent": "docs/exec-plans/completed/README.md",
+          "domain": "history"
+        },
+        {
+          "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.5-closeout-2026-02-23.md",
+          "layer": "leaf",
+          "parent": "docs/exec-plans/completed/README.md",
+          "domain": "history"
+        },
+        {
+          "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.5-remediation-closeout-2026-02-24.md",
+          "layer": "leaf",
+          "parent": "docs/exec-plans/completed/README.md",
+          "domain": "history"
+        },
+        {
+          "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.6-closeout-2026-02-24.md",
+          "layer": "leaf",
+          "parent": "docs/exec-plans/completed/README.md",
+          "domain": "history"
+        }
+      ],
+      "archive": {
+        "root": "docs/archive",
+        "excluded_from_depth_gate": true
+      }
+    },
+    "analysis": {
+      "scope_docs": [
+        "docs/architecture.md",
+        "docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md",
+        "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-acceptance-report.md",
+        "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-test-matrix.md",
+        "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md",
+        "docs/exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md",
+        "docs/exec-plans/active/docs-sor-roadmap-v2.2-phase-f-agent-runtime-semantic-hardening.md",
+        "docs/exec-plans/active/docs-sor-roadmap-v2.4-dual-replica-sync-ci-convergence.md",
+        "docs/exec-plans/active/docs-sor-roadmap-v2.5-hybrid-template-llm-governance.md",
+        "docs/exec-plans/active/docs-sor-roadmap-v2.5-remediation-agent-strict-policy-enforcement.md",
+        "docs/exec-plans/active/docs-sor-roadmap-v2.6-acceptance-report.md",
+        "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+        "docs/exec-plans/active/docs-sor-roadmap-v2.md",
+        "docs/exec-plans/completed/README.md",
+        "docs/exec-plans/completed/docs-sor-legacy-migration-automation-closeout-2026-02-22.md",
+        "docs/exec-plans/completed/docs-sor-roadmap-v2-closeout-2026-02-22.md",
+        "docs/exec-plans/completed/docs-sor-roadmap-v2.1-closeout-2026-02-22.md",
+        "docs/exec-plans/completed/docs-sor-roadmap-v2.1-phase-e-closeout-2026-02-22.md",
+        "docs/exec-plans/completed/docs-sor-roadmap-v2.2-phase-f-closeout-2026-02-22.md",
+        "docs/exec-plans/completed/docs-sor-roadmap-v2.3-phase-f5-closeout-2026-02-22.md",
+        "docs/exec-plans/completed/docs-sor-roadmap-v2.4-closeout-2026-02-23.md",
+        "docs/exec-plans/completed/docs-sor-roadmap-v2.5-closeout-2026-02-23.md",
+        "docs/exec-plans/completed/docs-sor-roadmap-v2.5-remediation-closeout-2026-02-24.md",
+        "docs/exec-plans/completed/docs-sor-roadmap-v2.6-closeout-2026-02-24.md",
+        "docs/index.md",
+        "docs/references/doc_spec_schema.md",
+        "docs/references/doc_topology_schema.md",
+        "docs/references/exec-plan-closeout-template.md",
+        "docs/references/legacy-semantic-migration-acceptance-template.md",
+        "docs/runbook.md"
+      ],
+      "orphan_docs": [],
+      "unreachable_docs": [],
+      "over_depth_docs": [],
+      "navigation_missing_by_parent": []
+    }
+  },
+  "doc_quality": {
+    "generated_at": "2026-02-25T14:20:55.237686+00:00",
+    "root": "/Users/tompoet/AgentSkills",
+    "enabled": true,
+    "doc_spec": {
+      "errors": [],
+      "warnings": []
+    },
+    "metrics": {
+      "total_claims": 4,
+      "supported_claims": 4,
+      "unknown_claims": 0,
+      "missing_claims": 0,
+      "unknown_text": 0,
+      "unresolved_todo": 0,
+      "evidence_coverage": 1.0,
+      "conflicts": 0,
+      "citation_issues": 0,
+      "facts_age_days": 0,
+      "semantic_auto_migrate_count": 0,
+      "semantic_manual_review_count": 0,
+      "semantic_skip_count": 0,
+      "fallback_auto_migrate_count": 0,
+      "semantic_low_confidence_count": 0,
+      "semantic_conflict_count": 0,
+      "structured_section_completeness": 1.0,
+      "semantic_missing_source_marker_auto_count": 0,
+      "progressive_candidate_sections": 0,
+      "progressive_slot_completeness": 1.0,
+      "next_step_presence": 1.0,
+      "section_verbosity_over_budget_count": 0,
+      "progressive_missing_slots_count": 0
+    },
+    "conflicts": [],
+    "citation_issues": [],
+    "semantic": {
+      "enabled": true,
+      "thresholds": {
+        "max_semantic_conflicts": 0,
+        "max_semantic_low_confidence_auto": 0,
+        "max_fallback_auto_migrate": 0,
+        "min_structured_section_completeness": 0.95,
+        "fail_on_semantic_gate": true
+      },
+      "metrics": {
+        "semantic_auto_migrate_count": 0,
+        "semantic_manual_review_count": 0,
+        "semantic_skip_count": 0,
+        "fallback_auto_migrate_count": 0,
+        "semantic_low_confidence_count": 0,
+        "semantic_conflict_count": 0,
+        "structured_section_completeness": 1.0,
+        "missing_source_marker_auto_count": 0
+      },
+      "low_confidence_auto_sources": [],
+      "conflicts": [],
+      "incomplete_sources": [],
+      "missing_source_marker_auto_sources": [],
+      "backlog": []
+    },
+    "progressive": {
+      "enabled": true,
+      "required_slots": [
+        "summary",
+        "key_facts",
+        "next_steps"
+      ],
+      "settings": {
+        "summary_max_chars": 160,
+        "max_key_facts": 5,
+        "max_next_steps": 3,
+        "fail_on_missing_slots": true
+      },
+      "metrics": {
+        "progressive_candidate_sections": 0,
+        "progressive_slot_completeness": 1.0,
+        "next_step_presence": 1.0,
+        "section_verbosity_over_budget_count": 0,
+        "progressive_missing_slots_count": 0
+      },
+      "findings": []
+    },
+    "gate": {
+      "status": "passed",
+      "failed_checks": [],
+      "thresholds": {
+        "min_evidence_coverage": 1.0,
+        "max_conflicts": 0,
+        "max_unknown_claims": 0,
+        "max_unresolved_todo": 0,
+        "max_stale_metrics_days": 7,
+        "max_semantic_conflicts": 0,
+        "max_semantic_low_confidence_auto": 0,
+        "max_fallback_auto_migrate": 0,
+        "min_structured_section_completeness": 0.95,
+        "min_progressive_slot_completeness": 0.95,
+        "min_next_step_presence": 1.0,
+        "max_section_verbosity_over_budget": 0
+      }
+    }
+  },
+  "doc_metadata": {
+    "policy": {
+      "enabled": true,
+      "require_owner": true,
+      "require_last_reviewed": true,
+      "require_review_cycle_days": true,
+      "default_owner": "docs-maintainer",
+      "default_review_cycle_days": 90,
+      "ignore_paths": [
+        "docs/archive/**"
+      ],
+      "stale_warning_enabled": true
+    },
+    "findings": [
+      {
+        "path": "docs/architecture.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-21",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 4
+      },
+      {
+        "path": "docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-22",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 3
+      },
+      {
+        "path": "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-acceptance-report.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-22",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 3
+      },
+      {
+        "path": "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-test-matrix.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-22",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 3
+      },
+      {
+        "path": "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-22",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 3
+      },
+      {
+        "path": "docs/exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-22",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 3
+      },
+      {
+        "path": "docs/exec-plans/active/docs-sor-roadmap-v2.2-phase-f-agent-runtime-semantic-hardening.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-22",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 3
+      },
+      {
+        "path": "docs/exec-plans/active/docs-sor-roadmap-v2.4-dual-replica-sync-ci-convergence.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-22",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 3
+      },
+      {
+        "path": "docs/exec-plans/active/docs-sor-roadmap-v2.5-hybrid-template-llm-governance.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-23",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 2
+      },
+      {
+        "path": "docs/exec-plans/active/docs-sor-roadmap-v2.5-remediation-agent-strict-policy-enforcement.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-24",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 1
+      },
+      {
+        "path": "docs/exec-plans/active/docs-sor-roadmap-v2.6-acceptance-report.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-24",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 1
+      },
+      {
+        "path": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-24",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 1
+      },
+      {
+        "path": "docs/exec-plans/active/docs-sor-roadmap-v2.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-22",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 3
+      },
+      {
+        "path": "docs/exec-plans/completed/README.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-22",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 3
+      },
+      {
+        "path": "docs/exec-plans/completed/docs-sor-legacy-migration-automation-closeout-2026-02-22.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-22",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 3
+      },
+      {
+        "path": "docs/exec-plans/completed/docs-sor-roadmap-v2-closeout-2026-02-22.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-22",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 3
+      },
+      {
+        "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.1-closeout-2026-02-22.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-22",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 3
+      },
+      {
+        "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.1-phase-e-closeout-2026-02-22.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-22",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 3
+      },
+      {
+        "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.2-phase-f-closeout-2026-02-22.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-22",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 3
+      },
+      {
+        "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.3-phase-f5-closeout-2026-02-22.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-22",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 3
+      },
+      {
+        "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.4-closeout-2026-02-23.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-23",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 2
+      },
+      {
+        "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.5-closeout-2026-02-23.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-24",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 1
+      },
+      {
+        "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.5-remediation-closeout-2026-02-24.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-24",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 1
+      },
+      {
+        "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.6-closeout-2026-02-24.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-24",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 1
+      },
+      {
+        "path": "docs/index.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-24",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 1
+      },
+      {
+        "path": "docs/references/doc_spec_schema.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-21",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 4
+      },
+      {
+        "path": "docs/references/doc_topology_schema.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-24",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 1
+      },
+      {
+        "path": "docs/references/exec-plan-closeout-template.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-24",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 1
+      },
+      {
+        "path": "docs/references/legacy-semantic-migration-acceptance-template.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-22",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 3
+      },
+      {
+        "path": "docs/runbook.md",
+        "values": {
+          "doc-owner": "docs-maintainer",
+          "doc-last-reviewed": "2026-02-24",
+          "doc-review-cycle-days": "90"
+        },
+        "missing": [],
+        "invalid": [],
+        "stale": false,
+        "age_days": 1
+      }
+    ]
+  },
+  "agents": {
+    "generated_at": "2026-02-25T14:20:55.238497+00:00",
+    "root": "/Users/tompoet/AgentSkills",
+    "enabled": true,
+    "settings": {
+      "enabled": true,
+      "mode": "dynamic",
+      "max_lines": 140,
+      "required_links": [
+        "docs/index.md",
+        "docs/.doc-policy.json",
+        "docs/.doc-manifest.json",
+        "docs/runbook.md",
+        "docs/exec-plans/active/docs-sor-roadmap-v2.5-hybrid-template-llm-governance.md"
+      ],
+      "sync_on_manifest_change": true,
+      "fail_on_agents_drift": true,
+      "max_overlap_ratio": 0.7
+    },
+    "gate": {
+      "status": "passed",
+      "failed_checks": []
+    },
+    "errors": [],
+    "warnings": [],
+    "metrics": {
+      "line_count": 50,
+      "missing_headings": 0,
+      "missing_required_links": 0,
+      "broken_links": 0,
+      "invalid_script_refs": 0,
+      "overlap_ratio": 0.0
+    }
+  },
+  "legacy": {
+    "enabled": true,
+    "settings": {
+      "enabled": true,
+      "include_globs": [
+        "**/*AGENTS*.md",
+        "**/*dev-notes*.md",
+        "**/*journal*.md",
+        "**/*log*.md",
+        "**/*plan*.md",
+        "**/*progress*.md",
+        "**/*requirement*.md",
+        "**/*requirements*.md",
+        "**/*roadmap*.md",
+        "**/*worklog*.md",
+        "**/*日志*.md",
+        "**/*进度*.md",
+        "**/*需求*.md"
+      ],
+      "exclude_globs": [
+        "**/*.pyc",
+        "**/AGENTS*.md",
+        "**/README*.md",
+        "**/__pycache__/**",
+        ".agents/**",
+        ".git/**",
+        "AGENTS.md",
+        "README.md",
+        "docs/**",
+        "docs/archive/**",
+        "docs/archive/legacy/**",
+        "skills/**"
+      ],
+      "archive_root": "docs/archive/legacy",
+      "mapping_strategy": "path_based",
+      "target_root": "docs/history/legacy",
+      "target_doc": "docs/history/legacy-migration.md",
+      "registry_path": "docs/.legacy-migration-map.json",
+      "allow_non_markdown": true,
+      "exempt_sources": [
+        "AGENTS.md",
+        "README.md"
+      ],
+      "mapping_table": {},
+      "fail_on_legacy_drift": true,
+      "semantic_report_path": "docs/.legacy-semantic-report.json",
+      "semantic": {
+        "enabled": true,
+        "engine": "llm",
+        "provider": "agent_runtime",
+        "model": "agent-runtime-report-v1",
+        "auto_migrate_threshold": 0.85,
+        "review_threshold": 0.6,
+        "max_chars_per_doc": 20000,
+        "categories": [
+          "agent_ops",
+          "not_migratable",
+          "plan",
+          "progress",
+          "requirement",
+          "worklog"
+        ],
+        "denylist_files": [
+          "AGENTS.md",
+          "README.md"
+        ],
+        "fail_closed": true,
+        "allow_fallback_auto_migrate": false
+      }
+    },
+    "registry_path": "docs/.legacy-migration-map.json",
+    "metrics": {
+      "discovered_sources": 0,
+      "registry_entries": 1,
+      "completed_sources": 0,
+      "exempted_sources": 0,
+      "unresolved_sources": 0,
+      "missing_archive_files": 0,
+      "missing_target_docs": 0,
+      "missing_source_markers": 0,
+      "semantic_auto_migrate_count": 0,
+      "semantic_manual_review_count": 0,
+      "semantic_skip_count": 0,
+      "fallback_auto_migrate_count": 0,
+      "semantic_low_confidence_count": 0,
+      "semantic_conflict_count": 0,
+      "structured_section_completeness": 1.0,
+      "semantic_missing_source_marker_auto_count": 0,
+      "denylist_migration_count": 0
+    },
+    "unresolved_sources": [],
+    "semantic": {
+      "enabled": true,
+      "thresholds": {
+        "max_semantic_conflicts": 0,
+        "max_semantic_low_confidence_auto": 0,
+        "max_fallback_auto_migrate": 0,
+        "min_structured_section_completeness": 0.95,
+        "fail_on_semantic_gate": true
+      },
+      "metrics": {
+        "semantic_auto_migrate_count": 0,
+        "semantic_manual_review_count": 0,
+        "semantic_skip_count": 0,
+        "fallback_auto_migrate_count": 0,
+        "semantic_low_confidence_count": 0,
+        "semantic_conflict_count": 0,
+        "structured_section_completeness": 1.0,
+        "missing_source_marker_auto_count": 0
+      },
+      "low_confidence_auto_sources": [],
+      "conflicts": [],
+      "incomplete_sources": [],
+      "missing_source_marker_auto_sources": [],
+      "backlog": [],
+      "denylist_migration_sources": []
+    },
+    "errors": [],
+    "warnings": []
+  },
+  "exec_plan_closeout": {
+    "errors": [],
+    "warnings": [],
+    "metrics": {
+      "active_exec_plan_files": 12,
+      "completed_declared_files": 9,
+      "missing_closeout_link_files": 0,
+      "missing_closeout_target_files": 0
+    }
+  }
+}

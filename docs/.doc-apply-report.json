@@ -1,0 +1,61 @@
+{
+  "generated_at": "2026-02-25T02:55:15.395594+00:00",
+  "root": "/Users/tompoet/AgentSkills",
+  "mode": "apply-safe",
+  "dry_run": false,
+  "language": {
+    "primary": "zh-CN",
+    "profile": "zh-CN",
+    "locked": true,
+    "source": "policy_locked",
+    "policy_language_updated": false
+  },
+  "summary": {
+    "total_actions": 0,
+    "applied": 0,
+    "skipped": 0,
+    "errors": 0
+  },
+  "results": [],
+  "semantic_runtime": {
+    "settings": {
+      "enabled": true,
+      "mode": "hybrid",
+      "source": "invoking_agent",
+      "runtime_report_path": "docs/.semantic-runtime-report.json",
+      "fail_closed": true,
+      "allow_fallback_template": true,
+      "allow_external_llm_api": false,
+      "max_output_chars_per_section": 4000,
+      "required_evidence_prefixes": [
+        "repo_scan.",
+        "runbook.",
+        "semantic_report."
+      ],
+      "deny_paths": [
+        "docs/adr/**"
+      ],
+      "actions": {
+        "update_section": true,
+        "fill_claim": true,
+        "migrate_legacy": true,
+        "agents_generate": true
+      }
+    },
+    "runtime": {
+      "enabled": true,
+      "mode": "hybrid",
+      "source": "invoking_agent",
+      "runtime_report_path": "docs/.semantic-runtime-report.json",
+      "available": false,
+      "entry_count": 0,
+      "error": "runtime report not found: docs/.semantic-runtime-report.json",
+      "warnings": []
+    }
+  },
+  "agents_generation": {
+    "status": "skipped",
+    "enabled": true,
+    "triggered": false
+  }
+}

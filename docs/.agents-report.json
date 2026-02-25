@@ -1,0 +1,45 @@
+{
+  "generated_at": "2026-02-24T15:56:12.031545+00:00",
+  "root": "/Users/tompoet/AgentSkills",
+  "output": "AGENTS.md",
+  "status": "generated",
+  "profile": "zh-CN",
+  "settings": {
+    "enabled": true,
+    "mode": "dynamic",
+    "max_lines": 140,
+    "required_links": [
+      "docs/index.md",
+      "docs/.doc-policy.json",
+      "docs/.doc-manifest.json",
+      "docs/runbook.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.5-hybrid-template-llm-governance.md"
+    ],
+    "sync_on_manifest_change": true,
+    "fail_on_agents_drift": true,
+    "max_overlap_ratio": 0.7
+  },
+  "inputs": {
+    "policy_loaded": true,
+    "manifest_loaded": true,
+    "facts_loaded": true,
+    "navigation_links": [
+      "docs/index.md",
+      "docs/.doc-policy.json",
+      "docs/.doc-manifest.json",
+      "docs/runbook.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.5-hybrid-template-llm-governance.md",
+      "docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.2-phase-f-agent-runtime-semantic-hardening.md"
+    ],
+    "modules": [
+      "skills"
+    ]
+  },
+  "metrics": {
+    "line_count": 50,
+    "content_sha256": "7923ae679be4aaa998f5c76b6c8233159b0a822fd44b5600370f86f955515c2b"
+  }
+}

@@ -1,0 +1,227 @@
+{
+  "version": 1,
+  "mode_default": "audit",
+  "require_evidence": true,
+  "delete_behavior": "archive",
+  "bootstrap_manifest_strategy": "adaptive",
+  "bootstrap_agents_md": true,
+  "doc_goals": {
+    "include": [
+      "architecture",
+      "runbook",
+      "planning"
+    ],
+    "exclude": []
+  },
+  "manifest_evolution": {
+    "allow_additive": true,
+    "allow_pruning": false
+  },
+  "adaptive_manifest_overrides": {
+    "include_files": [
+      "docs/exec-plans/active/docs-sor-roadmap-v2.md",
+      "docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.2-phase-f-agent-runtime-semantic-hardening.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.5-remediation-agent-strict-policy-enforcement.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.6-acceptance-report.md",
+      "docs/exec-plans/completed/docs-sor-roadmap-v2.5-remediation-closeout-2026-02-24.md",
+      "docs/exec-plans/completed/docs-sor-roadmap-v2.2-phase-f-closeout-2026-02-22.md",
+      "docs/exec-plans/completed/docs-sor-roadmap-v2.6-closeout-2026-02-24.md",
+      "docs/references/exec-plan-closeout-template.md"
+    ],
+    "include_dirs": [],
+    "exclude_files": [],
+    "exclude_dirs": []
+  },
+  "doc_metadata": {
+    "enabled": true,
+    "require_owner": true,
+    "require_last_reviewed": true,
+    "require_review_cycle_days": true,
+    "default_owner": "docs-maintainer",
+    "default_review_cycle_days": 90,
+    "ignore_paths": [
+      "docs/archive/**"
+    ],
+    "stale_warning_enabled": true
+  },
+  "doc_topology": {
+    "enabled": true,
+    "path": "docs/.doc-topology.json",
+    "enforce_max_depth": true,
+    "max_depth": 3,
+    "fail_on_orphan": true,
+    "fail_on_unreachable": true
+  },
+  "progressive_disclosure": {
+    "enabled": true,
+    "required_slots": [
+      "summary",
+      "key_facts",
+      "next_steps"
+    ],
+    "summary_max_chars": 160,
+    "max_key_facts": 5,
+    "max_next_steps": 3,
+    "fail_on_missing_slots": true
+  },
+  "doc_gardening": {
+    "enabled": true,
+    "apply_mode": "apply-safe",
+    "repair_plan_mode": "repair",
+    "fail_on_drift": true,
+    "fail_on_freshness": true,
+    "max_repair_iterations": 2,
+    "report_json": "docs/.doc-garden-report.json",
+    "report_md": "docs/.doc-garden-report.md"
+  },
+  "doc_quality_gates": {
+    "enabled": true,
+    "min_evidence_coverage": 1.0,
+    "max_conflicts": 0,
+    "max_unknown_claims": 0,
+    "max_unresolved_todo": 0,
+    "max_stale_metrics_days": 7,
+    "min_progressive_slot_completeness": 0.95,
+    "min_next_step_presence": 1.0,
+    "max_section_verbosity_over_budget": 0,
+    "max_semantic_conflicts": 0,
+    "max_semantic_low_confidence_auto": 0,
+    "max_fallback_auto_migrate": 0,
+    "min_structured_section_completeness": 0.95,
+    "fail_on_quality_gate": true,
+    "fail_on_semantic_gate": true
+  },
+  "agents_generation": {
+    "enabled": true,
+    "mode": "dynamic",
+    "max_lines": 140,
+    "required_links": [
+      "docs/index.md",
+      "docs/.doc-policy.json",
+      "docs/.doc-manifest.json",
+      "docs/runbook.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.5-hybrid-template-llm-governance.md"
+    ],
+    "sync_on_manifest_change": true,
+    "fail_on_agents_drift": true
+  },
+  "semantic_generation": {
+    "enabled": true,
+    "mode": "hybrid",
+    "source": "invoking_agent",
+    "runtime_report_path": "docs/.semantic-runtime-report.json",
+    "fail_closed": true,
+    "allow_fallback_template": true,
+    "allow_external_llm_api": false,
+    "max_output_chars_per_section": 4000,
+    "required_evidence_prefixes": [
+      "repo_scan.",
+      "runbook.",
+      "semantic_report."
+    ],
+    "deny_paths": [
+      "docs/adr/**"
+    ],
+    "actions": {
+      "update_section": true,
+      "fill_claim": true,
+      "migrate_legacy": true,
+      "agents_generate": true
+    }
+  },
+  "legacy_sources": {
+    "enabled": true,
+    "include_globs": [
+      "**/*AGENTS*.md",
+      "**/*requirement*.md",
+      "**/*requirements*.md",
+      "**/*plan*.md",
+      "**/*roadmap*.md",
+      "**/*progress*.md",
+      "**/*log*.md",
+      "**/*worklog*.md",
+      "**/*journal*.md",
+      "**/*dev-notes*.md",
+      "**/*需求*.md",
+      "**/*进度*.md",
+      "**/*日志*.md"
+    ],
+    "exclude_globs": [
+      "docs/**",
+      "docs/archive/**",
+      ".git/**",
+      ".agents/**",
+      "skills/**",
+      "**/__pycache__/**",
+      "**/*.pyc",
+      "**/README*.md",
+      "**/AGENTS*.md",
+      "README.md",
+      "AGENTS.md"
+    ],
+    "archive_root": "docs/archive/legacy",
+    "mapping_strategy": "path_based",
+    "target_root": "docs/history/legacy",
+    "target_doc": "docs/history/legacy-migration.md",
+    "registry_path": "docs/.legacy-migration-map.json",
+    "allow_non_markdown": true,
+    "exempt_sources": [
+      "README.md",
+      "AGENTS.md"
+    ],
+    "mapping_table": {},
+    "fail_on_legacy_drift": true,
+    "semantic_report_path": "docs/.legacy-semantic-report.json",
+    "semantic": {
+      "enabled": true,
+      "engine": "llm",
+      "provider": "agent_runtime",
+      "model": "agent-runtime-report-v1",
+      "auto_migrate_threshold": 0.85,
+      "review_threshold": 0.6,
+      "max_chars_per_doc": 20000,
+      "categories": [
+        "requirement",
+        "plan",
+        "progress",
+        "worklog",
+        "agent_ops",
+        "not_migratable"
+      ],
+      "denylist_files": [
+        "README.md",
+        "AGENTS.md"
+      ],
+      "fail_closed": true,
+      "allow_fallback_auto_migrate": false
+    }
+  },
+  "allow_auto_update": [
+    "docs/index.md",
+    "docs/architecture.md",
+    "docs/runbook.md",
+    "docs/glossary.md",
+    "docs/incident-response.md",
+    "docs/security.md",
+    "docs/compliance.md"
+  ],
+  "protect_from_auto_overwrite": [
+    "docs/adr/**"
+  ],
+  "language": {
+    "primary": "zh-CN",
+    "profile": "zh-CN",
+    "locked": true,
+    "preserve_english_terms": true,
+    "english_only_contexts": [
+      "code_identifiers",
+      "config_keys",
+      "cli_flags",
+      "file_paths"
+    ]
+  }
+}

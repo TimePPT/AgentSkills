@@ -14,9 +14,20 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 import doc_metadata as dm  # noqa: E402
+import doc_agents_validate  # noqa: E402
+import doc_legacy as dl  # noqa: E402
 import doc_plan  # noqa: E402
+import doc_quality  # noqa: E402
+import doc_spec  # noqa: E402
+import doc_topology as dt  # noqa: E402
 
 LINK_PATTERN = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
+EXEC_PLAN_STATUS_PATTERN = re.compile(
+    r"<!--\s*exec-plan-status:\s*([a-zA-Z_-]+)\s*-->"
+)
+EXEC_PLAN_CLOSEOUT_PATTERN = re.compile(
+    r"<!--\s*exec-plan-closeout:\s*([^\s][^>]*)\s*-->"
+)
 
 
 def utc_now() -> str:
@@ -49,6 +60,18 @@ def get_required(manifest: dict[str, Any]) -> tuple[list[str], list[str]]:
 def get_optional_files(manifest: dict[str, Any]) -> list[str]:
     optional = manifest.get("optional", {}) or {}
     return [normalize(p) for p in optional.get("files", [])]
+
+
+def get_managed_markdown_files(manifest: dict[str, Any]) -> list[str]:
+    required_files, _ = get_required(manifest)
+    optional_files = get_optional_files(manifest)
+    return sorted(
+        {
+            normalize(path)
+            for path in (required_files + optional_files)
+            if isinstance(path, str) and normalize(path).endswith(".md")
+        }
+    )
 
 
 def check_required(root: Path, manifest: dict[str, Any]) -> tuple[list[str], list[str]]:
@@ -187,6 +210,104 @@ def check_doc_metadata(
     return errors, warnings, metrics, findings
 
 
+def check_topology_contract(
+    root: Path,
+    policy: dict[str, Any],
+    manifest: dict[str, Any] | None = None,
+) -> tuple[list[str], list[str], dict[str, Any]]:
+    settings = dt.resolve_topology_settings(policy)
+    contract, topology_report = dt.load_topology_contract(root, settings)
+
+    errors: list[str] = []
+    warnings: list[str] = []
+    topology_raw_warnings = [
+        str(message).strip()
+        for message in (topology_report.get("warnings") or [])
+        if str(message).strip()
+    ]
+
+    if topology_report.get("enabled", False):
+        if not topology_report.get("exists", False):
+            errors.append(
+                f"doc-topology: missing topology contract: {topology_report.get('path')}"
+            )
+        errors.extend(
+            [f"doc-topology: {message}" for message in topology_report.get("errors", [])]
+        )
+
+    topology_analysis: dict[str, Any] = {}
+    if (
+        topology_report.get("enabled", False)
+        and topology_report.get("loaded", False)
+        and isinstance(contract, dict)
+    ):
+        managed_markdown = get_managed_markdown_files(manifest or {})
+        topology_analysis = dt.evaluate_topology(
+            root,
+            contract,
+            settings,
+            managed_docs=managed_markdown,
+        )
+
+        topology_raw_warnings.extend(
+            [
+                str(message).strip()
+                for message in (topology_analysis.get("warnings") or [])
+                if str(message).strip()
+            ]
+        )
+        metrics = dict(topology_report.get("metrics") or {})
+        metrics.update(topology_analysis.get("metrics") or {})
+        topology_report["metrics"] = metrics
+
+        orphan_count = int(metrics.get("topology_orphan_count", 0))
+        unreachable_count = int(metrics.get("topology_unreachable_count", 0))
+        max_depth = int(metrics.get("topology_max_depth", 0))
+        depth_limit = int(metrics.get("topology_depth_limit", settings.get("max_depth", 3)))
+
+        if settings.get("fail_on_orphan", True) and orphan_count > 0:
+            errors.append(f"doc-topology: orphan docs detected: {orphan_count}")
+        if settings.get("fail_on_unreachable", True) and unreachable_count > 0:
+            errors.append(f"doc-topology: unreachable docs detected: {unreachable_count}")
+        if settings.get("enforce_max_depth", True) and max_depth > depth_limit:
+            errors.append(
+                "doc-topology: depth limit exceeded: "
+                f"max_depth={max_depth} limit={depth_limit}"
+            )
+
+    topology_report["warnings"] = sorted(set(topology_raw_warnings))
+    if topology_report.get("enabled", False):
+        warnings.extend(
+            [
+                f"doc-topology: {message}"
+                for message in (topology_report.get("warnings") or [])
+            ]
+        )
+
+    report = {
+        "enabled": topology_report.get("enabled", False),
+        "settings": settings,
+        "path": topology_report.get("path"),
+        "exists": topology_report.get("exists", False),
+        "loaded": topology_report.get("loaded", False),
+        "errors": topology_report.get("errors") or [],
+        "warnings": topology_report.get("warnings") or [],
+        "metrics": topology_report.get("metrics") or {},
+        "contract": contract,
+        "analysis": {
+            "scope_docs": topology_analysis.get("scope_docs") or [],
+            "orphan_docs": topology_analysis.get("orphan_docs") or [],
+            "unreachable_docs": topology_analysis.get("unreachable_docs") or [],
+            "over_depth_docs": topology_analysis.get("over_depth_docs") or [],
+            "navigation_missing_by_parent": topology_analysis.get(
+                "navigation_missing_by_parent"
+            )
+            or [],
+        },
+    }
+    return errors, warnings, report
+
+
 def load_facts(path: Path) -> dict[str, Any] | None:
     if not path.exists():
         return None
@@ -210,6 +331,332 @@ def check_drift(
     return len(actionable) > 0, len(actionable), notes
 
 
+def check_exec_plan_closeout(
+    root: Path,
+) -> tuple[list[str], list[str], dict[str, Any]]:
+    errors: list[str] = []
+    warnings: list[str] = []
+    metrics = {
+        "active_exec_plan_files": 0,
+        "completed_declared_files": 0,
+        "missing_closeout_link_files": 0,
+        "missing_closeout_target_files": 0,
+    }
+
+    active_dir = root / "docs/exec-plans/active"
+    if not active_dir.exists():
+        return errors, warnings, metrics
+
+    for file_path in sorted(active_dir.rglob("*.md")):
+        if not file_path.is_file():
+            continue
+        rel = normalize(str(file_path.relative_to(root)))
+        metrics["active_exec_plan_files"] += 1
+        text = file_path.read_text(encoding="utf-8", errors="replace")
+
+        status_match = EXEC_PLAN_STATUS_PATTERN.search(text)
+        if status_match is None:
+            continue
+
+        status = status_match.group(1).strip().lower()
+        if status != "completed":
+            continue
+        metrics["completed_declared_files"] += 1
+
+        closeout_match = EXEC_PLAN_CLOSEOUT_PATTERN.search(text)
+        if closeout_match is None:
+            metrics["missing_closeout_link_files"] += 1
+            errors.append(f"exec-plan closeout missing link marker: {rel}")
+            continue
+
+        closeout_rel = normalize(closeout_match.group(1).strip())
+        closeout_abs = root / closeout_rel
+        if not closeout_abs.exists():
+            metrics["missing_closeout_target_files"] += 1
+            errors.append(
+                f"exec-plan closeout target missing for {rel}: {closeout_rel}"
+            )
+
+    return errors, warnings, metrics
+
+
+def check_legacy_coverage(
+    root: Path,
+    policy: dict[str, Any],
+) -> tuple[list[str], list[str], dict[str, Any]]:
+    settings = dl.resolve_legacy_settings(policy)
+    report: dict[str, Any] = {
+        "enabled": settings.get("enabled", False),
+        "settings": settings,
+        "registry_path": settings.get("registry_path"),
+        "metrics": {
+            "discovered_sources": 0,
+            "registry_entries": 0,
+            "completed_sources": 0,
+            "exempted_sources": 0,
+            "unresolved_sources": 0,
+            "missing_archive_files": 0,
+            "missing_target_docs": 0,
+            "missing_source_markers": 0,
+            "semantic_auto_migrate_count": 0,
+            "semantic_manual_review_count": 0,
+            "semantic_skip_count": 0,
+            "fallback_auto_migrate_count": 0,
+            "semantic_low_confidence_count": 0,
+            "semantic_conflict_count": 0,
+            "structured_section_completeness": 1.0,
+            "semantic_missing_source_marker_auto_count": 0,
+            "denylist_migration_count": 0,
+        },
+        "unresolved_sources": [],
+        "semantic": {
+            "enabled": False,
+            "thresholds": {},
+            "metrics": {},
+            "backlog": [],
+            "conflicts": [],
+            "low_confidence_auto_sources": [],
+            "incomplete_sources": [],
+            "missing_source_marker_auto_sources": [],
+            "denylist_migration_sources": [],
+        },
+        "errors": [],
+        "warnings": [],
+    }
+
+    if not settings.get("enabled", False):
+        return [], [], report
+
+    candidates = dl.discover_legacy_sources(root, settings)
+    report["metrics"]["discovered_sources"] = len(candidates)
+    exempt_sources = set(settings.get("exempt_sources") or [])
+
+    registry_path = root / str(settings.get("registry_path"))
+    registry = dl.load_registry(registry_path)
+    entries = (
+        registry.get("entries") if isinstance(registry.get("entries"), dict) else {}
+    )
+    report["metrics"]["registry_entries"] = len(entries)
+
+    semantic_settings = (
+        settings.get("semantic")
+        if isinstance(settings.get("semantic"), dict)
+        else {}
+    )
+    denylist = {normalize(str(value)) for value in (semantic_settings.get("denylist_files") or [])}
+    denylist_names = {Path(item).name for item in denylist}
+
+    semantic_skip_sources: set[str] = set()
+    denylist_semantic_migration_sources: set[str] = set()
+    semantic_entries: list[dict[str, Any]] = []
+    semantic_report_rel = normalize(str(settings.get("semantic_report_path", "")))
+    semantic_report_path = root / semantic_report_rel if semantic_report_rel else None
+    if semantic_report_path and semantic_report_path.exists():
+        try:
+            semantic_payload = load_json(semantic_report_path)
+        except Exception:  # noqa: BLE001
+            semantic_payload = {}
+        semantic_entries = (
+            semantic_payload.get("entries")
+            if isinstance(semantic_payload.get("entries"), list)
+            else []
+        )
+        for item in semantic_entries:
+            if not isinstance(item, dict):
+                continue
+            source_path = item.get("source_path")
+            decision = item.get("decision")
+            normalized_source = (
+                normalize(source_path)
+                if isinstance(source_path, str) and source_path.strip()
+                else None
+            )
+            if (
+                isinstance(normalized_source, str)
+                and isinstance(decision, str)
+                and decision.strip() == "skip"
+            ):
+                semantic_skip_sources.add(normalized_source)
+            if (
+                isinstance(normalized_source, str)
+                and isinstance(decision, str)
+                and decision.strip() == "auto_migrate"
+                and (
+                    normalized_source in denylist
+                    or Path(normalized_source).name in denylist_names
+                )
+            ):
+                denylist_semantic_migration_sources.add(normalized_source)
+
+    completed_sources = [rel for rel in candidates if dl.has_completed_entry(registry, rel)]
+    unresolved_sources = [
+        rel
+        for rel in candidates
+        if rel not in exempt_sources
+        and rel not in semantic_skip_sources
+        and not dl.has_completed_entry(registry, rel)
+    ]
+    report["metrics"]["completed_sources"] = len(completed_sources)
+    report["metrics"]["exempted_sources"] = len(
+        [rel for rel in candidates if rel in exempt_sources or rel in semantic_skip_sources]
+    )
+    report["metrics"]["unresolved_sources"] = len(unresolved_sources)
+    report["unresolved_sources"] = unresolved_sources
+
+    errors: list[str] = []
+    warnings: list[str] = []
+    if unresolved_sources:
+        message = (
+            "legacy unresolved sources: " + ", ".join(unresolved_sources[:20])
+        )
+        if settings.get("fail_on_legacy_drift", True):
+            errors.append(message)
+        else:
+            warnings.append(message)
+
+    for source_rel, entry in entries.items():
+        if not isinstance(source_rel, str) or not isinstance(entry, dict):
+            continue
+        normalized_source = normalize(source_rel)
+        status = entry.get("status")
+        target_rel = normalize(entry.get("target_path", ""))
+        archive_rel = normalize(entry.get("archive_path", ""))
+
+        if status == "archived":
+            if not archive_rel or not (root / archive_rel).exists():
+                report["metrics"]["missing_archive_files"] += 1
+                errors.append(
+                    f"legacy archive missing for {normalized_source}: {archive_rel or 'UNKNOWN'}"
+                )
+
+        if status in {"migrated", "archived"}:
+            if normalized_source in denylist or Path(normalized_source).name in denylist_names:
+                denylist_semantic_migration_sources.add(normalized_source)
+            if not target_rel or not (root / target_rel).exists():
+                report["metrics"]["missing_target_docs"] += 1
+                errors.append(
+                    f"legacy target missing for {normalized_source}: {target_rel or 'UNKNOWN'}"
+                )
+                continue
+
+            target_text = (root / target_rel).read_text(encoding="utf-8", errors="replace")
+            if dl.source_marker(normalized_source) not in target_text:
+                report["metrics"]["missing_source_markers"] += 1
+                warnings.append(
+                    f"legacy source marker missing in {target_rel}: {normalized_source}"
+                )
+
+    semantic_quality = doc_quality.evaluate_semantic_migration_quality(root, policy)
+    report["semantic"] = semantic_quality
+    semantic_metrics = semantic_quality.get("metrics") or {}
+    report["metrics"]["semantic_auto_migrate_count"] = int(
+        semantic_metrics.get("semantic_auto_migrate_count", 0)
+    )
+    report["metrics"]["semantic_manual_review_count"] = int(
+        semantic_metrics.get("semantic_manual_review_count", 0)
+    )
+    report["metrics"]["semantic_skip_count"] = int(
+        semantic_metrics.get("semantic_skip_count", 0)
+    )
+    report["metrics"]["fallback_auto_migrate_count"] = int(
+        semantic_metrics.get("fallback_auto_migrate_count", 0)
+    )
+    report["metrics"]["semantic_low_confidence_count"] = int(
+        semantic_metrics.get("semantic_low_confidence_count", 0)
+    )
+    report["metrics"]["semantic_conflict_count"] = int(
+        semantic_metrics.get("semantic_conflict_count", 0)
+    )
+    report["metrics"]["structured_section_completeness"] = float(
+        semantic_metrics.get("structured_section_completeness", 1.0)
+    )
+    report["metrics"]["semantic_missing_source_marker_auto_count"] = int(
+        semantic_metrics.get("missing_source_marker_auto_count", 0)
+    )
+    denylist_migration_sources = sorted(denylist_semantic_migration_sources)
+    report["metrics"]["denylist_migration_count"] = len(denylist_migration_sources)
+    report["semantic"]["denylist_migration_sources"] = denylist_migration_sources
+    if denylist_migration_sources:
+        errors.append(
+            "semantic gate failed: denylist sources attempted migration: "
+            + ", ".join(denylist_migration_sources[:20])
+        )
+
+    if semantic_quality.get("enabled", False):
+        thresholds = semantic_quality.get("thresholds") or {}
+        fail_on_semantic_gate = bool(thresholds.get("fail_on_semantic_gate", True))
+        semantic_gate_failures: list[str] = []
+        if report["metrics"]["semantic_missing_source_marker_auto_count"] > 0:
+            semantic_gate_failures.append(
+                "semantic gate failed: auto migrated entries contain missing source markers"
+            )
+        if (
+            report["metrics"]["semantic_low_confidence_count"]
+            > int(thresholds.get("max_semantic_low_confidence_auto", 0))
+        ):
+            semantic_gate_failures.append(
+                "semantic gate failed: low confidence auto migration exceeds threshold"
+            )
+        if (
+            report["metrics"]["semantic_conflict_count"]
+            > int(thresholds.get("max_semantic_conflicts", 0))
+        ):
+            semantic_gate_failures.append(
+                "semantic gate failed: semantic conflicts exceed threshold"
+            )
+        if (
+            report["metrics"]["fallback_auto_migrate_count"]
+            > int(thresholds.get("max_fallback_auto_migrate", 0))
+        ):
+            semantic_gate_failures.append(
+                "semantic gate failed: fallback auto migration exceeds threshold"
+            )
+        if report["metrics"]["structured_section_completeness"] < float(
+            thresholds.get("min_structured_section_completeness", 0.95)
+        ):
+            semantic_gate_failures.append(
+                "semantic gate failed: structured section completeness below threshold"
+            )
+        if fail_on_semantic_gate:
+            errors.extend(semantic_gate_failures)
+        else:
+            warnings.extend(semantic_gate_failures)
+
+    report["errors"] = errors
+    report["warnings"] = warnings
+    return errors, warnings, report
+
+
+def resolve_quality_gate_settings(policy: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(policy, dict):
+        return {"enabled": False, "fail_on_quality_gate": False}
+    raw = policy.get("doc_quality_gates")
+    if not isinstance(raw, dict):
+        return {"enabled": False, "fail_on_quality_gate": False}
+    return {
+        "enabled": bool(raw.get("enabled", False)),
+        "fail_on_quality_gate": bool(raw.get("fail_on_quality_gate", True)),
+    }
+
+
+def resolve_agents_gate_settings(policy: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(policy, dict):
+        return {
+            "enabled": False,
+            "fail_on_agents_drift": False,
+        }
+    raw = policy.get("agents_generation")
+    if not isinstance(raw, dict):
+        return {
+            "enabled": False,
+            "fail_on_agents_drift": False,
+        }
+    return {
+        "enabled": bool(raw.get("enabled", False)),
+        "fail_on_agents_drift": bool(raw.get("fail_on_agents_drift", True)),
+    }
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Validate repository docs consistency and drift."
@@ -219,6 +666,7 @@ def parse_args() -> argparse.Namespace:
         "--manifest", default="docs/.doc-manifest.json", help="Manifest path"
     )
     parser.add_argument("--policy", default="docs/.doc-policy.json", help="Policy path")
+    parser.add_argument("--spec", default="docs/.doc-spec.json", help="Doc spec path")
     parser.add_argument(
         "--facts", default="docs/.repo-facts.json", help="Facts JSON path"
     )
@@ -254,6 +702,11 @@ def main() -> int:
         (root / args.policy).resolve()
         if not Path(args.policy).is_absolute()
         else Path(args.policy)
+    )
+    spec_path = (
+        (root / args.spec).resolve()
+        if not Path(args.spec).is_absolute()
+        else Path(args.spec)
     )
     facts_path = (
         (root / args.facts).resolve()
@@ -292,15 +745,74 @@ def main() -> int:
     errors.extend(metadata_errors)
     warnings.extend(metadata_warnings)
 
+    spec_data, spec_errors, spec_warnings = doc_spec.load_spec(spec_path)
+    errors.extend([f"doc-spec: {message}" for message in spec_errors])
+    warnings.extend([f"doc-spec: {message}" for message in spec_warnings])
+
+    topology_errors, topology_warnings, topology_report = check_topology_contract(
+        root, policy, manifest
+    )
+    errors.extend(topology_errors)
+    warnings.extend(topology_warnings)
+
+    quality_settings = resolve_quality_gate_settings(policy)
+    quality_report = None
+    quality_failed = False
+    if quality_settings["enabled"]:
+        try:
+            quality_report = doc_quality.evaluate_quality(
+                root,
+                policy,
+                facts,
+                spec_path,
+                evidence_map_path=root / "docs/.doc-evidence-map.json",
+            )
+            quality_failed = quality_report.get("gate", {}).get("status") != "passed"
+            if quality_failed and quality_settings["fail_on_quality_gate"]:
+                errors.append("doc-quality: quality gate failed")
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"doc-quality: {exc}")
+            quality_failed = True
+
+    agents_settings = resolve_agents_gate_settings(policy)
+    agents_report = None
+    agents_failed = False
+    if agents_settings["enabled"]:
+        try:
+            agents_report = doc_agents_validate.evaluate_agents(
+                root=root,
+                policy=policy,
+                agents_path=root / "AGENTS.md",
+                index_path=root / "docs/index.md",
+            )
+            agents_failed = agents_report.get("gate", {}).get("status") != "passed"
+            if agents_failed and agents_settings["fail_on_agents_drift"]:
+                errors.append("agents-quality: agents gate failed")
+            warnings.extend([f"agents-quality: {w}" for w in agents_report.get("warnings", [])])
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"agents-quality: {exc}")
+            agents_failed = True
+
+    legacy_errors, legacy_warnings, legacy_report = check_legacy_coverage(root, policy)
+    errors.extend(legacy_errors)
+    warnings.extend(legacy_warnings)
+
     has_drift, drift_count, drift_notes = check_drift(
         root, policy_path, manifest_path, facts
     )
+    exec_plan_errors, exec_plan_warnings, exec_plan_metrics = check_exec_plan_closeout(
+        root
+    )
+    errors.extend(exec_plan_errors)
+    warnings.extend(exec_plan_warnings)
 
     has_stale_metadata = metadata_metrics.get("stale_docs", 0) > 0
     passed = (
         len(errors) == 0
         and (not args.fail_on_drift or not has_drift)
         and (not args.fail_on_freshness or not has_stale_metadata)
+        and (not quality_settings["fail_on_quality_gate"] or not quality_failed)
+        and (not agents_settings["fail_on_agents_drift"] or not agents_failed)
     )
 
     report = {
@@ -319,6 +831,76 @@ def main() -> int:
             "metadata_missing_fields": metadata_metrics.get("missing_fields", 0),
             "metadata_invalid_fields": metadata_metrics.get("invalid_fields", 0),
             "metadata_stale_docs": metadata_metrics.get("stale_docs", 0),
+            "doc_spec_exists": spec_data is not None,
+            "doc_spec_errors": len(spec_errors),
+            "doc_spec_warnings": len(spec_warnings),
+            "topology_enabled": topology_report.get("enabled", False),
+            "topology_loaded": topology_report.get("loaded", False),
+            "topology_error_count": len(topology_report.get("errors", [])),
+            "topology_warning_count": len(topology_report.get("warnings", [])),
+            "topology_reachable_ratio": (topology_report.get("metrics") or {}).get(
+                "topology_reachable_ratio", 1.0
+            ),
+            "topology_orphan_count": (topology_report.get("metrics") or {}).get(
+                "topology_orphan_count", 0
+            ),
+            "topology_unreachable_count": (topology_report.get("metrics") or {}).get(
+                "topology_unreachable_count", 0
+            ),
+            "topology_max_depth": (topology_report.get("metrics") or {}).get(
+                "topology_max_depth", 0
+            ),
+            "topology_depth_limit": (topology_report.get("metrics") or {}).get(
+                "topology_depth_limit",
+                (topology_report.get("settings") or {}).get("max_depth", 0),
+            ),
+            "topology_navigation_missing_count": (
+                topology_report.get("metrics") or {}
+            ).get("navigation_missing_count", 0),
+            "doc_quality_enabled": quality_settings["enabled"],
+            "doc_quality_failed": quality_failed,
+            "agents_validate_enabled": agents_settings["enabled"],
+            "agents_validate_failed": agents_failed,
+            "legacy_enabled": legacy_report.get("enabled", False),
+            "legacy_unresolved_sources": legacy_report.get("metrics", {}).get(
+                "unresolved_sources", 0
+            ),
+            "semantic_auto_migrate_count": legacy_report.get("metrics", {}).get(
+                "semantic_auto_migrate_count", 0
+            ),
+            "semantic_manual_review_count": legacy_report.get("metrics", {}).get(
+                "semantic_manual_review_count", 0
+            ),
+            "semantic_skip_count": legacy_report.get("metrics", {}).get(
+                "semantic_skip_count", 0
+            ),
+            "fallback_auto_migrate_count": legacy_report.get("metrics", {}).get(
+                "fallback_auto_migrate_count", 0
+            ),
+            "semantic_low_confidence_count": legacy_report.get("metrics", {}).get(
+                "semantic_low_confidence_count", 0
+            ),
+            "semantic_conflict_count": legacy_report.get("metrics", {}).get(
+                "semantic_conflict_count", 0
+            ),
+            "denylist_migration_count": legacy_report.get("metrics", {}).get(
+                "denylist_migration_count", 0
+            ),
+            "structured_section_completeness": legacy_report.get("metrics", {}).get(
+                "structured_section_completeness", 1.0
+            ),
+            "active_exec_plan_files": exec_plan_metrics.get(
+                "active_exec_plan_files", 0
+            ),
+            "completed_declared_exec_plans": exec_plan_metrics.get(
+                "completed_declared_files", 0
+            ),
+            "missing_exec_plan_closeout_links": exec_plan_metrics.get(
+                "missing_closeout_link_files", 0
+            ),
+            "missing_exec_plan_closeout_targets": exec_plan_metrics.get(
+                "missing_closeout_target_files", 0
+            ),
         },
         "errors": errors,
         "warnings": warnings,
@@ -326,9 +908,41 @@ def main() -> int:
             "has_drift": has_drift,
             "actions": drift_notes,
         },
+        "doc_spec": {
+            "path": normalize(spec_path.relative_to(root)),
+            "exists": spec_data is not None,
+            "errors": spec_errors,
+            "warnings": spec_warnings,
+        },
+        "doc_topology": topology_report,
+        "doc_quality": quality_report
+        or {
+            "enabled": quality_settings["enabled"],
+            "gate": {
+                "status": "skipped" if not quality_settings["enabled"] else "failed",
+                "failed_checks": [],
+            },
+        },
         "doc_metadata": {
             "policy": metadata_policy,
             "findings": metadata_findings,
+        },
+        "agents": agents_report
+        or {
+            "enabled": agents_settings["enabled"],
+            "gate": {
+                "status": "skipped" if not agents_settings["enabled"] else "failed",
+                "failed_checks": [],
+            },
+            "errors": [],
+            "warnings": [],
+            "metrics": {},
+        },
+        "legacy": legacy_report,
+        "exec_plan_closeout": {
+            "errors": exec_plan_errors,
+            "warnings": exec_plan_warnings,
+            "metrics": exec_plan_metrics,
         },
     }
 

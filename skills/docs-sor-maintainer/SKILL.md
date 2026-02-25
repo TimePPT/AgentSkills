@@ -10,24 +10,40 @@ description: Maintain repository documentation as the system of record by scanni
 Use this skill to keep `docs/` as the repository system of record. Execute a constrained workflow: scan facts, generate a traceable plan, apply mode-gated updates, and validate drift/structure/link quality, plus ownership/freshness metadata health.
 
 Manifest behavior is adaptive by default: if `docs/.doc-manifest.json` is missing, the planner derives a minimal baseline from repository signals and policy goals; as the repository grows, manifest requirements are expanded additively.
+Agent capability is enabled by default: `semantic_generation.enabled=true` with `mode=hybrid`, and `agents_generation.enabled=true`; when runtime semantics are unavailable, apply flow falls back to constrained templates under policy gates.
 
 ## Path Conventions
 
-- Always define repository root and skill root first:
+- Always define repository root first, then resolve skill root with fallback:
 
 ```bash
 REPO_ROOT="/absolute/path/to/repo"
-SKILL_DIR="$REPO_ROOT/.agents/skills/docs-sor-maintainer"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
-command -v "$PYTHON_BIN" >/dev/null
+command -v "$PYTHON_BIN" >/dev/null || { echo "python not found: $PYTHON_BIN" >&2; exit 2; }
+CODEX_HOME_RESOLVED="${CODEX_HOME:-$HOME/.codex}"
+
+if [ -n "${SKILL_DIR:-}" ]; then
+  [ -d "$SKILL_DIR/scripts" ] || {
+    echo "invalid SKILL_DIR: $SKILL_DIR (expected scripts/ under this path)" >&2
+    exit 2
+  }
+elif [ -d "$REPO_ROOT/.agents/skills/docs-sor-maintainer/scripts" ]; then
+  SKILL_DIR="$REPO_ROOT/.agents/skills/docs-sor-maintainer"
+elif [ -d "$CODEX_HOME_RESOLVED/skills/docs-sor-maintainer/scripts" ]; then
+  SKILL_DIR="$CODEX_HOME_RESOLVED/skills/docs-sor-maintainer"
+else
+  echo "docs-sor-maintainer not found. Set SKILL_DIR or install under .agents/skills or \$HOME/.codex/skills." >&2
+  exit 2
+fi
 ```
 
+- Resolution priority: explicit `SKILL_DIR` -> `"$REPO_ROOT/.agents/skills/docs-sor-maintainer"` -> `"${CODEX_HOME:-$HOME/.codex}/skills/docs-sor-maintainer"`.
 - Always execute scripts with `"$PYTHON_BIN" "$SKILL_DIR/scripts/<script>.py"`.
 - Do not use relative script paths unless current directory is the skill folder.
 - Before running workflow commands, verify path resolution:
 
 ```bash
-"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_plan.py" --help
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_plan.py" --help >/dev/null
 ```
 
 ## Language Behavior
@@ -67,7 +83,8 @@ Typical actions:
 1. Collect facts from codebase.
 2. Compare against `docs/.doc-manifest.json` and `docs/.doc-policy.json`.
 3. Output `add/update/archive/manual_review/sync_manifest` actions with evidence.
-4. Include fine-grained capabilities when signals/goals require them (`incident.response`, `security.posture`, `compliance.controls`).
+4. When `legacy_sources.enabled=true`, emit legacy actions (`legacy_manual_review` in audit, `migrate_legacy/archive_legacy` in migration mode).
+5. Include fine-grained capabilities when signals/goals require them (`incident.response`, `security.posture`, `compliance.controls`).
 
 ### `apply-safe`
 
@@ -86,6 +103,7 @@ Goal: migrate/cleanup mature repositories.
 Typical actions:
 1. Run all `apply-safe` behaviors.
 2. Move stale docs into `docs/archive/` (never direct delete).
+3. When `legacy_sources.enabled=true`, migrate legacy files into SoR docs then archive to `docs/archive/legacy/**`.
 
 ## Standard Execution Flow
 
@@ -104,10 +122,10 @@ Load only the reference file needed by the current task:
 
 - Policy boundaries, language lock, metadata governance: `references/doc_policy_schema.md`.
 - Target docs shape, additive evolution, archive rules: `references/doc_manifest_schema.md`.
+- Managed-doc semantic slot contract and report input fields: `references/semantic_runtime_report_schema.md`.
 - Executable command recipes for bootstrap/migration/CI/gardening: `references/workflow_examples.md`.
-- Release-quality evidence and acceptance records: `docs/skills/docs-sor-maintainer/quality/trigger_test_matrix.md` and `docs/skills/docs-sor-maintainer/quality/acceptance_report.md`.
 
-Do not load release-quality evidence files for routine runtime operations unless user asks for trigger/acceptance review.
+Release-quality evidence is maintainer-only process data and should live outside the runtime skill folder (for example CI artifacts or maintainer workspace docs).
 
 ## Required Guardrails
 
@@ -122,24 +140,38 @@ Do not load release-quality evidence files for routine runtime operations unless
 - Use `doc_goals` and `adaptive_manifest_overrides` to steer capability decisions explicitly.
 - Keep ownership/freshness metadata checks enabled via `doc_metadata`; stale docs should be reviewed instead of silently ignored.
 - Use `doc_gardening` policy defaults for automation behavior and reports.
+- Use narrow `legacy_sources.include_globs`; avoid enabling broad repository-wide legacy scans without review.
 
 ## Runtime Components
 
+Primary entrypoints:
+
 - `scripts/repo_scan.py`: collect codebase facts.
-- `scripts/doc_metadata.py`: parse and upsert ownership/freshness metadata.
 - `scripts/doc_plan.py`: build deterministic action plan.
 - `scripts/doc_apply.py`: apply mode-gated actions with language lock.
 - `scripts/doc_validate.py`: validate required structure, links, drift, and metadata freshness.
 - `scripts/doc_garden.py`: run scan/plan/apply/validate as one automation task and emit gardening reports.
+
+Supporting components (usually invoked transitively by primary entrypoints; call directly only for targeted debugging or CI checks):
+
+- `scripts/doc_capabilities.py`: derive doc capability profile and required document targets from facts/policy goals.
+- `scripts/doc_spec.py`: centralize section/spec contracts used by plan/apply/validate.
+- `scripts/doc_topology.py`: compute section topology and deterministic section ordering.
+- `scripts/doc_synthesize.py`: synthesize section-level actions and content candidates from facts/spec.
+- `scripts/doc_semantic_runtime.py`: ingest semantic runtime reports and map entries to managed-doc slots.
+- `scripts/doc_quality.py`: evaluate managed-doc quality checks and progressive slot coverage.
+- `scripts/doc_agents.py`: generate and update `AGENTS.md` navigation content under policy gates.
+- `scripts/doc_agents_validate.py`: validate `AGENTS.md` guardrail and topology constraints.
+- `scripts/doc_metadata.py`: parse and upsert ownership/freshness metadata.
+- `scripts/doc_legacy.py`: resolve legacy migration policy, path mapping, and migration registry helpers.
 - `scripts/language_profiles.py`: language templates, marker aliases, and policy language helpers.
 
 ## On-Demand References
 
 - `references/doc_policy_schema.md`: policy contract.
 - `references/doc_manifest_schema.md`: target structure contract.
+- `references/semantic_runtime_report_schema.md`: semantic runtime input contract for slot filling.
 - `references/workflow_examples.md`: bootstrap/migration/CI examples.
-- `docs/skills/docs-sor-maintainer/quality/trigger_test_matrix.md`: trigger contract verification matrix (release gate evidence).
-- `docs/skills/docs-sor-maintainer/quality/acceptance_report.md`: functional/failure/efficiency acceptance evidence (release gate evidence).
 
 ## Examples
 
@@ -150,20 +182,15 @@ Example intents:
 2. Bootstrap with explicit English: "初始化 docs，并把主描述语言改成英文。"
 3. CI drift gate: "把文档漂移作为 PR 的必过检查。"
 
-## Release Validation
+## Maintainer Release Validation (Out of Runtime Scope)
 
-Record release-quality evidence outside the skill runtime folder:
+Run this protocol before publishing or updating the skill. Store evidence outside the runtime skill folder (for example CI artifacts or maintainer workspace documentation).
 
-- `docs/skills/docs-sor-maintainer/quality/trigger_test_matrix.md`
-- `docs/skills/docs-sor-maintainer/quality/acceptance_report.md`
-
-Run this protocol before publishing or updating the skill.
-
-1. Trigger matrix gate: update `docs/skills/docs-sor-maintainer/quality/trigger_test_matrix.md`, keep at least 20 cases across positive/negative/paraphrase, and require zero `FAIL`.
-2. Functional gate: record bootstrap baseline, bootstrap with explicit language, and one-command `doc_garden.py` runs in `docs/skills/docs-sor-maintainer/quality/acceptance_report.md`.
+1. Trigger matrix gate: keep at least 20 cases across positive/negative/paraphrase and require zero `FAIL`.
+2. Functional gate: record bootstrap baseline, bootstrap with explicit language, and one-command `doc_garden.py` runs.
 3. Failure-path gate: record missing plan file failure, invalid plan parse failure, and drift gate failure (`doc_garden --apply-mode none --fail-on-drift`).
 4. Efficiency gate: compare `with skill` vs `without skill` on same repository class and record `command_count`, `retries`, `clarification_turns`, `completion_turns`, `wall_time_seconds`.
-5. Release decision: mark accepted only when trigger/functional/failure/efficiency are all `PASS` in `docs/skills/docs-sor-maintainer/quality/acceptance_report.md`.
+5. Release decision: mark accepted only when trigger/functional/failure/efficiency are all `PASS`.
 
 ## Troubleshooting
 

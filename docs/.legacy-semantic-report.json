@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "generated_at": "2026-02-25T14:20:54.868151+00:00",
+  "root": "/Users/tompoet/AgentSkills",
+  "mode": "audit",
+  "engine": "llm",
+  "provider": "agent_runtime",
+  "model": "agent-runtime-report-v1",
+  "auto_migrate_threshold": 0.85,
+  "review_threshold": 0.6,
+  "entries": [],
+  "summary": {
+    "candidate_count": 0,
+    "decision_counts": {},
+    "fallback_auto_migrate_count": 0
+  }
+}

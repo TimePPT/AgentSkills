@@ -1,0 +1,101 @@
+{
+  "generated_at": "2026-02-24T15:57:55.319587+00:00",
+  "root": "/Users/tompoet/AgentSkills",
+  "enabled": true,
+  "doc_spec": {
+    "errors": [],
+    "warnings": []
+  },
+  "metrics": {
+    "total_claims": 4,
+    "supported_claims": 4,
+    "unknown_claims": 0,
+    "missing_claims": 0,
+    "unknown_text": 0,
+    "unresolved_todo": 0,
+    "evidence_coverage": 1.0,
+    "conflicts": 0,
+    "citation_issues": 0,
+    "facts_age_days": 0,
+    "semantic_auto_migrate_count": 0,
+    "semantic_manual_review_count": 0,
+    "semantic_skip_count": 0,
+    "fallback_auto_migrate_count": 0,
+    "semantic_low_confidence_count": 0,
+    "semantic_conflict_count": 0,
+    "structured_section_completeness": 1.0,
+    "semantic_missing_source_marker_auto_count": 0,
+    "progressive_candidate_sections": 0,
+    "progressive_slot_completeness": 1.0,
+    "next_step_presence": 1.0,
+    "section_verbosity_over_budget_count": 0,
+    "progressive_missing_slots_count": 0
+  },
+  "conflicts": [],
+  "citation_issues": [],
+  "semantic": {
+    "enabled": true,
+    "thresholds": {
+      "max_semantic_conflicts": 0,
+      "max_semantic_low_confidence_auto": 0,
+      "max_fallback_auto_migrate": 0,
+      "min_structured_section_completeness": 0.95,
+      "fail_on_semantic_gate": true
+    },
+    "metrics": {
+      "semantic_auto_migrate_count": 0,
+      "semantic_manual_review_count": 0,
+      "semantic_skip_count": 0,
+      "fallback_auto_migrate_count": 0,
+      "semantic_low_confidence_count": 0,
+      "semantic_conflict_count": 0,
+      "structured_section_completeness": 1.0,
+      "missing_source_marker_auto_count": 0
+    },
+    "low_confidence_auto_sources": [],
+    "conflicts": [],
+    "incomplete_sources": [],
+    "missing_source_marker_auto_sources": [],
+    "backlog": []
+  },
+  "progressive": {
+    "enabled": true,
+    "required_slots": [
+      "summary",
+      "key_facts",
+      "next_steps"
+    ],
+    "settings": {
+      "summary_max_chars": 160,
+      "max_key_facts": 5,
+      "max_next_steps": 3,
+      "fail_on_missing_slots": true
+    },
+    "metrics": {
+      "progressive_candidate_sections": 0,
+      "progressive_slot_completeness": 1.0,
+      "next_step_presence": 1.0,
+      "section_verbosity_over_budget_count": 0,
+      "progressive_missing_slots_count": 0
+    },
+    "findings": []
+  },
+  "gate": {
+    "status": "passed",
+    "failed_checks": [],
+    "thresholds": {
+      "min_evidence_coverage": 1.0,
+      "max_conflicts": 0,
+      "max_unknown_claims": 0,
+      "max_unresolved_todo": 0,
+      "max_stale_metrics_days": 7,
+      "max_semantic_conflicts": 0,
+      "max_semantic_low_confidence_auto": 0,
+      "max_fallback_auto_migrate": 0,
+      "min_structured_section_completeness": 0.95,
+      "min_progressive_slot_completeness": 0.95,
+      "min_next_step_presence": 1.0,
+      "max_section_verbosity_over_budget": 0
+    }
+  }
+}

@@ -1,0 +1,170 @@
+{
+  "generated_at": "2026-02-25T02:55:15.593755+00:00",
+  "root": "/Users/tompoet/AgentSkills",
+  "settings": {
+    "plan_mode": "audit",
+    "repair_plan_mode": "repair",
+    "apply_mode": "apply-safe",
+    "fail_on_drift": true,
+    "fail_on_freshness": true,
+    "skip_validate": false,
+    "max_repair_iterations": 2
+  },
+  "steps": [
+    {
+      "name": "run:scan",
+      "command": [
+        "/Users/tompoet/.pyenv/versions/3.12.12/bin/python3",
+        "/Users/tompoet/AgentSkills/.agents/skills/docs-sor-maintainer/scripts/repo_scan.py",
+        "--root",
+        "/Users/tompoet/AgentSkills",
+        "--output",
+        "/Users/tompoet/AgentSkills/docs/.repo-facts.json"
+      ],
+      "started_at": "2026-02-25T02:55:14.872265+00:00",
+      "finished_at": "2026-02-25T02:55:15.238080+00:00",
+      "duration_ms": 365,
+      "returncode": 0,
+      "stdout": "[OK] Wrote facts to /Users/tompoet/AgentSkills/docs/.repo-facts.json\n",
+      "stderr": "",
+      "status": "ok"
+    },
+    {
+      "name": "run:plan",
+      "command": [
+        "/Users/tompoet/.pyenv/versions/3.12.12/bin/python3",
+        "/Users/tompoet/AgentSkills/.agents/skills/docs-sor-maintainer/scripts/doc_plan.py",
+        "--root",
+        "/Users/tompoet/AgentSkills",
+        "--mode",
+        "audit",
+        "--facts",
+        "/Users/tompoet/AgentSkills/docs/.repo-facts.json",
+        "--output",
+        "/Users/tompoet/AgentSkills/docs/.doc-plan.json"
+      ],
+      "started_at": "2026-02-25T02:55:15.238176+00:00",
+      "finished_at": "2026-02-25T02:55:15.346648+00:00",
+      "duration_ms": 108,
+      "returncode": 0,
+      "stdout": "[OK] Wrote plan to /Users/tompoet/AgentSkills/docs/.doc-plan.json\n[INFO] Action count: 0\n[INFO] Semantic report: /Users/tompoet/AgentSkills/docs/.legacy-semantic-report.json\n[INFO] Language primary=zh-CN profile=zh-CN source=policy_locked\n",
+      "stderr": "",
+      "status": "ok"
+    },
+    {
+      "name": "run:apply",
+      "command": [
+        "/Users/tompoet/.pyenv/versions/3.12.12/bin/python3",
+        "/Users/tompoet/AgentSkills/.agents/skills/docs-sor-maintainer/scripts/doc_apply.py",
+        "--root",
+        "/Users/tompoet/AgentSkills",
+        "--plan",
+        "/Users/tompoet/AgentSkills/docs/.doc-plan.json",
+        "--mode",
+        "apply-safe"
+      ],
+      "started_at": "2026-02-25T02:55:15.346716+00:00",
+      "finished_at": "2026-02-25T02:55:15.400060+00:00",
+      "duration_ms": 53,
+      "returncode": 0,
+      "stdout": "[OK] Processed 0 actions\n[INFO] Applied=0 Skipped=0 Errors=0\n[INFO] Language primary=zh-CN profile=zh-CN source=policy_locked\n[INFO] Semantic runtime enabled=True mode=hybrid available=False entries=0\n",
+      "stderr": "",
+      "status": "ok"
+    },
+    {
+      "name": "run:synthesize",
+      "command": [
+        "/Users/tompoet/.pyenv/versions/3.12.12/bin/python3",
+        "/Users/tompoet/AgentSkills/.agents/skills/docs-sor-maintainer/scripts/doc_synthesize.py",
+        "--root",
+        "/Users/tompoet/AgentSkills",
+        "--plan",
+        "/Users/tompoet/AgentSkills/docs/.doc-plan.json",
+        "--facts",
+        "/Users/tompoet/AgentSkills/docs/.repo-facts.json",
+        "--output",
+        "/Users/tompoet/AgentSkills/docs/.doc-evidence-map.json"
+      ],
+      "started_at": "2026-02-25T02:55:15.400282+00:00",
+      "finished_at": "2026-02-25T02:55:15.432294+00:00",
+      "duration_ms": 32,
+      "returncode": 0,
+      "stdout": "[OK] Wrote evidence map to /Users/tompoet/AgentSkills/docs/.doc-evidence-map.json\n[INFO] claims=4 supported=4 unknown=0 missing=0\n",
+      "stderr": "",
+      "status": "ok"
+    },
+    {
+      "name": "run:validate",
+      "command": [
+        "/Users/tompoet/.pyenv/versions/3.12.12/bin/python3",
+        "/Users/tompoet/AgentSkills/.agents/skills/docs-sor-maintainer/scripts/doc_validate.py",
+        "--root",
+        "/Users/tompoet/AgentSkills",
+        "--facts",
+        "/Users/tompoet/AgentSkills/docs/.repo-facts.json",
+        "--fail-on-drift",
+        "--fail-on-freshness"
+      ],
+      "started_at": "2026-02-25T02:55:15.432351+00:00",
+      "finished_at": "2026-02-25T02:55:15.593299+00:00",
+      "duration_ms": 160,
+      "returncode": 0,
+      "stdout": "[OK] Wrote validate report to /Users/tompoet/AgentSkills/docs/.doc-validate-report.json\n[INFO] errors=0 warnings=0 drift=0\n",
+      "stderr": "",
+      "status": "ok"
+    }
+  ],
+  "plan": {
+    "action_count": 0,
+    "action_counts": {}
+  },
+  "apply": {
+    "total_actions": 0,
+    "applied": 0,
+    "skipped": 0,
+    "errors": 0
+  },
+  "validate": {
+    "passed": true,
+    "errors": 0,
+    "warnings": 0,
+    "drift_action_count": 0,
+    "metadata_stale_docs": 0
+  },
+  "repair": {
+    "attempts": 0,
+    "max_iterations": 2,
+    "repairable_drift": false,
+    "initial_plan_mode": "audit",
+    "repair_plan_mode": "repair",
+    "cycles": [
+      {
+        "label": "run",
+        "plan_mode": "audit",
+        "post_apply_scan_skipped": true,
+        "post_apply_scan_skip_reason": "apply_applied_zero",
+        "apply_applied": 0,
+        "success": true
+      }
+    ]
+  },
+  "semantic_backlog": {
+    "count": 0,
+    "sample": []
+  },
+  "summary": {
+    "status": "passed",
+    "apply_mode": "apply-safe",
+    "step_count": 5,
+    "failed_step_count": 0,
+    "garden_total_duration_ms": 724
+  },
+  "performance": {
+    "scan_duration_ms": 365,
+    "plan_duration_ms": 108,
+    "apply_duration_ms": 53,
+    "synthesize_duration_ms": 32,
+    "validate_duration_ms": 160,
+    "garden_total_duration_ms": 724
+  }
+}
