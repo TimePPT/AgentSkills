@@ -35,6 +35,7 @@ class DocGardenIncrementalOptimizationTests(unittest.TestCase):
         policy["doc_gardening"]["max_repair_iterations"] = 0
         policy["doc_gardening"]["fail_on_drift"] = True
         policy["doc_gardening"]["fail_on_freshness"] = True
+        policy["agents_generation"]["enabled"] = False
         (self.root / "docs/.doc-policy.json").write_text(
             json.dumps(policy, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",

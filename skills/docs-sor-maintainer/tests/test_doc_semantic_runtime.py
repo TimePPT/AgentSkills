@@ -26,8 +26,8 @@ class DocSemanticRuntimeTests(unittest.TestCase):
 
     def test_resolve_semantic_generation_settings_defaults(self) -> None:
         settings = dsr.resolve_semantic_generation_settings({})
-        self.assertFalse(settings["enabled"])
-        self.assertEqual(settings["mode"], "deterministic")
+        self.assertTrue(settings["enabled"])
+        self.assertEqual(settings["mode"], "hybrid")
         self.assertEqual(
             settings["runtime_report_path"], "docs/.semantic-runtime-report.json"
         )

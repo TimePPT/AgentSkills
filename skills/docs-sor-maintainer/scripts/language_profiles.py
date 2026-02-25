@@ -90,7 +90,7 @@ BASE_POLICY = {
         "fail_on_semantic_gate": True,
     },
     "agents_generation": {
-        "enabled": False,
+        "enabled": True,
         "mode": "dynamic",
         "max_lines": 140,
         "required_links": [
@@ -103,8 +103,8 @@ BASE_POLICY = {
         "fail_on_agents_drift": True,
     },
     "semantic_generation": {
-        "enabled": False,
-        "mode": "deterministic",
+        "enabled": True,
+        "mode": "hybrid",
         "source": "invoking_agent",
         "runtime_report_path": "docs/.semantic-runtime-report.json",
         "fail_closed": True,

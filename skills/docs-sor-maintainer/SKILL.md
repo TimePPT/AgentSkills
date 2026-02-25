@@ -10,6 +10,7 @@ description: Maintain repository documentation as the system of record by scanni
 Use this skill to keep `docs/` as the repository system of record. Execute a constrained workflow: scan facts, generate a traceable plan, apply mode-gated updates, and validate drift/structure/link quality, plus ownership/freshness metadata health.
 
 Manifest behavior is adaptive by default: if `docs/.doc-manifest.json` is missing, the planner derives a minimal baseline from repository signals and policy goals; as the repository grows, manifest requirements are expanded additively.
+Agent capability is enabled by default: `semantic_generation.enabled=true` with `mode=hybrid`, and `agents_generation.enabled=true`; when runtime semantics are unavailable, apply flow falls back to constrained templates under policy gates.
 
 ## Path Conventions
 
@@ -121,6 +122,7 @@ Load only the reference file needed by the current task:
 
 - Policy boundaries, language lock, metadata governance: `references/doc_policy_schema.md`.
 - Target docs shape, additive evolution, archive rules: `references/doc_manifest_schema.md`.
+- Managed-doc semantic slot contract and report input fields: `references/semantic_runtime_report_schema.md`.
 - Executable command recipes for bootstrap/migration/CI/gardening: `references/workflow_examples.md`.
 
 Release-quality evidence is maintainer-only process data and should live outside the runtime skill folder (for example CI artifacts or maintainer workspace docs).
@@ -142,19 +144,33 @@ Release-quality evidence is maintainer-only process data and should live outside
 
 ## Runtime Components
 
+Primary entrypoints:
+
 - `scripts/repo_scan.py`: collect codebase facts.
-- `scripts/doc_metadata.py`: parse and upsert ownership/freshness metadata.
-- `scripts/doc_legacy.py`: resolve legacy migration policy, path mapping, and migration registry helpers.
 - `scripts/doc_plan.py`: build deterministic action plan.
 - `scripts/doc_apply.py`: apply mode-gated actions with language lock.
 - `scripts/doc_validate.py`: validate required structure, links, drift, and metadata freshness.
 - `scripts/doc_garden.py`: run scan/plan/apply/validate as one automation task and emit gardening reports.
+
+Supporting components (usually invoked transitively by primary entrypoints; call directly only for targeted debugging or CI checks):
+
+- `scripts/doc_capabilities.py`: derive doc capability profile and required document targets from facts/policy goals.
+- `scripts/doc_spec.py`: centralize section/spec contracts used by plan/apply/validate.
+- `scripts/doc_topology.py`: compute section topology and deterministic section ordering.
+- `scripts/doc_synthesize.py`: synthesize section-level actions and content candidates from facts/spec.
+- `scripts/doc_semantic_runtime.py`: ingest semantic runtime reports and map entries to managed-doc slots.
+- `scripts/doc_quality.py`: evaluate managed-doc quality checks and progressive slot coverage.
+- `scripts/doc_agents.py`: generate and update `AGENTS.md` navigation content under policy gates.
+- `scripts/doc_agents_validate.py`: validate `AGENTS.md` guardrail and topology constraints.
+- `scripts/doc_metadata.py`: parse and upsert ownership/freshness metadata.
+- `scripts/doc_legacy.py`: resolve legacy migration policy, path mapping, and migration registry helpers.
 - `scripts/language_profiles.py`: language templates, marker aliases, and policy language helpers.
 
 ## On-Demand References
 
 - `references/doc_policy_schema.md`: policy contract.
 - `references/doc_manifest_schema.md`: target structure contract.
+- `references/semantic_runtime_report_schema.md`: semantic runtime input contract for slot filling.
 - `references/workflow_examples.md`: bootstrap/migration/CI examples.
 
 ## Examples

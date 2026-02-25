@@ -16,8 +16,8 @@ DEFAULT_SEMANTIC_ACTIONS = {
 }
 
 DEFAULT_SEMANTIC_GENERATION_SETTINGS = {
-    "enabled": False,
-    "mode": "deterministic",
+    "enabled": True,
+    "mode": "hybrid",
     "source": "invoking_agent",
     "runtime_report_path": "docs/.semantic-runtime-report.json",
     "fail_closed": True,

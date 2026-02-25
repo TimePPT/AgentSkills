@@ -95,7 +95,7 @@
     "fail_on_semantic_gate": true
   },
   "agents_generation": {
-    "enabled": false,
+    "enabled": true,
     "mode": "dynamic",
     "max_lines": 140,
     "required_links": [
@@ -108,8 +108,8 @@
     "fail_on_agents_drift": true
   },
   "semantic_generation": {
-    "enabled": false,
-    "mode": "deterministic",
+    "enabled": true,
+    "mode": "hybrid",
     "source": "invoking_agent",
     "runtime_report_path": "docs/.semantic-runtime-report.json",
     "fail_closed": true,
@@ -232,7 +232,7 @@
   - `fail_on_semantic_gate`: when true, semantic gate failures are treated as errors.
 - `agents_generation`: dynamic AGENTS.md generation settings.
 - `semantic_generation`: managed-doc semantic generation policy.
-  - `mode`: `deterministic` (default), `hybrid`, or `agent_strict`.
+  - `mode`: `hybrid` (default), `deterministic`, or `agent_strict`.
   - `source`: semantic producer identifier; recommended `invoking_agent`.
   - `runtime_report_path`: runtime semantic report consumed by apply flow.
   - runtime report v2 entry for section actions supports `slots.summary/key_facts/next_steps`; `doc_apply` enforces slot completeness, verbosity budget, and citation prefix gate before write.

@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at": "2026-02-24T15:57:55.041231+00:00",
+    "generated_at": "2026-02-25T07:25:30.593986+00:00",
     "root": "/Users/tompoet/AgentSkills",
     "mode": "audit",
     "policy_path": "docs/.doc-policy.json",
@@ -95,7 +95,7 @@
         "enabled": true,
         "source": "goal_include",
         "evidence": [
-          "file_count=138",
+          "file_count=147",
           "enabled by doc_goals.include"
         ],
         "required_files": [
@@ -110,7 +110,7 @@
         "source": "goal_include",
         "evidence": [
           "ci_configs=1",
-          "file_count=138",
+          "file_count=147",
           "enabled by doc_goals.include"
         ],
         "required_files": [],

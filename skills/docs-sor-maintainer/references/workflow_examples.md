@@ -1,5 +1,18 @@
 # workflow examples
 
+## Table of Contents
+
+- [Shared path setup (required)](#shared-path-setup-required)
+- [Example A: bootstrap empty repo (adaptive minimal baseline, default Chinese)](#example-a-bootstrap-empty-repo-adaptive-minimal-baseline-default-chinese)
+- [Example B: bootstrap with explicit language](#example-b-bootstrap-with-explicit-language)
+- [Example C: additive evolution on existing repo](#example-c-additive-evolution-on-existing-repo)
+- [Example D: force fixed baseline during bootstrap](#example-d-force-fixed-baseline-during-bootstrap)
+- [Example E: mature repo migration with archive](#example-e-mature-repo-migration-with-archive)
+- [Example F: CI drift check](#example-f-ci-drift-check)
+- [Example G: Doc Gardening automation task](#example-g-doc-gardening-automation-task)
+- [Example H: legacy migration and centralized archive](#example-h-legacy-migration-and-centralized-archive)
+- [CI recommendation](#ci-recommendation)
+
 ## Shared path setup (required)
 
 ```bash
