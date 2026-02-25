@@ -182,10 +182,55 @@ def _normalize_runtime_entry(
         status = "manual_review"
     entry["status"] = status
 
+    slots_raw = raw.get("slots")
+    slots: dict[str, Any] = {}
+    if slots_raw is not None:
+        if not isinstance(slots_raw, dict):
+            warnings.append(f"entry[{entry_index}] slots ignored: expected object")
+        else:
+            summary_raw = slots_raw.get("summary")
+            if summary_raw is not None:
+                if isinstance(summary_raw, str) and summary_raw.strip():
+                    slots["summary"] = summary_raw.strip()
+                else:
+                    warnings.append(
+                        f"entry[{entry_index}] slots.summary ignored: expected non-empty string"
+                    )
+
+            key_facts_raw = slots_raw.get("key_facts")
+            if key_facts_raw is not None:
+                if isinstance(key_facts_raw, list):
+                    key_facts = _normalize_string_list(key_facts_raw, normalize_paths=False)
+                    if key_facts:
+                        slots["key_facts"] = key_facts
+                    else:
+                        warnings.append(
+                            f"entry[{entry_index}] slots.key_facts ignored: empty list"
+                        )
+                else:
+                    warnings.append(
+                        f"entry[{entry_index}] slots.key_facts ignored: expected list"
+                    )
+
+            next_steps_raw = slots_raw.get("next_steps")
+            if next_steps_raw is not None:
+                if isinstance(next_steps_raw, list):
+                    next_steps = _normalize_string_list(next_steps_raw, normalize_paths=False)
+                    if next_steps:
+                        slots["next_steps"] = next_steps
+                    else:
+                        warnings.append(
+                            f"entry[{entry_index}] slots.next_steps ignored: empty list"
+                        )
+                else:
+                    warnings.append(
+                        f"entry[{entry_index}] slots.next_steps ignored: expected list"
+                    )
+
     content_raw = raw.get("content")
     statement_raw = raw.get("statement")
-    if content_raw is None and statement_raw is None:
-        return None, [f"entry[{entry_index}] requires content or statement"]
+    if content_raw is None and statement_raw is None and not slots:
+        return None, [f"entry[{entry_index}] requires content or statement or slots"]
 
     content: str = ""
     if content_raw is not None:
@@ -217,9 +262,12 @@ def _normalize_runtime_entry(
     if not content and statement:
         content = statement
 
-    entry["content"] = content
+    if content:
+        entry["content"] = content
     if statement:
         entry["statement"] = statement
+    if slots:
+        entry["slots"] = slots
 
     citations = _normalize_string_list(raw.get("citations"), normalize_paths=False)
     if citations:

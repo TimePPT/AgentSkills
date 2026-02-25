@@ -16,6 +16,7 @@ import doc_legacy as dl
 import doc_metadata as dm
 import doc_quality
 import doc_spec
+import doc_topology as dt
 import language_profiles as lp
 
 DEFAULT_POLICY = lp.build_default_policy()
@@ -30,6 +31,8 @@ ACTIONABLE_TYPES = {
     "refresh_evidence",
     "semantic_rewrite",
     "quality_repair",
+    "topology_repair",
+    "navigation_repair",
     "migrate_legacy",
     "archive_legacy",
     "legacy_manual_review",
@@ -455,6 +458,10 @@ def build_plan(
         manifest_changed,
     ) = resolve_effective_manifest(policy, has_manifest, current_manifest, facts)
 
+    topology_settings = dt.resolve_topology_settings(policy)
+    progressive_settings = dt.resolve_progressive_disclosure_settings(policy)
+    topology_contract, topology_report = dt.load_topology_contract(root, topology_settings)
+
     legacy_settings = dl.resolve_legacy_settings(policy)
     legacy_candidates = dl.discover_legacy_sources(root, legacy_settings)
     legacy_semantic_records: list[dict[str, Any]] = []
@@ -561,6 +568,12 @@ def build_plan(
         action.update(extra)
         actions.append(action)
 
+    def resolve_missing_file_template(rel_path: str) -> str:
+        rel = normalize_rel(rel_path)
+        if rel == "docs/.doc-topology.json":
+            return "topology"
+        return "managed"
+
     docs_root = root / "docs"
 
     if mode == "bootstrap" and not docs_root.exists():
@@ -602,6 +615,135 @@ def build_plan(
             manifest_snapshot=dc.normalize_manifest_snapshot(effective_manifest),
         )
 
+    topology_analysis: dict[str, Any] | None = None
+    topology_path = normalize_rel(str(topology_report.get("path", "")))
+    if topology_report.get("enabled", False):
+        topology_declared = topology_path in set(required_files) | set(optional_files)
+        if not topology_report.get("exists", False):
+            if not topology_declared:
+                add_action(
+                    "manual_review",
+                    "file",
+                    topology_path,
+                    "topology contract enabled but file is missing",
+                    topology_report.get("warnings")
+                    or [f"missing topology contract: {topology_path}"],
+                )
+        elif topology_report.get("errors"):
+            add_action(
+                "manual_review",
+                "file",
+                topology_path,
+                "topology contract schema validation failed",
+                [
+                    *[str(v) for v in (topology_report.get("errors") or [])],
+                    *[
+                        f"warning: {v}"
+                        for v in (topology_report.get("warnings") or [])
+                    ],
+                ],
+            )
+        elif topology_report.get("loaded", False) and isinstance(topology_contract, dict):
+            managed_markdown = [
+                rel
+                for rel in sorted(set(required_files) | set(optional_files))
+                if rel.endswith(".md")
+            ]
+            topology_analysis = dt.evaluate_topology(
+                root,
+                topology_contract,
+                topology_settings,
+                managed_docs=managed_markdown,
+            )
+
+            merged_warnings = list(topology_report.get("warnings") or [])
+            merged_warnings.extend(topology_analysis.get("warnings") or [])
+            topology_report["warnings"] = sorted(set(str(v) for v in merged_warnings if str(v)))
+            merged_metrics = dict(topology_report.get("metrics") or {})
+            merged_metrics.update(topology_analysis.get("metrics") or {})
+            topology_report["metrics"] = merged_metrics
+            topology_report["analysis"] = {
+                "scope_docs": topology_analysis.get("scope_docs") or [],
+                "orphan_docs": topology_analysis.get("orphan_docs") or [],
+                "unreachable_docs": topology_analysis.get("unreachable_docs") or [],
+                "over_depth_docs": topology_analysis.get("over_depth_docs") or [],
+                "navigation_missing_by_parent": topology_analysis.get(
+                    "navigation_missing_by_parent"
+                )
+                or [],
+            }
+
+            orphan_docs = list(topology_analysis.get("orphan_docs") or [])
+            unreachable_docs = list(topology_analysis.get("unreachable_docs") or [])
+            over_depth_docs = list(topology_analysis.get("over_depth_docs") or [])
+            if orphan_docs or unreachable_docs or over_depth_docs:
+                evidence: list[str] = []
+                if orphan_docs:
+                    evidence.append(
+                        "orphan docs: "
+                        + ", ".join(orphan_docs[:10])
+                        + (" ..." if len(orphan_docs) > 10 else "")
+                    )
+                if unreachable_docs:
+                    evidence.append(
+                        "unreachable docs: "
+                        + ", ".join(unreachable_docs[:10])
+                        + (" ..." if len(unreachable_docs) > 10 else "")
+                    )
+                if over_depth_docs:
+                    evidence.append(
+                        "over-depth docs: "
+                        + ", ".join(over_depth_docs[:10])
+                        + (" ..." if len(over_depth_docs) > 10 else "")
+                    )
+                metrics = topology_analysis.get("metrics") or {}
+                evidence.append(
+                    "metrics: "
+                    f"reachable_ratio={metrics.get('topology_reachable_ratio')}, "
+                    f"max_depth={metrics.get('topology_max_depth')}, "
+                    f"limit={metrics.get('topology_depth_limit')}"
+                )
+                add_action(
+                    "topology_repair",
+                    "file",
+                    topology_path or "docs/.doc-topology.json",
+                    "topology gate risk detected during planning",
+                    evidence,
+                    orphan_docs=orphan_docs,
+                    unreachable_docs=unreachable_docs,
+                    over_depth_docs=over_depth_docs,
+                    topology_metrics=metrics,
+                )
+
+            for item in topology_analysis.get("navigation_missing_by_parent") or []:
+                if not isinstance(item, dict):
+                    continue
+                parent_path = item.get("parent")
+                missing_children = item.get("missing_children") or []
+                if (
+                    not isinstance(parent_path, str)
+                    or not parent_path.strip()
+                    or not isinstance(missing_children, list)
+                    or not missing_children
+                ):
+                    continue
+                children = [str(v) for v in missing_children if isinstance(v, str) and str(v)]
+                if not children:
+                    continue
+                add_action(
+                    "navigation_repair",
+                    "file",
+                    normalize_rel(parent_path),
+                    "topology child links missing from navigation document",
+                    [
+                        f"parent {normalize_rel(parent_path)} missing links to {', '.join(children[:10])}"
+                        + (" ..." if len(children) > 10 else "")
+                    ],
+                    parent_path=normalize_rel(parent_path),
+                    missing_children=children,
+                    topology_path=topology_path or "docs/.doc-topology.json",
+                )
+
     for rel_dir in required_dirs:
         if not (root / rel_dir).exists():
             add_action(
@@ -621,7 +763,7 @@ def build_plan(
                 rel_file,
                 "required file is missing",
                 [f"manifest.required.files includes {rel_file}"],
-                template="managed",
+                template=resolve_missing_file_template(rel_file),
             )
 
     for rel_file in optional_files:
@@ -633,7 +775,7 @@ def build_plan(
                 rel_file,
                 "optional managed file missing during bootstrap",
                 [f"manifest.optional.files includes {rel_file}"],
-                template="managed",
+                template=resolve_missing_file_template(rel_file),
             )
 
     managed_files = set(required_files) | set(optional_files)
@@ -1089,6 +1231,16 @@ def build_plan(
                     "require_review_cycle_days", True
                 ),
             },
+            "doc_topology": {
+                "enabled": topology_report.get("enabled", False),
+                "path": topology_report.get("path"),
+                "exists": topology_report.get("exists", False),
+                "loaded": topology_report.get("loaded", False),
+                "errors": topology_report.get("errors") or [],
+                "warnings": topology_report.get("warnings") or [],
+                "metrics": topology_report.get("metrics") or {},
+            },
+            "progressive_disclosure": progressive_settings,
             "legacy_sources": {
                 "enabled": legacy_settings.get("enabled", False),
                 "mapping_strategy": legacy_settings.get("mapping_strategy"),

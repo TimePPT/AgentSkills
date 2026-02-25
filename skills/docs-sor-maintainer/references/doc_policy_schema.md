@@ -47,6 +47,26 @@
     ],
     "stale_warning_enabled": true
   },
+  "doc_topology": {
+    "enabled": false,
+    "path": "docs/.doc-topology.json",
+    "enforce_max_depth": true,
+    "max_depth": 3,
+    "fail_on_orphan": true,
+    "fail_on_unreachable": true
+  },
+  "progressive_disclosure": {
+    "enabled": false,
+    "required_slots": [
+      "summary",
+      "key_facts",
+      "next_steps"
+    ],
+    "summary_max_chars": 160,
+    "max_key_facts": 5,
+    "max_next_steps": 3,
+    "fail_on_missing_slots": true
+  },
   "doc_gardening": {
     "enabled": true,
     "apply_mode": "apply-safe",
@@ -64,6 +84,9 @@
     "max_unknown_claims": 0,
     "max_unresolved_todo": 0,
     "max_stale_metrics_days": 7,
+    "min_progressive_slot_completeness": 0.95,
+    "min_next_step_presence": 1.0,
+    "max_section_verbosity_over_budget": 0,
     "max_semantic_conflicts": 0,
     "max_semantic_low_confidence_auto": 0,
     "max_fallback_auto_migrate": 0,
@@ -193,10 +216,15 @@
 - `manifest_evolution`: controls whether existing manifest can be expanded additively from newly discovered signals.
 - `adaptive_manifest_overrides`: force include/exclude specific files or directories after capability decision.
 - `doc_metadata`: ownership/freshness metadata policy for managed markdown docs.
+- `doc_topology`: topology contract switch and guard defaults (`path`, `max_depth`, orphan/unreachable failure mode).
+- `progressive_disclosure`: section slot contract defaults (`summary/key_facts/next_steps`) and budget constraints.
 - `doc_gardening`: automation defaults used by `doc_garden.py`.
   - `repair_plan_mode`: dedicated plan mode for repair rounds.
   - `max_repair_iterations`: upper bound for automatic repair retries.
 - `doc_quality_gates`: content quality gate thresholds used by validators.
+  - `min_progressive_slot_completeness`: minimum slot completeness ratio for progressive sections.
+  - `min_next_step_presence`: minimum ratio of sections that include `next_steps`.
+  - `max_section_verbosity_over_budget`: max allowed count of slot budget overruns.
   - `max_semantic_conflicts`: max allowed semantic conflict count.
   - `max_semantic_low_confidence_auto`: max allowed auto-migrated low-confidence items.
   - `max_fallback_auto_migrate`: max allowed fallback auto migrations (recommended `0` for release gates).
@@ -207,6 +235,7 @@
   - `mode`: `deterministic` (default), `hybrid`, or `agent_strict`.
   - `source`: semantic producer identifier; recommended `invoking_agent`.
   - `runtime_report_path`: runtime semantic report consumed by apply flow.
+  - runtime report v2 entry for section actions supports `slots.summary/key_facts/next_steps`; `doc_apply` enforces slot completeness, verbosity budget, and citation prefix gate before write.
   - `allow_external_llm_api`: must stay `false` by default to avoid provider lock-in.
   - `actions`: explicit allowlist of action types that may consume runtime semantics.
 - `legacy_sources`: legacy files discovery/migration policy for non-SoR historical files.

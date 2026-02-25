@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-02-24T13:57:33.717266+00:00",
+  "generated_at": "2026-02-24T15:57:17.111782+00:00",
   "root": "/Users/tompoet/AgentSkills",
   "plan": "/Users/tompoet/AgentSkills/docs/.doc-plan.json",
   "spec": "/Users/tompoet/AgentSkills/docs/.doc-spec.json",
   "facts": "/Users/tompoet/AgentSkills/docs/.repo-facts.json",
   "plan_meta": {
-    "generated_at": "2026-02-24T13:57:33.336522+00:00",
+    "generated_at": "2026-02-24T15:57:16.836831+00:00",
     "root": "/Users/tompoet/AgentSkills",
     "mode": "audit",
     "policy_path": "docs/.doc-policy.json",
@@ -18,6 +18,7 @@
       "required": {
         "files": [
           "docs/.doc-spec.json",
+          "docs/.doc-topology.json",
           "docs/architecture.md",
           "docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md",
           "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md",
@@ -26,6 +27,8 @@
           "docs/exec-plans/active/docs-sor-roadmap-v2.4-dual-replica-sync-ci-convergence.md",
           "docs/exec-plans/active/docs-sor-roadmap-v2.5-hybrid-template-llm-governance.md",
           "docs/exec-plans/active/docs-sor-roadmap-v2.5-remediation-agent-strict-policy-enforcement.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.6-acceptance-report.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
           "docs/exec-plans/active/docs-sor-roadmap-v2.md",
           "docs/exec-plans/completed/README.md",
           "docs/exec-plans/completed/docs-sor-legacy-migration-automation-closeout-2026-02-22.md",
@@ -33,8 +36,11 @@
           "docs/exec-plans/completed/docs-sor-roadmap-v2.1-phase-e-closeout-2026-02-22.md",
           "docs/exec-plans/completed/docs-sor-roadmap-v2.2-phase-f-closeout-2026-02-22.md",
           "docs/exec-plans/completed/docs-sor-roadmap-v2.5-remediation-closeout-2026-02-24.md",
+          "docs/exec-plans/completed/docs-sor-roadmap-v2.6-closeout-2026-02-24.md",
           "docs/index.md",
           "docs/references/doc_spec_schema.md",
+          "docs/references/doc_topology_schema.md",
+          "docs/references/exec-plan-closeout-template.md",
           "docs/runbook.md"
         ],
         "dirs": [
@@ -59,7 +65,7 @@
       "archive_dir": "docs/archive"
     },
     "manifest_reasoning": [
-      "include_files=8"
+      "include_files=12"
     ],
     "capability_decisions": [
       {
@@ -94,7 +100,7 @@
         "enabled": true,
         "source": "goal_include",
         "evidence": [
-          "file_count=125",
+          "file_count=138",
           "enabled by doc_goals.include"
         ],
         "required_files": [
@@ -109,7 +115,7 @@
         "source": "goal_include",
         "evidence": [
           "ci_configs=1",
-          "file_count=125",
+          "file_count=138",
           "enabled by doc_goals.include"
         ],
         "required_files": [],
@@ -125,7 +131,7 @@
         "enabled": true,
         "source": "signal",
         "evidence": [
-          "docs_markdown_count=28"
+          "docs_markdown_count=33"
         ],
         "required_files": [],
         "required_dirs": [],
@@ -178,6 +184,37 @@
       "require_owner": true,
       "require_last_reviewed": true,
       "require_review_cycle_days": true
+    },
+    "doc_topology": {
+      "enabled": true,
+      "path": "docs/.doc-topology.json",
+      "exists": true,
+      "loaded": true,
+      "errors": [],
+      "warnings": [],
+      "metrics": {
+        "node_count": 30,
+        "managed_markdown_count": 30,
+        "topology_reachable_ratio": 1.0,
+        "topology_orphan_count": 0,
+        "topology_unreachable_count": 0,
+        "topology_max_depth": 2,
+        "topology_depth_limit": 3,
+        "topology_over_depth_count": 0,
+        "navigation_missing_count": 0
+      }
+    },
+    "progressive_disclosure": {
+      "enabled": true,
+      "required_slots": [
+        "summary",
+        "key_facts",
+        "next_steps"
+      ],
+      "summary_max_chars": 160,
+      "max_key_facts": 5,
+      "max_next_steps": 3,
+      "fail_on_missing_slots": true
     },
     "legacy_sources": {
       "enabled": true,
@@ -342,7 +379,7 @@
             {
               "claim_id": "runbook.validation_commands",
               "status": "supported",
-              "statement": "当前校验命令集合为：\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_validate.py\" --root \"$REPO_ROOT\" --facts \"$REPO_ROOT/docs/.repo-facts.json\" --fail-on-drift --fail-on-freshness --output \"$REPO_ROOT/docs/.doc-validate-report.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_quality.py\" --root \"$REPO_ROOT\" --output \"$REPO_ROOT/docs/.doc-quality-report.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_garden.py\" --root \"$REPO_ROOT\" --apply-mode apply-safe --repair-plan-mode repair --fail-on-drift --fail-on-freshness, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_legacy_migration, python3 -m unittest discover -s skills/docs-sor-maintainer/tests -p 'test_*.py', \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/repo_scan.py\" --root \"$REPO_ROOT\" --output \"$REPO_ROOT/docs/.repo-facts.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode audit --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode audit --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan-phase-f-audit.json\", python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_agents_validate, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_garden_repair_loop, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_validate_exec_plan_closeout, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_semantic_runtime, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_apply_section_actions, python3 -m py_compile \"$SKILL_DIR\"/scripts/*.py",
+              "statement": "当前校验命令集合为：\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_validate.py\" --root \"$REPO_ROOT\" --facts \"$REPO_ROOT/docs/.repo-facts.json\" --fail-on-drift --fail-on-freshness --output \"$REPO_ROOT/docs/.doc-validate-report.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_quality.py\" --root \"$REPO_ROOT\" --output \"$REPO_ROOT/docs/.doc-quality-report.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_garden.py\" --root \"$REPO_ROOT\" --apply-mode apply-safe --repair-plan-mode repair --fail-on-drift --fail-on-freshness, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_legacy_migration, python3 -m unittest discover -s skills/docs-sor-maintainer/tests -p 'test_*.py', \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/repo_scan.py\" --root \"$REPO_ROOT\" --output \"$REPO_ROOT/docs/.repo-facts.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode audit --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode audit --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan-phase-f-audit.json\", python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_agents_validate, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_garden_repair_loop, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_validate_exec_plan_closeout, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_semantic_runtime, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_apply_section_actions, \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_apply.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan.json\" --mode apply-safe, \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_synthesize.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan.json\" --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-evidence-map.json\", python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_topology_schema, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_validate_topology_depth, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_quality_progressive_slots, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_apply_semantic_slots_v2, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_garden_skip_post_scan_when_no_apply, python3 - <<'PY', import json, from pathlib import Path, root = Path(\"/Users/tompoet/AgentSkills\"), report = json.loads((root / \"docs/.doc-garden-report.json\").read_text(encoding=\"utf-8\")), steps = [str(step.get(\"name\", \"\")) for step in report.get(\"steps\", [])], assert report.get(\"apply\", {}).get(\"applied\") == 0, assert \"run:scan-post-apply\" not in steps, assert isinstance(report.get(\"summary\", {}).get(\"garden_total_duration_ms\"), int), assert isinstance(report.get(\"performance\", {}).get(\"scan_duration_ms\"), int), assert isinstance(report.get(\"performance\", {}).get(\"plan_duration_ms\"), int), assert isinstance(report.get(\"performance\", {}).get(\"validate_duration_ms\"), int), print(\"WP4 acceptance checks passed\"), PY, artifacts = [, \"docs/exec-plans/active/docs-sor-roadmap-v2.6-acceptance-report.md\",, \"docs/references/exec-plan-closeout-template.md\",, \"docs/exec-plans/completed/docs-sor-roadmap-v2.6-closeout-2026-02-24.md\",, ], for rel in artifacts:, assert (root / rel).exists(), f\"missing required V2.6 WP5 artifact: {rel}\", plan_text = (, root / \"docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md\", ).read_text(encoding=\"utf-8\"), assert \"<!-- exec-plan-status: completed -->\" in plan_text, assert (, \"<!-- exec-plan-closeout: docs/exec-plans/completed/docs-sor-roadmap-v2.6-closeout-2026-02-24.md -->\", in plan_text, ), print(\"WP5 acceptance checks passed\"), python3 -m py_compile \"$SKILL_DIR\"/scripts/*.py",
               "statement_template": "当前校验命令集合为：{commands}",
               "required_evidence_types": [
                 "runbook.validation_commands"
@@ -366,6 +403,43 @@
                     "python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_validate_exec_plan_closeout",
                     "python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_semantic_runtime",
                     "python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_apply_section_actions",
+                    "\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_apply.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan.json\" --mode apply-safe",
+                    "\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_synthesize.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan.json\" --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-evidence-map.json\"",
+                    "python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_topology_schema",
+                    "python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_validate_topology_depth",
+                    "python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_quality_progressive_slots",
+                    "python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_apply_semantic_slots_v2",
+                    "python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_garden_skip_post_scan_when_no_apply",
+                    "python3 - <<'PY'",
+                    "import json",
+                    "from pathlib import Path",
+                    "root = Path(\"/Users/tompoet/AgentSkills\")",
+                    "report = json.loads((root / \"docs/.doc-garden-report.json\").read_text(encoding=\"utf-8\"))",
+                    "steps = [str(step.get(\"name\", \"\")) for step in report.get(\"steps\", [])]",
+                    "assert report.get(\"apply\", {}).get(\"applied\") == 0",
+                    "assert \"run:scan-post-apply\" not in steps",
+                    "assert isinstance(report.get(\"summary\", {}).get(\"garden_total_duration_ms\"), int)",
+                    "assert isinstance(report.get(\"performance\", {}).get(\"scan_duration_ms\"), int)",
+                    "assert isinstance(report.get(\"performance\", {}).get(\"plan_duration_ms\"), int)",
+                    "assert isinstance(report.get(\"performance\", {}).get(\"validate_duration_ms\"), int)",
+                    "print(\"WP4 acceptance checks passed\")",
+                    "PY",
+                    "artifacts = [",
+                    "\"docs/exec-plans/active/docs-sor-roadmap-v2.6-acceptance-report.md\",",
+                    "\"docs/references/exec-plan-closeout-template.md\",",
+                    "\"docs/exec-plans/completed/docs-sor-roadmap-v2.6-closeout-2026-02-24.md\",",
+                    "]",
+                    "for rel in artifacts:",
+                    "assert (root / rel).exists(), f\"missing required V2.6 WP5 artifact: {rel}\"",
+                    "plan_text = (",
+                    "root / \"docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md\"",
+                    ").read_text(encoding=\"utf-8\")",
+                    "assert \"<!-- exec-plan-status: completed -->\" in plan_text",
+                    "assert (",
+                    "\"<!-- exec-plan-closeout: docs/exec-plans/completed/docs-sor-roadmap-v2.6-closeout-2026-02-24.md -->\"",
+                    "in plan_text",
+                    ")",
+                    "print(\"WP5 acceptance checks passed\")",
                     "python3 -m py_compile \"$SKILL_DIR\"/scripts/*.py"
                   ]
                 }

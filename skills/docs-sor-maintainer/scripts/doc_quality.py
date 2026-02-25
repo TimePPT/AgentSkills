@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from collections import Counter
 from datetime import datetime, timezone
@@ -16,6 +17,7 @@ if str(SCRIPT_DIR) not in sys.path:
 import doc_spec  # noqa: E402
 import doc_synthesize  # noqa: E402
 import doc_legacy as dl  # noqa: E402
+import doc_topology as dt  # noqa: E402
 
 
 STRUCTURED_SECTION_MARKER_GROUPS = [
@@ -25,6 +27,12 @@ STRUCTURED_SECTION_MARKER_GROUPS = [
     ("risks", ["### 待办与风险", "### TODO & Risks"]),
     ("trace", ["### 来源追踪", "### Source Trace"]),
 ]
+PROGRESSIVE_SLOT_MARKERS = {
+    "summary": ["### 摘要", "### Summary"],
+    "key_facts": ["### 关键事实", "### Key Facts"],
+    "next_steps": ["### 下一步", "### Next Steps"],
+}
+LIST_ITEM_PATTERN = re.compile(r"^\s*(?:[-*+]\s+|\d+\.\s+)")
 
 
 def utc_now() -> str:
@@ -454,6 +462,171 @@ def compute_conflicts(claims: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return conflicts
 
 
+def _extract_heading_block(content: str, markers: list[str]) -> list[str]:
+    marker_set = {marker.strip() for marker in markers if isinstance(marker, str) and marker.strip()}
+    if not marker_set:
+        return []
+
+    lines = content.splitlines()
+    for idx, line in enumerate(lines):
+        if line.strip() not in marker_set:
+            continue
+        end = idx + 1
+        while end < len(lines):
+            if lines[end].lstrip().startswith("#"):
+                break
+            end += 1
+        return lines[idx + 1 : end]
+    return []
+
+
+def _count_items(lines: list[str]) -> int:
+    count = 0
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        count += 1
+    return count
+
+
+def evaluate_progressive_disclosure_quality(
+    root: Path,
+    spec_data: dict[str, Any],
+    progressive_settings: dict[str, Any],
+) -> dict[str, Any]:
+    enabled = bool(progressive_settings.get("enabled", False))
+    required_slots = [
+        str(slot).strip()
+        for slot in (progressive_settings.get("required_slots") or [])
+        if isinstance(slot, str) and str(slot).strip()
+    ]
+    if not required_slots:
+        required_slots = ["summary", "key_facts", "next_steps"]
+
+    result: dict[str, Any] = {
+        "enabled": enabled,
+        "required_slots": required_slots,
+        "settings": {
+            "summary_max_chars": int(progressive_settings.get("summary_max_chars", 160)),
+            "max_key_facts": int(progressive_settings.get("max_key_facts", 5)),
+            "max_next_steps": int(progressive_settings.get("max_next_steps", 3)),
+            "fail_on_missing_slots": bool(
+                progressive_settings.get("fail_on_missing_slots", True)
+            ),
+        },
+        "metrics": {
+            "progressive_candidate_sections": 0,
+            "progressive_slot_completeness": 1.0,
+            "next_step_presence": 1.0,
+            "section_verbosity_over_budget_count": 0,
+            "progressive_missing_slots_count": 0,
+        },
+        "findings": [],
+    }
+    if not enabled:
+        return result
+
+    documents = (
+        spec_data.get("documents")
+        if isinstance(spec_data, dict) and isinstance(spec_data.get("documents"), list)
+        else []
+    )
+    doc_paths = [
+        dt.normalize_rel(str(doc.get("path")))
+        for doc in documents
+        if isinstance(doc, dict)
+        and isinstance(doc.get("path"), str)
+        and str(doc.get("path")).strip()
+        and dt.normalize_rel(str(doc.get("path"))).endswith(".md")
+    ]
+
+    slot_totals = 0
+    slot_hits = 0
+    next_step_hits = 0
+    over_budget_count = 0
+    missing_slots_count = 0
+    findings: list[dict[str, Any]] = []
+    summary_max_chars = int(result["settings"]["summary_max_chars"])
+    max_key_facts = int(result["settings"]["max_key_facts"])
+    max_next_steps = int(result["settings"]["max_next_steps"])
+
+    for rel_path in sorted(set(doc_paths)):
+        abs_path = root / rel_path
+        if not abs_path.exists() or not abs_path.is_file():
+            continue
+        text = abs_path.read_text(encoding="utf-8", errors="replace")
+        slot_blocks = {
+            slot: _extract_heading_block(text, PROGRESSIVE_SLOT_MARKERS.get(slot, []))
+            for slot in required_slots
+        }
+        present_slots = [slot for slot in required_slots if slot_blocks.get(slot)]
+        if not present_slots:
+            continue
+
+        slot_totals += len(required_slots)
+        slot_hits += len(present_slots)
+        if "next_steps" in present_slots:
+            next_step_hits += 1
+
+        missing = [slot for slot in required_slots if slot not in present_slots]
+        missing_slots_count += len(missing)
+
+        verbosity_reasons: list[str] = []
+        summary_block = slot_blocks.get("summary") or []
+        if summary_block:
+            summary_text = " ".join(
+                part.strip().lstrip("-*+").strip()
+                for part in summary_block
+                if part.strip()
+            )
+            if len(summary_text) > summary_max_chars:
+                over_budget_count += 1
+                verbosity_reasons.append(
+                    f"summary chars {len(summary_text)}>{summary_max_chars}"
+                )
+
+        key_facts_block = slot_blocks.get("key_facts") or []
+        key_facts_count = _count_items(key_facts_block)
+        if key_facts_count > max_key_facts:
+            over_budget_count += 1
+            verbosity_reasons.append(
+                f"key_facts count {key_facts_count}>{max_key_facts}"
+            )
+
+        next_steps_block = slot_blocks.get("next_steps") or []
+        next_steps_count = _count_items(next_steps_block)
+        if next_steps_count > max_next_steps:
+            over_budget_count += 1
+            verbosity_reasons.append(
+                f"next_steps count {next_steps_count}>{max_next_steps}"
+            )
+
+        findings.append(
+            {
+                "path": rel_path,
+                "present_slots": present_slots,
+                "missing_slots": missing,
+                "verbosity_issues": verbosity_reasons,
+            }
+        )
+
+    candidate_sections = len(findings)
+    completeness = 1.0 if slot_totals == 0 else round(slot_hits / slot_totals, 4)
+    next_step_presence = (
+        1.0 if candidate_sections == 0 else round(next_step_hits / candidate_sections, 4)
+    )
+    result["metrics"] = {
+        "progressive_candidate_sections": candidate_sections,
+        "progressive_slot_completeness": completeness,
+        "next_step_presence": next_step_presence,
+        "section_verbosity_over_budget_count": over_budget_count,
+        "progressive_missing_slots_count": missing_slots_count,
+    }
+    result["findings"] = findings
+    return result
+
+
 def evaluate_quality(
     root: Path,
     policy: dict[str, Any],
@@ -502,6 +675,10 @@ def evaluate_quality(
     citation_issues = compute_citation_issues(claims)
     facts_age_days = get_facts_age_days(facts)
     semantic_quality = evaluate_semantic_migration_quality(root, policy)
+    progressive_settings = dt.resolve_progressive_disclosure_settings(policy)
+    progressive_quality = evaluate_progressive_disclosure_quality(
+        root, spec_data, progressive_settings
+    )
 
     quality_policy = policy.get("doc_quality_gates")
     quality_policy = quality_policy if isinstance(quality_policy, dict) else {}
@@ -524,6 +701,13 @@ def evaluate_quality(
         "min_structured_section_completeness": semantic_thresholds[
             "min_structured_section_completeness"
         ],
+        "min_progressive_slot_completeness": quality_policy.get(
+            "min_progressive_slot_completeness", 0.95
+        ),
+        "min_next_step_presence": quality_policy.get("min_next_step_presence", 1.0),
+        "max_section_verbosity_over_budget": quality_policy.get(
+            "max_section_verbosity_over_budget", 0
+        ),
     }
 
     failed_checks: list[str] = []
@@ -566,6 +750,24 @@ def evaluate_quality(
                 failed_checks.append("min_structured_section_completeness")
             if int(semantic_metrics.get("missing_source_marker_auto_count", 0)) > 0:
                 failed_checks.append("semantic_source_marker_integrity")
+        if progressive_quality.get("enabled", False):
+            progressive_metrics = progressive_quality.get("metrics") or {}
+            if float(progressive_metrics.get("progressive_slot_completeness", 1.0)) < float(
+                thresholds["min_progressive_slot_completeness"]
+            ):
+                failed_checks.append("min_progressive_slot_completeness")
+            if float(progressive_metrics.get("next_step_presence", 1.0)) < float(
+                thresholds["min_next_step_presence"]
+            ):
+                failed_checks.append("min_next_step_presence")
+            if int(
+                progressive_metrics.get("section_verbosity_over_budget_count", 0)
+            ) > int(thresholds["max_section_verbosity_over_budget"]):
+                failed_checks.append("max_section_verbosity_over_budget")
+            if progressive_quality.get("settings", {}).get(
+                "fail_on_missing_slots", True
+            ) and int(progressive_metrics.get("progressive_missing_slots_count", 0)) > 0:
+                failed_checks.append("progressive_required_slots")
 
     report = {
         "generated_at": utc_now(),
@@ -626,10 +828,36 @@ def evaluate_quality(
                     "missing_source_marker_auto_count", 0
                 )
             ),
+            "progressive_candidate_sections": (
+                (progressive_quality.get("metrics") or {}).get(
+                    "progressive_candidate_sections", 0
+                )
+            ),
+            "progressive_slot_completeness": (
+                (progressive_quality.get("metrics") or {}).get(
+                    "progressive_slot_completeness", 1.0
+                )
+            ),
+            "next_step_presence": (
+                (progressive_quality.get("metrics") or {}).get(
+                    "next_step_presence", 1.0
+                )
+            ),
+            "section_verbosity_over_budget_count": (
+                (progressive_quality.get("metrics") or {}).get(
+                    "section_verbosity_over_budget_count", 0
+                )
+            ),
+            "progressive_missing_slots_count": (
+                (progressive_quality.get("metrics") or {}).get(
+                    "progressive_missing_slots_count", 0
+                )
+            ),
         },
         "conflicts": conflicts,
         "citation_issues": citation_issues,
         "semantic": semantic_quality,
+        "progressive": progressive_quality,
         "gate": {
             "status": "failed" if enabled and failed_checks else "passed",
             "failed_checks": failed_checks,

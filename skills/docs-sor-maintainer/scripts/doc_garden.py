@@ -93,11 +93,13 @@ def run_step(step_name: str, cmd: list[str], cwd: Path) -> dict[str, Any]:
     started = datetime.now(timezone.utc)
     proc = subprocess.run(cmd, cwd=str(cwd), capture_output=True, text=True)
     finished = datetime.now(timezone.utc)
+    duration_ms = int((finished - started).total_seconds() * 1000)
     return {
         "name": step_name,
         "command": cmd,
         "started_at": started.isoformat(),
         "finished_at": finished.isoformat(),
+        "duration_ms": duration_ms,
         "returncode": proc.returncode,
         "stdout": proc.stdout,
         "stderr": proc.stderr,
@@ -116,6 +118,56 @@ def load_json_object(path: Path) -> dict[str, Any] | None:
     except json.JSONDecodeError:
         return None
     return data if isinstance(data, dict) else None
+
+
+def extract_applied_count(apply_report: dict[str, Any] | None) -> int | None:
+    if not isinstance(apply_report, dict):
+        return None
+    summary = apply_report.get("summary")
+    if not isinstance(summary, dict):
+        return None
+    value = summary.get("applied")
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    return None
+
+
+def build_performance_metrics(
+    steps: list[dict[str, Any]], garden_total_duration_ms: int
+) -> dict[str, int]:
+    scan_duration_ms = 0
+    plan_duration_ms = 0
+    apply_duration_ms = 0
+    synthesize_duration_ms = 0
+    validate_duration_ms = 0
+
+    for step in steps:
+        name = str(step.get("name") or "")
+        duration = step.get("duration_ms")
+        if isinstance(duration, bool) or not isinstance(duration, int):
+            continue
+        if name.endswith(":scan") or name.endswith(":scan-post-apply"):
+            scan_duration_ms += duration
+        elif name.endswith(":plan"):
+            plan_duration_ms += duration
+        elif name.endswith(":apply"):
+            apply_duration_ms += duration
+        elif name.endswith(":synthesize"):
+            synthesize_duration_ms += duration
+        elif name.endswith(":validate"):
+            validate_duration_ms += duration
+
+    return {
+        "scan_duration_ms": scan_duration_ms,
+        "plan_duration_ms": plan_duration_ms,
+        "apply_duration_ms": apply_duration_ms,
+        "synthesize_duration_ms": synthesize_duration_ms,
+        "validate_duration_ms": validate_duration_ms,
+        "garden_total_duration_ms": garden_total_duration_ms,
+    }
+
 
 def parse_drift_action_type(note: str) -> str | None:
     if not note:
@@ -182,7 +234,7 @@ def render_report_markdown(report: dict[str, Any]) -> str:
 
     for step in report.get("steps", []):
         lines.append(
-            f"- `{step.get('name')}` rc={step.get('returncode')} status={step.get('status')}"
+            f"- `{step.get('name')}` rc={step.get('returncode')} status={step.get('status')} duration_ms={step.get('duration_ms')}"
         )
 
     plan = report.get("plan") or {}
@@ -255,6 +307,22 @@ def render_report_markdown(report: dict[str, Any]) -> str:
                 reason = item.get("reason", "UNKNOWN")
                 lines.append(f"- `{source_path}`: {reason}")
 
+    performance = report.get("performance") or {}
+    if performance:
+        lines.extend(
+            [
+                "",
+                "## Performance",
+                "",
+                f"- scan_duration_ms: {performance.get('scan_duration_ms')}",
+                f"- plan_duration_ms: {performance.get('plan_duration_ms')}",
+                f"- apply_duration_ms: {performance.get('apply_duration_ms')}",
+                f"- synthesize_duration_ms: {performance.get('synthesize_duration_ms')}",
+                f"- validate_duration_ms: {performance.get('validate_duration_ms')}",
+                f"- garden_total_duration_ms: {performance.get('garden_total_duration_ms')}",
+            ]
+        )
+
     lines.append("")
     return "\n".join(lines)
 
@@ -312,6 +380,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    started_at = datetime.now(timezone.utc)
     args = parse_args()
     root = Path(args.root).resolve()
     if not root.exists() or not root.is_dir():
@@ -350,6 +419,8 @@ def main() -> int:
     py = sys.executable
 
     if not gardening_settings.get("enabled", True):
+        finished_at = datetime.now(timezone.utc)
+        garden_total_duration_ms = int((finished_at - started_at).total_seconds() * 1000)
         skipped_report = {
             "generated_at": utc_now(),
             "root": str(root),
@@ -370,7 +441,9 @@ def main() -> int:
                 "apply_mode": apply_mode,
                 "step_count": 0,
                 "failed_step_count": 0,
+                "garden_total_duration_ms": garden_total_duration_ms,
             },
+            "performance": {"garden_total_duration_ms": garden_total_duration_ms},
         }
         report_json_abs.parent.mkdir(parents=True, exist_ok=True)
         with report_json_abs.open("w", encoding="utf-8") as f:
@@ -423,6 +496,8 @@ def main() -> int:
                 ],
             )
 
+        should_scan_post_apply = apply_mode != "none"
+        apply_applied_count: int | None = None
         if ok and apply_mode != "none":
             apply_cmd = [
                 py,
@@ -437,8 +512,13 @@ def main() -> int:
             if args.init_language:
                 apply_cmd.extend(["--init-language", args.init_language])
             ok = exec_or_stop(f"{label}:apply", apply_cmd)
+            if ok:
+                apply_report = load_json_object(root / "docs/.doc-apply-report.json")
+                apply_applied_count = extract_applied_count(apply_report)
+                if apply_applied_count == 0:
+                    should_scan_post_apply = False
 
-        if ok and not args.skip_validate:
+        if ok and not args.skip_validate and should_scan_post_apply:
             ok = exec_or_stop(
                 f"{label}:scan-post-apply",
                 [
@@ -449,6 +529,13 @@ def main() -> int:
                     "--output",
                     str(facts_abs),
                 ],
+            )
+        elif ok and not args.skip_validate:
+            cycle_record["post_apply_scan_skipped"] = True
+            cycle_record["post_apply_scan_skip_reason"] = (
+                "apply_mode_none"
+                if apply_mode == "none"
+                else "apply_applied_zero"
             )
 
         if ok and not args.skip_validate:
@@ -483,6 +570,7 @@ def main() -> int:
 
         nonlocal last_validate_report
         last_validate_report = load_json_object(root / "docs/.doc-validate-report.json")
+        cycle_record["apply_applied"] = apply_applied_count
         cycle_record["success"] = ok
         return ok
 
@@ -503,6 +591,9 @@ def main() -> int:
     apply_report_data = load_json_object(root / "docs/.doc-apply-report.json") or {}
     validate_report = last_validate_report or {}
     semantic_backlog = collect_semantic_backlog(validate_report)
+    finished_at = datetime.now(timezone.utc)
+    garden_total_duration_ms = int((finished_at - started_at).total_seconds() * 1000)
+    performance_metrics = build_performance_metrics(steps, garden_total_duration_ms)
 
     report = {
         "generated_at": utc_now(),
@@ -552,7 +643,9 @@ def main() -> int:
             "apply_mode": apply_mode,
             "step_count": len(steps),
             "failed_step_count": sum(1 for step in steps if step["status"] != "ok"),
+            "garden_total_duration_ms": garden_total_duration_ms,
         },
+        "performance": performance_metrics,
     }
 
     report_json_abs.parent.mkdir(parents=True, exist_ok=True)

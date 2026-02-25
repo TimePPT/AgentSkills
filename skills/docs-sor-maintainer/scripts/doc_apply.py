@@ -21,6 +21,7 @@ import doc_agents  # noqa: E402
 import doc_legacy as dl  # noqa: E402
 import doc_metadata as dm  # noqa: E402
 import doc_semantic_runtime as dsr  # noqa: E402
+import doc_topology as dt  # noqa: E402
 import language_profiles as lp  # noqa: E402
 
 
@@ -385,6 +386,115 @@ def _normalize_string_list(value: Any) -> list[str]:
     return out
 
 
+def _dedupe_failures(failed_checks: list[str]) -> list[str]:
+    deduped_failures: list[str] = []
+    seen: set[str] = set()
+    for failure in failed_checks:
+        if failure in seen:
+            continue
+        seen.add(failure)
+        deduped_failures.append(failure)
+    return deduped_failures
+
+
+def _normalize_runtime_slots(raw_slots: Any) -> dict[str, Any]:
+    if not isinstance(raw_slots, dict):
+        return {}
+    normalized: dict[str, Any] = {}
+    for key, value in raw_slots.items():
+        if not isinstance(key, str):
+            continue
+        slot_name = key.strip()
+        if not slot_name:
+            continue
+        if isinstance(value, str):
+            text = value.strip()
+            if text:
+                normalized[slot_name] = text
+        elif isinstance(value, list):
+            items = _normalize_string_list(value)
+            if items:
+                normalized[slot_name] = items
+    return normalized
+
+
+def _progressive_slot_heading(slot: str, template_profile: str) -> str:
+    headings_zh = {
+        "summary": "### 摘要",
+        "key_facts": "### 关键事实",
+        "next_steps": "### 下一步",
+    }
+    headings_en = {
+        "summary": "### Summary",
+        "key_facts": "### Key Facts",
+        "next_steps": "### Next Steps",
+    }
+    table = headings_zh if template_profile == "zh-CN" else headings_en
+    resolved = table.get(slot, slot.replace("_", " ").title())
+    if resolved.startswith("#"):
+        return resolved
+    return f"### {resolved}"
+
+
+def render_progressive_slots_content(slots: dict[str, Any], template_profile: str) -> str:
+    summary = slots.get("summary")
+    key_facts = slots.get("key_facts")
+    next_steps = slots.get("next_steps")
+
+    lines: list[str] = []
+    if isinstance(summary, str) and summary.strip():
+        lines.extend(
+            [
+                _progressive_slot_heading("summary", template_profile),
+                "",
+                summary.strip(),
+                "",
+            ]
+        )
+    if isinstance(key_facts, list) and key_facts:
+        lines.append(_progressive_slot_heading("key_facts", template_profile))
+        lines.append("")
+        lines.extend(f"- {item}" for item in key_facts if isinstance(item, str) and item.strip())
+        lines.append("")
+    if isinstance(next_steps, list) and next_steps:
+        lines.append(_progressive_slot_heading("next_steps", template_profile))
+        lines.append("")
+        lines.extend(
+            f"{index}. {item}"
+            for index, item in enumerate(next_steps, start=1)
+            if isinstance(item, str) and item.strip()
+        )
+        lines.append("")
+    return "\n".join(lines).strip()
+
+
+def _resolve_required_evidence_prefixes(semantic_settings: dict[str, Any]) -> list[str]:
+    required_prefixes_raw = semantic_settings.get("required_evidence_prefixes")
+    return [
+        str(value).strip()
+        for value in (
+            required_prefixes_raw if isinstance(required_prefixes_raw, list) else []
+        )
+        if isinstance(value, str) and str(value).strip()
+    ]
+
+
+def _resolve_required_progressive_slots(progressive_settings: dict[str, Any]) -> list[str]:
+    required_slots_raw = progressive_settings.get("required_slots")
+    required_slots = [
+        str(value).strip()
+        for value in (
+            required_slots_raw
+            if isinstance(required_slots_raw, list)
+            else ["summary", "key_facts", "next_steps"]
+        )
+        if isinstance(value, str) and str(value).strip()
+    ]
+    if required_slots:
+        return required_slots
+    return ["summary", "key_facts", "next_steps"]
+
+
 def parse_citation_token(token: str) -> str | None:
     if not isinstance(token, str):
         return None
@@ -497,14 +607,7 @@ def resolve_fill_claim_runtime_payload(
     if invalid_citations:
         failed_checks.append("invalid_citation_token")
 
-    required_prefixes_raw = semantic_settings.get("required_evidence_prefixes")
-    required_prefixes = [
-        str(value).strip()
-        for value in (
-            required_prefixes_raw if isinstance(required_prefixes_raw, list) else []
-        )
-        if isinstance(value, str) and str(value).strip()
-    ]
+    required_prefixes = _resolve_required_evidence_prefixes(semantic_settings)
     if required_prefixes and citation_evidence_types:
         if any(
             not any(evidence.startswith(prefix) for prefix in required_prefixes)
@@ -530,13 +633,7 @@ def resolve_fill_claim_runtime_payload(
         if missing_required:
             failed_checks.append("missing_required_citations")
 
-    deduped_failures: list[str] = []
-    seen: set[str] = set()
-    for failure in failed_checks:
-        if failure in seen:
-            continue
-        seen.add(failure)
-        deduped_failures.append(failure)
+    deduped_failures = _dedupe_failures(failed_checks)
     if deduped_failures:
         return None, deduped_failures
 
@@ -548,13 +645,90 @@ def resolve_fill_claim_runtime_payload(
 
 def resolve_update_section_runtime_payload(
     runtime_entry: dict[str, Any] | None,
+    semantic_settings: dict[str, Any] | None = None,
+    progressive_settings: dict[str, Any] | None = None,
+    template_profile: str = "zh-CN",
 ) -> tuple[dict[str, Any] | None, list[str]]:
     if not isinstance(runtime_entry, dict):
         return None, ["runtime_entry_not_found"]
 
+    semantic_cfg = (
+        semantic_settings
+        if isinstance(semantic_settings, dict)
+        else dsr.resolve_semantic_generation_settings({})
+    )
+    progressive_cfg = (
+        progressive_settings
+        if isinstance(progressive_settings, dict)
+        else dt.resolve_progressive_disclosure_settings({})
+    )
+
     failed_checks: list[str] = []
     if runtime_entry.get("status") != "ok":
         failed_checks.append("runtime_status_not_ok")
+
+    slots = _normalize_runtime_slots(runtime_entry.get("slots"))
+    has_slots = isinstance(runtime_entry.get("slots"), dict)
+    if has_slots:
+        citations = _normalize_string_list(runtime_entry.get("citations"))
+        citation_evidence_types: list[str] = []
+        invalid_citations: list[str] = []
+        for token in citations:
+            evidence_type = parse_citation_token(token)
+            if evidence_type is None:
+                invalid_citations.append(token)
+            else:
+                citation_evidence_types.append(evidence_type)
+        if invalid_citations:
+            failed_checks.append("invalid_citation_token")
+
+        required_prefixes = _resolve_required_evidence_prefixes(semantic_cfg)
+        if required_prefixes and citation_evidence_types:
+            if any(
+                not any(evidence.startswith(prefix) for prefix in required_prefixes)
+                for evidence in citation_evidence_types
+            ):
+                failed_checks.append("citation_prefix_not_allowed")
+
+        required_slots = _resolve_required_progressive_slots(progressive_cfg)
+        for slot in required_slots:
+            slot_value = slots.get(slot)
+            if slot == "summary":
+                if not isinstance(slot_value, str) or not slot_value.strip():
+                    failed_checks.append("missing_slot_summary")
+            elif slot in {"key_facts", "next_steps"}:
+                if not isinstance(slot_value, list) or not slot_value:
+                    failed_checks.append(f"missing_slot_{slot}")
+            else:
+                if slot_value is None:
+                    failed_checks.append(f"missing_slot_{slot}")
+
+        summary_max_chars = int(progressive_cfg.get("summary_max_chars", 160))
+        max_key_facts = int(progressive_cfg.get("max_key_facts", 5))
+        max_next_steps = int(progressive_cfg.get("max_next_steps", 3))
+
+        summary_text = slots.get("summary")
+        if isinstance(summary_text, str) and len(summary_text) > summary_max_chars:
+            failed_checks.append("summary_over_budget")
+        key_facts = slots.get("key_facts")
+        if isinstance(key_facts, list) and len(key_facts) > max_key_facts:
+            failed_checks.append("key_facts_over_budget")
+        next_steps = slots.get("next_steps")
+        if isinstance(next_steps, list) and len(next_steps) > max_next_steps:
+            failed_checks.append("next_steps_over_budget")
+
+        deduped_failures = _dedupe_failures(failed_checks)
+        if deduped_failures:
+            return None, deduped_failures
+
+        content = render_progressive_slots_content(slots, template_profile)
+        if not content:
+            return None, ["missing_content"]
+        return {
+            "content": content,
+            "slots": slots,
+            "citations": citations,
+        }, []
 
     content_raw = runtime_entry.get("content")
     statement_raw = runtime_entry.get("statement")
@@ -567,13 +741,7 @@ def resolve_update_section_runtime_payload(
     if not content:
         failed_checks.append("missing_content")
 
-    deduped_failures: list[str] = []
-    seen: set[str] = set()
-    for failure in failed_checks:
-        if failure in seen:
-            continue
-        seen.add(failure)
-        deduped_failures.append(failure)
+    deduped_failures = _dedupe_failures(failed_checks)
     if deduped_failures:
         return None, deduped_failures
     return {"content": content}, []
@@ -624,6 +792,26 @@ def resolve_manifest_snapshot(action: dict[str, Any]) -> dict[str, Any]:
     if isinstance(snapshot, dict):
         return dc.normalize_manifest_snapshot(snapshot)
     return dc.clone_default_manifest()
+
+
+def build_default_topology_contract() -> dict[str, Any]:
+    return {
+        "version": 1,
+        "root": "docs/index.md",
+        "max_depth": 3,
+        "nodes": [
+            {
+                "path": "docs/index.md",
+                "layer": "root",
+                "parent": None,
+                "domain": "core",
+            }
+        ],
+        "archive": {
+            "root": "docs/archive",
+            "excluded_from_depth_gate": True,
+        },
+    }
 
 
 def render_managed_file_content(rel_path: str, template_profile: str, metadata_policy: dict[str, Any]) -> str:
@@ -748,6 +936,7 @@ def apply_action(
     metadata_policy: dict[str, Any],
     legacy_settings: dict[str, Any] | None = None,
     semantic_settings: dict[str, Any] | None = None,
+    progressive_settings: dict[str, Any] | None = None,
     semantic_runtime_entries: list[dict[str, Any]] | None = None,
     semantic_runtime_state: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -768,6 +957,11 @@ def apply_action(
         semantic_settings
         if isinstance(semantic_settings, dict)
         else dsr.resolve_semantic_generation_settings({})
+    )
+    progressive_cfg = (
+        progressive_settings
+        if isinstance(progressive_settings, dict)
+        else dt.resolve_progressive_disclosure_settings({})
     )
     runtime_entries = (
         semantic_runtime_entries if isinstance(semantic_runtime_entries, list) else []
@@ -846,6 +1040,8 @@ def apply_action(
                 write_json(abs_path, policy_data, dry_run)
             elif rel_path == "docs/.doc-manifest.json":
                 write_json(abs_path, resolve_manifest_snapshot(action), dry_run)
+            elif rel_path == "docs/.doc-topology.json" or action.get("template") == "topology":
+                write_json(abs_path, build_default_topology_contract(), dry_run)
             elif rel_path == "AGENTS.md":
                 write_text(abs_path, lp.get_agents_md_template(template_profile), dry_run)
             else:
@@ -905,7 +1101,10 @@ def apply_action(
             runtime_gate_failures: list[str] = list(runtime_candidate_failures)
             if isinstance(runtime_candidate, dict):
                 runtime_payload, runtime_gate_failures = resolve_update_section_runtime_payload(
-                    runtime_candidate
+                    runtime_candidate,
+                    semantic_cfg,
+                    progressive_cfg,
+                    template_profile,
                 )
                 runtime_gate_failures = list(runtime_candidate_failures) + runtime_gate_failures
                 semantic_runtime = result.get("semantic_runtime")
@@ -1149,7 +1348,10 @@ def apply_action(
             runtime_gate_failures: list[str] = list(runtime_candidate_failures)
             if isinstance(runtime_candidate, dict):
                 runtime_payload, runtime_gate_failures = resolve_update_section_runtime_payload(
-                    runtime_candidate
+                    runtime_candidate,
+                    semantic_cfg,
+                    progressive_cfg,
+                    template_profile,
                 )
                 runtime_gate_failures = list(runtime_candidate_failures) + runtime_gate_failures
                 semantic_runtime = result.get("semantic_runtime")
@@ -1490,6 +1692,7 @@ def main() -> int:
     metadata_policy = dm.resolve_metadata_policy(effective_policy)
     legacy_settings = dl.resolve_legacy_settings(effective_policy)
     semantic_settings = dsr.resolve_semantic_generation_settings(effective_policy)
+    progressive_settings = dt.resolve_progressive_disclosure_settings(effective_policy)
     semantic_runtime_entries, semantic_runtime_state = dsr.load_runtime_report(
         root, semantic_settings
     )
@@ -1532,6 +1735,7 @@ def main() -> int:
             metadata_policy,
             legacy_settings,
             semantic_settings,
+            progressive_settings,
             semantic_runtime_entries,
             semantic_runtime_state,
         )

@@ -14,8 +14,8 @@
 - [docs/exec-plans/active/docs-sor-roadmap-v2.5-hybrid-template-llm-governance.md](./docs/exec-plans/active/docs-sor-roadmap-v2.5-hybrid-template-llm-governance.md)
 - [docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md](./docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md)
 - [docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md](./docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md)
-- [docs/exec-plans/active/docs-sor-roadmap-v2.2-phase-f-agent-runtime-semantic-hardening.md](./docs/exec-plans/active/docs-sor-roadmap-v2.2-phase-f-agent-runtime-semantic-hardening.md)
 - [docs/exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md](./docs/exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md)
+- [docs/exec-plans/active/docs-sor-roadmap-v2.2-phase-f-agent-runtime-semantic-hardening.md](./docs/exec-plans/active/docs-sor-roadmap-v2.2-phase-f-agent-runtime-semantic-hardening.md)
 - 当前顶层模块：`skills`。
 
 ## 标准命令
@@ -30,14 +30,12 @@ if [ -n "${SKILL_DIR:-}" ]; then
     echo "invalid SKILL_DIR: $SKILL_DIR (expected scripts/ under this path)" >&2
     exit 2
   }
-elif [ -d "$REPO_ROOT/skills/docs-sor-maintainer/scripts" ]; then
-  SKILL_DIR="$REPO_ROOT/skills/docs-sor-maintainer"
 elif [ -d "$REPO_ROOT/.agents/skills/docs-sor-maintainer/scripts" ]; then
   SKILL_DIR="$REPO_ROOT/.agents/skills/docs-sor-maintainer"
 elif [ -d "$CODEX_HOME_RESOLVED/skills/docs-sor-maintainer/scripts" ]; then
   SKILL_DIR="$CODEX_HOME_RESOLVED/skills/docs-sor-maintainer"
 else
-  echo 'docs-sor-maintainer not found. Set SKILL_DIR or install under skills, .agents/skills or $HOME/.codex/skills.' >&2
+  echo 'docs-sor-maintainer not found. Set SKILL_DIR or install under .agents/skills or $HOME/.codex/skills.' >&2
   exit 2
 fi
 "$PYTHON_BIN" "$SKILL_DIR/scripts/repo_scan.py" --root "$REPO_ROOT" --output "$REPO_ROOT/docs/.repo-facts.json"

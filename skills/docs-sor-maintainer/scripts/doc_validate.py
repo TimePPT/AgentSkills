@@ -19,6 +19,7 @@ import doc_legacy as dl  # noqa: E402
 import doc_plan  # noqa: E402
 import doc_quality  # noqa: E402
 import doc_spec  # noqa: E402
+import doc_topology as dt  # noqa: E402
 
 LINK_PATTERN = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 EXEC_PLAN_STATUS_PATTERN = re.compile(
@@ -59,6 +60,18 @@ def get_required(manifest: dict[str, Any]) -> tuple[list[str], list[str]]:
 def get_optional_files(manifest: dict[str, Any]) -> list[str]:
     optional = manifest.get("optional", {}) or {}
     return [normalize(p) for p in optional.get("files", [])]
+
+
+def get_managed_markdown_files(manifest: dict[str, Any]) -> list[str]:
+    required_files, _ = get_required(manifest)
+    optional_files = get_optional_files(manifest)
+    return sorted(
+        {
+            normalize(path)
+            for path in (required_files + optional_files)
+            if isinstance(path, str) and normalize(path).endswith(".md")
+        }
+    )
 
 
 def check_required(root: Path, manifest: dict[str, Any]) -> tuple[list[str], list[str]]:
@@ -195,6 +208,92 @@ def check_doc_metadata(
         "stale_docs": stale_count,
     }
     return errors, warnings, metrics, findings
+
+
+def check_topology_contract(
+    root: Path,
+    policy: dict[str, Any],
+    manifest: dict[str, Any] | None = None,
+) -> tuple[list[str], list[str], dict[str, Any]]:
+    settings = dt.resolve_topology_settings(policy)
+    contract, topology_report = dt.load_topology_contract(root, settings)
+
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    if topology_report.get("enabled", False):
+        if not topology_report.get("exists", False):
+            errors.append(
+                f"doc-topology: missing topology contract: {topology_report.get('path')}"
+            )
+        errors.extend(
+            [f"doc-topology: {message}" for message in topology_report.get("errors", [])]
+        )
+        warnings.extend(
+            [f"doc-topology: {message}" for message in topology_report.get("warnings", [])]
+        )
+
+    topology_analysis: dict[str, Any] = {}
+    if (
+        topology_report.get("enabled", False)
+        and topology_report.get("loaded", False)
+        and isinstance(contract, dict)
+    ):
+        managed_markdown = get_managed_markdown_files(manifest or {})
+        topology_analysis = dt.evaluate_topology(
+            root,
+            contract,
+            settings,
+            managed_docs=managed_markdown,
+        )
+
+        warnings.extend(
+            [
+                f"doc-topology: {message}"
+                for message in (topology_analysis.get("warnings") or [])
+            ]
+        )
+        metrics = dict(topology_report.get("metrics") or {})
+        metrics.update(topology_analysis.get("metrics") or {})
+        topology_report["metrics"] = metrics
+
+        orphan_count = int(metrics.get("topology_orphan_count", 0))
+        unreachable_count = int(metrics.get("topology_unreachable_count", 0))
+        max_depth = int(metrics.get("topology_max_depth", 0))
+        depth_limit = int(metrics.get("topology_depth_limit", settings.get("max_depth", 3)))
+
+        if settings.get("fail_on_orphan", True) and orphan_count > 0:
+            errors.append(f"doc-topology: orphan docs detected: {orphan_count}")
+        if settings.get("fail_on_unreachable", True) and unreachable_count > 0:
+            errors.append(f"doc-topology: unreachable docs detected: {unreachable_count}")
+        if settings.get("enforce_max_depth", True) and max_depth > depth_limit:
+            errors.append(
+                "doc-topology: depth limit exceeded: "
+                f"max_depth={max_depth} limit={depth_limit}"
+            )
+
+    report = {
+        "enabled": topology_report.get("enabled", False),
+        "settings": settings,
+        "path": topology_report.get("path"),
+        "exists": topology_report.get("exists", False),
+        "loaded": topology_report.get("loaded", False),
+        "errors": topology_report.get("errors") or [],
+        "warnings": topology_report.get("warnings") or [],
+        "metrics": topology_report.get("metrics") or {},
+        "contract": contract,
+        "analysis": {
+            "scope_docs": topology_analysis.get("scope_docs") or [],
+            "orphan_docs": topology_analysis.get("orphan_docs") or [],
+            "unreachable_docs": topology_analysis.get("unreachable_docs") or [],
+            "over_depth_docs": topology_analysis.get("over_depth_docs") or [],
+            "navigation_missing_by_parent": topology_analysis.get(
+                "navigation_missing_by_parent"
+            )
+            or [],
+        },
+    }
+    return errors, warnings, report
 
 
 def load_facts(path: Path) -> dict[str, Any] | None:
@@ -638,6 +737,12 @@ def main() -> int:
     errors.extend([f"doc-spec: {message}" for message in spec_errors])
     warnings.extend([f"doc-spec: {message}" for message in spec_warnings])
 
+    topology_errors, topology_warnings, topology_report = check_topology_contract(
+        root, policy, manifest
+    )
+    errors.extend(topology_errors)
+    warnings.extend(topology_warnings)
+
     quality_settings = resolve_quality_gate_settings(policy)
     quality_report = None
     quality_failed = False
@@ -717,6 +822,29 @@ def main() -> int:
             "doc_spec_exists": spec_data is not None,
             "doc_spec_errors": len(spec_errors),
             "doc_spec_warnings": len(spec_warnings),
+            "topology_enabled": topology_report.get("enabled", False),
+            "topology_loaded": topology_report.get("loaded", False),
+            "topology_error_count": len(topology_report.get("errors", [])),
+            "topology_warning_count": len(topology_report.get("warnings", [])),
+            "topology_reachable_ratio": (topology_report.get("metrics") or {}).get(
+                "topology_reachable_ratio", 1.0
+            ),
+            "topology_orphan_count": (topology_report.get("metrics") or {}).get(
+                "topology_orphan_count", 0
+            ),
+            "topology_unreachable_count": (topology_report.get("metrics") or {}).get(
+                "topology_unreachable_count", 0
+            ),
+            "topology_max_depth": (topology_report.get("metrics") or {}).get(
+                "topology_max_depth", 0
+            ),
+            "topology_depth_limit": (topology_report.get("metrics") or {}).get(
+                "topology_depth_limit",
+                (topology_report.get("settings") or {}).get("max_depth", 0),
+            ),
+            "topology_navigation_missing_count": (
+                topology_report.get("metrics") or {}
+            ).get("navigation_missing_count", 0),
             "doc_quality_enabled": quality_settings["enabled"],
             "doc_quality_failed": quality_failed,
             "agents_validate_enabled": agents_settings["enabled"],
@@ -774,6 +902,7 @@ def main() -> int:
             "errors": spec_errors,
             "warnings": spec_warnings,
         },
+        "doc_topology": topology_report,
         "doc_quality": quality_report
         or {
             "enabled": quality_settings["enabled"],

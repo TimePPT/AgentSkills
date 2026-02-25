@@ -25,8 +25,12 @@
       "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md",
       "docs/exec-plans/active/docs-sor-roadmap-v2.2-phase-f-agent-runtime-semantic-hardening.md",
       "docs/exec-plans/active/docs-sor-roadmap-v2.5-remediation-agent-strict-policy-enforcement.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.6-acceptance-report.md",
       "docs/exec-plans/completed/docs-sor-roadmap-v2.5-remediation-closeout-2026-02-24.md",
-      "docs/exec-plans/completed/docs-sor-roadmap-v2.2-phase-f-closeout-2026-02-22.md"
+      "docs/exec-plans/completed/docs-sor-roadmap-v2.2-phase-f-closeout-2026-02-22.md",
+      "docs/exec-plans/completed/docs-sor-roadmap-v2.6-closeout-2026-02-24.md",
+      "docs/references/exec-plan-closeout-template.md"
     ],
     "include_dirs": [],
     "exclude_files": [],
@@ -43,6 +47,26 @@
       "docs/archive/**"
     ],
     "stale_warning_enabled": true
+  },
+  "doc_topology": {
+    "enabled": true,
+    "path": "docs/.doc-topology.json",
+    "enforce_max_depth": true,
+    "max_depth": 3,
+    "fail_on_orphan": true,
+    "fail_on_unreachable": true
+  },
+  "progressive_disclosure": {
+    "enabled": true,
+    "required_slots": [
+      "summary",
+      "key_facts",
+      "next_steps"
+    ],
+    "summary_max_chars": 160,
+    "max_key_facts": 5,
+    "max_next_steps": 3,
+    "fail_on_missing_slots": true
   },
   "doc_gardening": {
     "enabled": true,
@@ -61,6 +85,9 @@
     "max_unknown_claims": 0,
     "max_unresolved_todo": 0,
     "max_stale_metrics_days": 7,
+    "min_progressive_slot_completeness": 0.95,
+    "min_next_step_presence": 1.0,
+    "max_section_verbosity_over_budget": 0,
     "max_semantic_conflicts": 0,
     "max_semantic_low_confidence_auto": 0,
     "max_fallback_auto_migrate": 0,

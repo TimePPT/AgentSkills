@@ -1,0 +1,191 @@
+{
+  "version": 1,
+  "root": "docs/index.md",
+  "max_depth": 3,
+  "nodes": [
+    {
+      "path": "docs/index.md",
+      "layer": "root",
+      "parent": null,
+      "domain": "core"
+    },
+    {
+      "path": "docs/architecture.md",
+      "layer": "section",
+      "parent": "docs/index.md",
+      "domain": "architecture"
+    },
+    {
+      "path": "docs/runbook.md",
+      "layer": "section",
+      "parent": "docs/index.md",
+      "domain": "operations"
+    },
+    {
+      "path": "docs/references/doc_spec_schema.md",
+      "layer": "section",
+      "parent": "docs/index.md",
+      "domain": "reference"
+    },
+    {
+      "path": "docs/references/doc_topology_schema.md",
+      "layer": "leaf",
+      "parent": "docs/references/doc_spec_schema.md",
+      "domain": "reference"
+    },
+    {
+      "path": "docs/references/legacy-semantic-migration-acceptance-template.md",
+      "layer": "leaf",
+      "parent": "docs/references/doc_spec_schema.md",
+      "domain": "reference"
+    },
+    {
+      "path": "docs/references/exec-plan-closeout-template.md",
+      "layer": "leaf",
+      "parent": "docs/references/doc_spec_schema.md",
+      "domain": "reference"
+    },
+    {
+      "path": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+      "layer": "section",
+      "parent": "docs/index.md",
+      "domain": "planning"
+    },
+    {
+      "path": "docs/exec-plans/active/docs-sor-roadmap-v2.5-hybrid-template-llm-governance.md",
+      "layer": "leaf",
+      "parent": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+      "domain": "planning"
+    },
+    {
+      "path": "docs/exec-plans/active/docs-sor-roadmap-v2.5-remediation-agent-strict-policy-enforcement.md",
+      "layer": "leaf",
+      "parent": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+      "domain": "planning"
+    },
+    {
+      "path": "docs/exec-plans/active/docs-sor-roadmap-v2.4-dual-replica-sync-ci-convergence.md",
+      "layer": "leaf",
+      "parent": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+      "domain": "planning"
+    },
+    {
+      "path": "docs/exec-plans/active/docs-sor-roadmap-v2.md",
+      "layer": "leaf",
+      "parent": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+      "domain": "planning"
+    },
+    {
+      "path": "docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md",
+      "layer": "leaf",
+      "parent": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+      "domain": "planning"
+    },
+    {
+      "path": "docs/exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md",
+      "layer": "leaf",
+      "parent": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+      "domain": "planning"
+    },
+    {
+      "path": "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md",
+      "layer": "leaf",
+      "parent": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+      "domain": "planning"
+    },
+    {
+      "path": "docs/exec-plans/active/docs-sor-roadmap-v2.2-phase-f-agent-runtime-semantic-hardening.md",
+      "layer": "leaf",
+      "parent": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+      "domain": "planning"
+    },
+    {
+      "path": "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-test-matrix.md",
+      "layer": "leaf",
+      "parent": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+      "domain": "evidence"
+    },
+    {
+      "path": "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-acceptance-report.md",
+      "layer": "leaf",
+      "parent": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+      "domain": "evidence"
+    },
+    {
+      "path": "docs/exec-plans/active/docs-sor-roadmap-v2.6-acceptance-report.md",
+      "layer": "leaf",
+      "parent": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+      "domain": "evidence"
+    },
+    {
+      "path": "docs/exec-plans/completed/README.md",
+      "layer": "section",
+      "parent": "docs/index.md",
+      "domain": "history"
+    },
+    {
+      "path": "docs/exec-plans/completed/docs-sor-roadmap-v2-closeout-2026-02-22.md",
+      "layer": "leaf",
+      "parent": "docs/exec-plans/completed/README.md",
+      "domain": "history"
+    },
+    {
+      "path": "docs/exec-plans/completed/docs-sor-legacy-migration-automation-closeout-2026-02-22.md",
+      "layer": "leaf",
+      "parent": "docs/exec-plans/completed/README.md",
+      "domain": "history"
+    },
+    {
+      "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.1-closeout-2026-02-22.md",
+      "layer": "leaf",
+      "parent": "docs/exec-plans/completed/README.md",
+      "domain": "history"
+    },
+    {
+      "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.1-phase-e-closeout-2026-02-22.md",
+      "layer": "leaf",
+      "parent": "docs/exec-plans/completed/README.md",
+      "domain": "history"
+    },
+    {
+      "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.2-phase-f-closeout-2026-02-22.md",
+      "layer": "leaf",
+      "parent": "docs/exec-plans/completed/README.md",
+      "domain": "history"
+    },
+    {
+      "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.3-phase-f5-closeout-2026-02-22.md",
+      "layer": "leaf",
+      "parent": "docs/exec-plans/completed/README.md",
+      "domain": "history"
+    },
+    {
+      "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.4-closeout-2026-02-23.md",
+      "layer": "leaf",
+      "parent": "docs/exec-plans/completed/README.md",
+      "domain": "history"
+    },
+    {
+      "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.5-closeout-2026-02-23.md",
+      "layer": "leaf",
+      "parent": "docs/exec-plans/completed/README.md",
+      "domain": "history"
+    },
+    {
+      "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.5-remediation-closeout-2026-02-24.md",
+      "layer": "leaf",
+      "parent": "docs/exec-plans/completed/README.md",
+      "domain": "history"
+    },
+    {
+      "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.6-closeout-2026-02-24.md",
+      "layer": "leaf",
+      "parent": "docs/exec-plans/completed/README.md",
+      "domain": "history"
+    }
+  ],
+  "archive": {
+    "root": "docs/archive",
+    "excluded_from_depth_gate": true
+  }
+}

@@ -113,6 +113,106 @@ python3 -m unittest discover -s skills/docs-sor-maintainer/tests -p 'test_*.py'
 "$PYTHON_BIN" "$SKILL_DIR/scripts/doc_garden.py" --root "$REPO_ROOT" --apply-mode apply-safe --repair-plan-mode repair --fail-on-drift --fail-on-freshness
 ```
 
+V2.6 WP1（Topology + Progressive 契约）验收链路：
+
+```bash
+"$PYTHON_BIN" "$SKILL_DIR/scripts/repo_scan.py" --root "$REPO_ROOT" --output "$REPO_ROOT/docs/.repo-facts.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_plan.py" --root "$REPO_ROOT" --mode audit --facts "$REPO_ROOT/docs/.repo-facts.json" --output "$REPO_ROOT/docs/.doc-plan.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_apply.py" --root "$REPO_ROOT" --plan "$REPO_ROOT/docs/.doc-plan.json" --mode apply-safe
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_synthesize.py" --root "$REPO_ROOT" --plan "$REPO_ROOT/docs/.doc-plan.json" --facts "$REPO_ROOT/docs/.repo-facts.json" --output "$REPO_ROOT/docs/.doc-evidence-map.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_quality.py" --root "$REPO_ROOT" --output "$REPO_ROOT/docs/.doc-quality-report.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_validate.py" --root "$REPO_ROOT" --facts "$REPO_ROOT/docs/.repo-facts.json" --fail-on-drift --fail-on-freshness --output "$REPO_ROOT/docs/.doc-validate-report.json"
+python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_topology_schema
+python3 -m unittest discover -s skills/docs-sor-maintainer/tests -p 'test_*.py'
+```
+
+V2.6 WP2（Planner/Validator 能力接入）验收链路：
+
+```bash
+"$PYTHON_BIN" "$SKILL_DIR/scripts/repo_scan.py" --root "$REPO_ROOT" --output "$REPO_ROOT/docs/.repo-facts.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_plan.py" --root "$REPO_ROOT" --mode audit --facts "$REPO_ROOT/docs/.repo-facts.json" --output "$REPO_ROOT/docs/.doc-plan.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_apply.py" --root "$REPO_ROOT" --plan "$REPO_ROOT/docs/.doc-plan.json" --mode apply-safe
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_synthesize.py" --root "$REPO_ROOT" --plan "$REPO_ROOT/docs/.doc-plan.json" --facts "$REPO_ROOT/docs/.repo-facts.json" --output "$REPO_ROOT/docs/.doc-evidence-map.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_quality.py" --root "$REPO_ROOT" --output "$REPO_ROOT/docs/.doc-quality-report.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_validate.py" --root "$REPO_ROOT" --facts "$REPO_ROOT/docs/.repo-facts.json" --fail-on-drift --fail-on-freshness --output "$REPO_ROOT/docs/.doc-validate-report.json"
+python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_validate_topology_depth
+python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_quality_progressive_slots
+python3 -m unittest discover -s skills/docs-sor-maintainer/tests -p 'test_*.py'
+```
+
+V2.6 WP3（Apply 与语义输入 V2）验收链路：
+
+```bash
+"$PYTHON_BIN" "$SKILL_DIR/scripts/repo_scan.py" --root "$REPO_ROOT" --output "$REPO_ROOT/docs/.repo-facts.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_plan.py" --root "$REPO_ROOT" --mode audit --facts "$REPO_ROOT/docs/.repo-facts.json" --output "$REPO_ROOT/docs/.doc-plan.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_apply.py" --root "$REPO_ROOT" --plan "$REPO_ROOT/docs/.doc-plan.json" --mode apply-safe
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_synthesize.py" --root "$REPO_ROOT" --plan "$REPO_ROOT/docs/.doc-plan.json" --facts "$REPO_ROOT/docs/.repo-facts.json" --output "$REPO_ROOT/docs/.doc-evidence-map.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_quality.py" --root "$REPO_ROOT" --output "$REPO_ROOT/docs/.doc-quality-report.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_validate.py" --root "$REPO_ROOT" --facts "$REPO_ROOT/docs/.repo-facts.json" --fail-on-drift --fail-on-freshness --output "$REPO_ROOT/docs/.doc-validate-report.json"
+python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_semantic_runtime
+python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_apply_semantic_slots_v2
+python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_apply_section_actions
+python3 -m unittest discover -s skills/docs-sor-maintainer/tests -p 'test_*.py'
+```
+
+V2.6 WP4（Garden 增量优化）验收链路：
+
+```bash
+"$PYTHON_BIN" "$SKILL_DIR/scripts/repo_scan.py" --root "$REPO_ROOT" --output "$REPO_ROOT/docs/.repo-facts.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_plan.py" --root "$REPO_ROOT" --mode audit --facts "$REPO_ROOT/docs/.repo-facts.json" --output "$REPO_ROOT/docs/.doc-plan.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_apply.py" --root "$REPO_ROOT" --plan "$REPO_ROOT/docs/.doc-plan.json" --mode apply-safe
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_garden.py" --root "$REPO_ROOT" --apply-mode apply-safe --repair-plan-mode repair --fail-on-drift --fail-on-freshness
+python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_garden_skip_post_scan_when_no_apply
+python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_garden_repair_loop
+python3 - <<'PY'
+import json
+from pathlib import Path
+root = Path("/Users/tompoet/AgentSkills")
+report = json.loads((root / "docs/.doc-garden-report.json").read_text(encoding="utf-8"))
+steps = [str(step.get("name", "")) for step in report.get("steps", [])]
+assert report.get("apply", {}).get("applied") == 0
+assert "run:scan-post-apply" not in steps
+assert isinstance(report.get("summary", {}).get("garden_total_duration_ms"), int)
+assert isinstance(report.get("performance", {}).get("scan_duration_ms"), int)
+assert isinstance(report.get("performance", {}).get("plan_duration_ms"), int)
+assert isinstance(report.get("performance", {}).get("validate_duration_ms"), int)
+print("WP4 acceptance checks passed")
+PY
+```
+
+V2.6 WP5（文档与索引收敛）验收链路：
+
+```bash
+"$PYTHON_BIN" "$SKILL_DIR/scripts/repo_scan.py" --root "$REPO_ROOT" --output "$REPO_ROOT/docs/.repo-facts.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_plan.py" --root "$REPO_ROOT" --mode audit --facts "$REPO_ROOT/docs/.repo-facts.json" --output "$REPO_ROOT/docs/.doc-plan.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_apply.py" --root "$REPO_ROOT" --plan "$REPO_ROOT/docs/.doc-plan.json" --mode apply-safe
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_synthesize.py" --root "$REPO_ROOT" --plan "$REPO_ROOT/docs/.doc-plan.json" --facts "$REPO_ROOT/docs/.repo-facts.json" --output "$REPO_ROOT/docs/.doc-evidence-map.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_quality.py" --root "$REPO_ROOT" --output "$REPO_ROOT/docs/.doc-quality-report.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_validate.py" --root "$REPO_ROOT" --facts "$REPO_ROOT/docs/.repo-facts.json" --fail-on-drift --fail-on-freshness --output "$REPO_ROOT/docs/.doc-validate-report.json"
+python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_validate_exec_plan_closeout
+python3 -m unittest discover -s skills/docs-sor-maintainer/tests -p 'test_*.py'
+python3 - <<'PY'
+from pathlib import Path
+root = Path("/Users/tompoet/AgentSkills")
+artifacts = [
+    "docs/exec-plans/active/docs-sor-roadmap-v2.6-acceptance-report.md",
+    "docs/references/exec-plan-closeout-template.md",
+    "docs/exec-plans/completed/docs-sor-roadmap-v2.6-closeout-2026-02-24.md",
+]
+for rel in artifacts:
+    assert (root / rel).exists(), f"missing required V2.6 WP5 artifact: {rel}"
+plan_text = (
+    root / "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md"
+).read_text(encoding="utf-8")
+assert "<!-- exec-plan-status: completed -->" in plan_text
+assert (
+    "<!-- exec-plan-closeout: docs/exec-plans/completed/docs-sor-roadmap-v2.6-closeout-2026-02-24.md -->"
+    in plan_text
+)
+print("WP5 acceptance checks passed")
+PY
+```
+
 脚本语法自检：
 
 ```bash

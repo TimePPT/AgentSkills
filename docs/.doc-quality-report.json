@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-02-24T13:57:48.899520+00:00",
+  "generated_at": "2026-02-24T15:57:55.319587+00:00",
   "root": "/Users/tompoet/AgentSkills",
   "enabled": true,
   "doc_spec": {
@@ -24,7 +24,12 @@
     "semantic_low_confidence_count": 0,
     "semantic_conflict_count": 0,
     "structured_section_completeness": 1.0,
-    "semantic_missing_source_marker_auto_count": 0
+    "semantic_missing_source_marker_auto_count": 0,
+    "progressive_candidate_sections": 0,
+    "progressive_slot_completeness": 1.0,
+    "next_step_presence": 1.0,
+    "section_verbosity_over_budget_count": 0,
+    "progressive_missing_slots_count": 0
   },
   "conflicts": [],
   "citation_issues": [],
@@ -53,6 +58,28 @@
     "missing_source_marker_auto_sources": [],
     "backlog": []
   },
+  "progressive": {
+    "enabled": true,
+    "required_slots": [
+      "summary",
+      "key_facts",
+      "next_steps"
+    ],
+    "settings": {
+      "summary_max_chars": 160,
+      "max_key_facts": 5,
+      "max_next_steps": 3,
+      "fail_on_missing_slots": true
+    },
+    "metrics": {
+      "progressive_candidate_sections": 0,
+      "progressive_slot_completeness": 1.0,
+      "next_step_presence": 1.0,
+      "section_verbosity_over_budget_count": 0,
+      "progressive_missing_slots_count": 0
+    },
+    "findings": []
+  },
   "gate": {
     "status": "passed",
     "failed_checks": [],
@@ -65,7 +92,10 @@
       "max_semantic_conflicts": 0,
       "max_semantic_low_confidence_auto": 0,
       "max_fallback_auto_migrate": 0,
-      "min_structured_section_completeness": 0.95
+      "min_structured_section_completeness": 0.95,
+      "min_progressive_slot_completeness": 0.95,
+      "min_next_step_presence": 1.0,
+      "max_section_verbosity_over_budget": 0
     }
   }
 }

@@ -152,6 +152,51 @@ class DocSemanticRuntimeTests(unittest.TestCase):
         self.assertEqual(entries[0].get("statement"), "statement only")
         self.assertEqual(entries[0].get("content"), "statement only")
 
+    def test_load_runtime_report_accepts_slots_only_update_section_entry(self) -> None:
+        report_path = self.root / "docs/.semantic-runtime-report.json"
+        report_path.write_text(
+            json.dumps(
+                {
+                    "version": 2,
+                    "entries": [
+                        {
+                            "entry_id": "runbook-slots-v2",
+                            "path": "docs/runbook.md",
+                            "action_type": "update_section",
+                            "section_id": "validation_commands",
+                            "status": "ok",
+                            "slots": {
+                                "summary": "validate gate should run before merge.",
+                                "key_facts": ["facts from docs/.repo-facts.json"],
+                                "next_steps": ["run doc_validate --fail-on-drift"],
+                            },
+                            "citations": ["evidence://runbook.validation_commands"],
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        settings = dsr.resolve_semantic_generation_settings(
+            {
+                "semantic_generation": {
+                    "enabled": True,
+                    "mode": "hybrid",
+                }
+            }
+        )
+        entries, metadata = dsr.load_runtime_report(self.root, settings)
+
+        self.assertTrue(metadata["available"])
+        self.assertEqual(metadata["entry_count"], 1)
+        slots = entries[0].get("slots") or {}
+        self.assertEqual(slots.get("summary"), "validate gate should run before merge.")
+        self.assertEqual(slots.get("key_facts"), ["facts from docs/.repo-facts.json"])
+        self.assertEqual(slots.get("next_steps"), ["run doc_validate --fail-on-drift"])
+
     def test_load_runtime_report_fails_when_entries_not_list(self) -> None:
         report_path = self.root / "docs/.semantic-runtime-report.json"
         report_path.write_text(

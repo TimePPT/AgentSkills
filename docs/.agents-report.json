@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-02-22T15:50:18.782061+00:00",
+  "generated_at": "2026-02-24T15:56:12.031545+00:00",
   "root": "/Users/tompoet/AgentSkills",
   "output": "AGENTS.md",
   "status": "generated",
@@ -31,8 +31,8 @@
       "docs/exec-plans/active/docs-sor-roadmap-v2.5-hybrid-template-llm-governance.md",
       "docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md",
       "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md",
-      "docs/exec-plans/active/docs-sor-roadmap-v2.2-phase-f-agent-runtime-semantic-hardening.md",
-      "docs/exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md"
+      "docs/exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.2-phase-f-agent-runtime-semantic-hardening.md"
     ],
     "modules": [
       "skills"
@@ -40,6 +40,6 @@
   },
   "metrics": {
     "line_count": 50,
-    "content_sha256": "1fc58e69074ca4c01053bce57271ce2e89e38c8b892c6827b99878c8c979104f"
+    "content_sha256": "7923ae679be4aaa998f5c76b6c8233159b0a822fd44b5600370f86f955515c2b"
   }
 }
