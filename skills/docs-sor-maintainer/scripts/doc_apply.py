@@ -436,35 +436,58 @@ def _progressive_slot_heading(slot: str, template_profile: str) -> str:
     return f"### {resolved}"
 
 
-def render_progressive_slots_content(slots: dict[str, Any], template_profile: str) -> str:
-    summary = slots.get("summary")
-    key_facts = slots.get("key_facts")
-    next_steps = slots.get("next_steps")
+def _resolve_progressive_slot_render_order(
+    slots: dict[str, Any],
+    required_slots: list[str] | None,
+) -> list[str]:
+    order: list[str] = []
+    seen: set[str] = set()
+    for slot in (required_slots or []):
+        if slot in slots and slot not in seen:
+            seen.add(slot)
+            order.append(slot)
+    for slot in slots:
+        if slot not in seen:
+            seen.add(slot)
+            order.append(slot)
+    return order
 
+
+def render_progressive_slots_content(
+    slots: dict[str, Any],
+    template_profile: str,
+    required_slots: list[str] | None = None,
+) -> str:
+    render_order = _resolve_progressive_slot_render_order(slots, required_slots)
     lines: list[str] = []
-    if isinstance(summary, str) and summary.strip():
-        lines.extend(
-            [
-                _progressive_slot_heading("summary", template_profile),
-                "",
-                summary.strip(),
-                "",
-            ]
-        )
-    if isinstance(key_facts, list) and key_facts:
-        lines.append(_progressive_slot_heading("key_facts", template_profile))
-        lines.append("")
-        lines.extend(f"- {item}" for item in key_facts if isinstance(item, str) and item.strip())
-        lines.append("")
-    if isinstance(next_steps, list) and next_steps:
-        lines.append(_progressive_slot_heading("next_steps", template_profile))
-        lines.append("")
-        lines.extend(
-            f"{index}. {item}"
-            for index, item in enumerate(next_steps, start=1)
-            if isinstance(item, str) and item.strip()
-        )
-        lines.append("")
+    for slot in render_order:
+        slot_value = slots.get(slot)
+        if isinstance(slot_value, str) and slot_value.strip():
+            lines.extend(
+                [
+                    _progressive_slot_heading(slot, template_profile),
+                    "",
+                    slot_value.strip(),
+                    "",
+                ]
+            )
+            continue
+        if isinstance(slot_value, list) and slot_value:
+            lines.append(_progressive_slot_heading(slot, template_profile))
+            lines.append("")
+            if slot == "next_steps":
+                lines.extend(
+                    f"{index}. {item}"
+                    for index, item in enumerate(slot_value, start=1)
+                    if isinstance(item, str) and item.strip()
+                )
+            else:
+                lines.extend(
+                    f"- {item}"
+                    for item in slot_value
+                    if isinstance(item, str) and item.strip()
+                )
+            lines.append("")
     return "\n".join(lines).strip()
 
 
@@ -481,15 +504,20 @@ def _resolve_required_evidence_prefixes(semantic_settings: dict[str, Any]) -> li
 
 def _resolve_required_progressive_slots(progressive_settings: dict[str, Any]) -> list[str]:
     required_slots_raw = progressive_settings.get("required_slots")
-    required_slots = [
-        str(value).strip()
-        for value in (
-            required_slots_raw
-            if isinstance(required_slots_raw, list)
-            else ["summary", "key_facts", "next_steps"]
-        )
-        if isinstance(value, str) and str(value).strip()
-    ]
+    required_slots: list[str] = []
+    seen: set[str] = set()
+    for value in (
+        required_slots_raw
+        if isinstance(required_slots_raw, list)
+        else ["summary", "key_facts", "next_steps"]
+    ):
+        if not isinstance(value, str):
+            continue
+        slot = str(value).strip()
+        if not slot or slot in seen:
+            continue
+        seen.add(slot)
+        required_slots.append(slot)
     if required_slots:
         return required_slots
     return ["summary", "key_facts", "next_steps"]
@@ -721,7 +749,11 @@ def resolve_update_section_runtime_payload(
         if deduped_failures:
             return None, deduped_failures
 
-        content = render_progressive_slots_content(slots, template_profile)
+        content = render_progressive_slots_content(
+            slots,
+            template_profile,
+            required_slots=required_slots,
+        )
         if not content:
             return None, ["missing_content"]
         return {

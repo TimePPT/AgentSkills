@@ -313,11 +313,20 @@ def _is_archive_path(path: str, archive_root: str) -> bool:
     )
 
 
+def _should_skip_archive_path(
+    path: str,
+    archive_root: str,
+    exclude_archive: bool,
+) -> bool:
+    return bool(exclude_archive) and _is_archive_path(path, archive_root)
+
+
 def _collect_scope_docs(
     root: Path,
     managed_docs: list[str] | None,
     node_paths: list[str],
     archive_root: str,
+    exclude_archive: bool,
 ) -> list[str]:
     scope: set[str] = set()
 
@@ -328,7 +337,7 @@ def _collect_scope_docs(
             normalized = normalize_rel(rel_path)
             if not _is_markdown_path(normalized):
                 continue
-            if _is_archive_path(normalized, archive_root):
+            if _should_skip_archive_path(normalized, archive_root, exclude_archive):
                 continue
             if (root / normalized).exists():
                 scope.add(normalized)
@@ -337,7 +346,7 @@ def _collect_scope_docs(
         normalized = normalize_rel(rel_path)
         if not _is_markdown_path(normalized):
             continue
-        if _is_archive_path(normalized, archive_root):
+        if _should_skip_archive_path(normalized, archive_root, exclude_archive):
             continue
         if (root / normalized).exists():
             scope.add(normalized)
@@ -371,6 +380,7 @@ def _extract_doc_links(root: Path, source_path: str) -> set[str]:
 def _build_parent_children(
     nodes: list[dict[str, Any]],
     archive_root: str,
+    exclude_archive: bool,
 ) -> tuple[dict[str, dict[str, Any]], dict[str, set[str]]]:
     node_map: dict[str, dict[str, Any]] = {}
     children: dict[str, set[str]] = {}
@@ -384,13 +394,13 @@ def _build_parent_children(
         node_map[path] = node
 
     for path, node in node_map.items():
-        if _is_archive_path(path, archive_root):
+        if _should_skip_archive_path(path, archive_root, exclude_archive):
             continue
         parent = node.get("parent")
         if not isinstance(parent, str) or not parent.strip():
             continue
         parent_rel = normalize_rel(parent.strip())
-        if _is_archive_path(parent_rel, archive_root):
+        if _should_skip_archive_path(parent_rel, archive_root, exclude_archive):
             continue
         children.setdefault(parent_rel, set()).add(path)
 
@@ -440,13 +450,24 @@ def evaluate_topology(
     archive_cfg = contract.get("archive")
     archive_cfg = archive_cfg if isinstance(archive_cfg, dict) else {}
     archive_root = normalize_rel(str(archive_cfg.get("root") or "docs/archive"))
+    archive_excluded = bool(archive_cfg.get("excluded_from_depth_gate", True))
     root_path = normalize_rel(str(contract.get("root") or "docs/index.md"))
     nodes = contract.get("nodes")
     nodes = nodes if isinstance(nodes, list) else []
 
-    node_map, children = _build_parent_children(nodes, archive_root)
+    node_map, children = _build_parent_children(
+        nodes,
+        archive_root,
+        archive_excluded,
+    )
     node_paths = sorted(node_map.keys())
-    scope_docs = _collect_scope_docs(root, managed_docs, node_paths, archive_root)
+    scope_docs = _collect_scope_docs(
+        root,
+        managed_docs,
+        node_paths,
+        archive_root,
+        archive_excluded,
+    )
     scope_set = set(scope_docs)
 
     depths = _compute_depths(root_path, children)
@@ -483,7 +504,7 @@ def evaluate_topology(
     for child_path, node in sorted(node_map.items()):
         if child_path not in scope_set:
             continue
-        if _is_archive_path(child_path, archive_root):
+        if _should_skip_archive_path(child_path, archive_root, archive_excluded):
             continue
         if child_path in navigation_reachable:
             continue
@@ -491,7 +512,11 @@ def evaluate_topology(
         if not isinstance(parent, str) or not parent.strip():
             continue
         parent_path = normalize_rel(parent.strip())
-        if parent_path not in scope_set or _is_archive_path(parent_path, archive_root):
+        if parent_path not in scope_set or _should_skip_archive_path(
+            parent_path,
+            archive_root,
+            archive_excluded,
+        ):
             continue
         parent_links = adjacency.get(parent_path, set())
         if child_path not in parent_links:
@@ -514,7 +539,7 @@ def evaluate_topology(
             path
             for path in node_paths
             if _is_markdown_path(path)
-            and not _is_archive_path(path, archive_root)
+            and not _should_skip_archive_path(path, archive_root, archive_excluded)
             and not (root / path).exists()
         ]
     )

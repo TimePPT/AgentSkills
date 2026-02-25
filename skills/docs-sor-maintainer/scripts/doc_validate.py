@@ -220,6 +220,11 @@ def check_topology_contract(
 
     errors: list[str] = []
     warnings: list[str] = []
+    topology_raw_warnings = [
+        str(message).strip()
+        for message in (topology_report.get("warnings") or [])
+        if str(message).strip()
+    ]
 
     if topology_report.get("enabled", False):
         if not topology_report.get("exists", False):
@@ -228,9 +233,6 @@ def check_topology_contract(
             )
         errors.extend(
             [f"doc-topology: {message}" for message in topology_report.get("errors", [])]
-        )
-        warnings.extend(
-            [f"doc-topology: {message}" for message in topology_report.get("warnings", [])]
         )
 
     topology_analysis: dict[str, Any] = {}
@@ -247,10 +249,11 @@ def check_topology_contract(
             managed_docs=managed_markdown,
         )
 
-        warnings.extend(
+        topology_raw_warnings.extend(
             [
-                f"doc-topology: {message}"
+                str(message).strip()
                 for message in (topology_analysis.get("warnings") or [])
+                if str(message).strip()
             ]
         )
         metrics = dict(topology_report.get("metrics") or {})
@@ -271,6 +274,15 @@ def check_topology_contract(
                 "doc-topology: depth limit exceeded: "
                 f"max_depth={max_depth} limit={depth_limit}"
             )
+
+    topology_report["warnings"] = sorted(set(topology_raw_warnings))
+    if topology_report.get("enabled", False):
+        warnings.extend(
+            [
+                f"doc-topology: {message}"
+                for message in (topology_report.get("warnings") or [])
+            ]
+        )
 
     report = {
         "enabled": topology_report.get("enabled", False),

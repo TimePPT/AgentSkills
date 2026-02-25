@@ -57,14 +57,22 @@ class DocQualityProgressiveSlotTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.tempdir.cleanup()
 
-    def _policy(self) -> dict[str, object]:
+    def _policy(
+        self,
+        *,
+        required_slots: list[str] | None = None,
+        summary_max_chars: int = 40,
+        max_key_facts: int = 5,
+        max_next_steps: int = 3,
+    ) -> dict[str, object]:
+        slots = required_slots or ["summary", "key_facts", "next_steps"]
         return {
             "progressive_disclosure": {
                 "enabled": True,
-                "required_slots": ["summary", "key_facts", "next_steps"],
-                "summary_max_chars": 40,
-                "max_key_facts": 5,
-                "max_next_steps": 3,
+                "required_slots": slots,
+                "summary_max_chars": summary_max_chars,
+                "max_key_facts": max_key_facts,
+                "max_next_steps": max_next_steps,
                 "fail_on_missing_slots": True,
             },
             "doc_quality_gates": {
@@ -152,6 +160,104 @@ class DocQualityProgressiveSlotTests(unittest.TestCase):
         self.assertIn("min_next_step_presence", failed_checks)
         self.assertIn("max_section_verbosity_over_budget", failed_checks)
         self.assertIn("progressive_required_slots", failed_checks)
+
+    def test_progressive_gate_skips_next_step_presence_when_next_steps_not_required(self) -> None:
+        (self.root / "docs/runbook.md").write_text(
+            "\n".join(
+                [
+                    "# 运行手册",
+                    "",
+                    "### 摘要",
+                    "",
+                    "只要求摘要和关键事实。",
+                    "",
+                    "### 关键事实",
+                    "",
+                    "- 本策略不要求 next_steps",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        report = doc_quality.evaluate_quality(
+            root=self.root,
+            policy=self._policy(required_slots=["summary", "key_facts"]),
+            facts={},
+            spec_path=self.spec_path,
+            evidence_map_path=None,
+        )
+
+        self.assertEqual(report["gate"]["status"], "passed")
+        self.assertNotIn("min_next_step_presence", report["gate"]["failed_checks"])
+        self.assertEqual(report["metrics"]["progressive_slot_completeness"], 1.0)
+        self.assertEqual(report["metrics"]["next_step_presence"], 1.0)
+
+    def test_progressive_item_count_uses_list_markers(self) -> None:
+        (self.root / "docs/runbook.md").write_text(
+            "\n".join(
+                [
+                    "# 运行手册",
+                    "",
+                    "### 摘要",
+                    "",
+                    "控制条目预算误报。",
+                    "",
+                    "### 关键事实",
+                    "",
+                    "- 单条事实",
+                    "  续行说明不应算第二条",
+                    "",
+                    "### 下一步",
+                    "",
+                    "1. 执行质量检查",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        report = doc_quality.evaluate_quality(
+            root=self.root,
+            policy=self._policy(max_key_facts=1),
+            facts={},
+            spec_path=self.spec_path,
+            evidence_map_path=None,
+        )
+
+        self.assertEqual(report["gate"]["status"], "passed")
+        self.assertEqual(report["metrics"]["section_verbosity_over_budget_count"], 0)
+
+    def test_progressive_custom_slot_heading_is_detected(self) -> None:
+        (self.root / "docs/runbook.md").write_text(
+            "\n".join(
+                [
+                    "# 运行手册",
+                    "",
+                    "### 摘要",
+                    "",
+                    "此策略要求 summary 与 risks。",
+                    "",
+                    "### Risks",
+                    "",
+                    "- 若策略和模板不一致会触发阻断",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        report = doc_quality.evaluate_quality(
+            root=self.root,
+            policy=self._policy(required_slots=["summary", "risks"]),
+            facts={},
+            spec_path=self.spec_path,
+            evidence_map_path=None,
+        )
+
+        self.assertEqual(report["gate"]["status"], "passed")
+        self.assertEqual(report["metrics"]["progressive_slot_completeness"], 1.0)
+        self.assertEqual(report["metrics"]["progressive_missing_slots_count"], 0)
 
 
 if __name__ == "__main__":

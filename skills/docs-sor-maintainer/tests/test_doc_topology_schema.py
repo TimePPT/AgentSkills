@@ -244,6 +244,64 @@ class DocTopologyContractTests(unittest.TestCase):
         self.assertTrue(report.get("loaded", False))
         self.assertEqual((report.get("metrics") or {}).get("node_count"), 1)
 
+    def test_evaluate_topology_honors_archive_excluded_flag(self) -> None:
+        (self.root / "docs/index.md").write_text("# 文档索引\n", encoding="utf-8")
+        (self.root / "docs/archive").mkdir(parents=True, exist_ok=True)
+        (self.root / "docs/archive/history.md").write_text(
+            "# 历史记录\n", encoding="utf-8"
+        )
+
+        contract = {
+            "version": 1,
+            "root": "docs/index.md",
+            "max_depth": 3,
+            "nodes": [
+                {
+                    "path": "docs/index.md",
+                    "layer": "root",
+                    "parent": None,
+                    "domain": "core",
+                },
+                {
+                    "path": "docs/archive/history.md",
+                    "layer": "archive",
+                    "parent": "docs/index.md",
+                    "domain": "history",
+                },
+            ],
+            "archive": {
+                "root": "docs/archive",
+                "excluded_from_depth_gate": False,
+            },
+        }
+        settings = dt.resolve_topology_settings(
+            {"doc_topology": {"enabled": True, "max_depth": 3}}
+        )
+
+        analysis = dt.evaluate_topology(
+            self.root,
+            contract,
+            settings,
+            managed_docs=["docs/index.md", "docs/archive/history.md"],
+        )
+        self.assertIn("docs/archive/history.md", analysis.get("scope_docs", []))
+        self.assertEqual((analysis.get("metrics") or {}).get("managed_markdown_count"), 2)
+
+        contract_excluded = json.loads(json.dumps(contract))
+        contract_excluded["archive"]["excluded_from_depth_gate"] = True
+        analysis_excluded = dt.evaluate_topology(
+            self.root,
+            contract_excluded,
+            settings,
+            managed_docs=["docs/index.md", "docs/archive/history.md"],
+        )
+        self.assertNotIn(
+            "docs/archive/history.md", analysis_excluded.get("scope_docs", [])
+        )
+        self.assertEqual(
+            (analysis_excluded.get("metrics") or {}).get("managed_markdown_count"), 1
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

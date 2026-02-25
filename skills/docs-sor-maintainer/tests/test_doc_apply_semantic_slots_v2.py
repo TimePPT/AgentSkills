@@ -40,6 +40,7 @@ class DocApplySemanticSlotsV2Tests(unittest.TestCase):
         action: dict[str, object],
         semantic_settings: dict[str, object],
         runtime_entry: dict[str, object],
+        progressive_settings: dict[str, object] | None = None,
     ) -> dict[str, object]:
         runtime_state = {
             "enabled": True,
@@ -58,6 +59,7 @@ class DocApplySemanticSlotsV2Tests(unittest.TestCase):
             template_profile=self.profile,
             metadata_policy=self.metadata_policy,
             semantic_settings=semantic_settings,
+            progressive_settings=progressive_settings,
             semantic_runtime_entries=[runtime_entry],
             semantic_runtime_state=runtime_state,
         )
@@ -223,6 +225,64 @@ class DocApplySemanticSlotsV2Tests(unittest.TestCase):
         self.assertIn("### 下一步", content)
         self.assertIn("合并前必须完成 validate 与 quality gate。", content)
         self.assertIn("执行 doc_plan --mode audit。", content)
+
+    def test_update_section_slots_v2_renders_custom_required_slot(self) -> None:
+        runbook = self.root / "docs/runbook.md"
+        runbook.write_text(
+            lp.get_managed_template("docs/runbook.md", self.profile), encoding="utf-8"
+        )
+        semantic_settings = dsr.resolve_semantic_generation_settings(
+            {
+                "semantic_generation": {
+                    "enabled": True,
+                    "mode": "hybrid",
+                }
+            }
+        )
+        progressive_settings = {
+            "enabled": True,
+            "required_slots": ["summary", "key_facts", "next_steps", "risks"],
+            "summary_max_chars": 160,
+            "max_key_facts": 5,
+            "max_next_steps": 3,
+            "fail_on_missing_slots": True,
+        }
+        runtime_entry = {
+            "entry_id": "slots-with-risks",
+            "path": "docs/runbook.md",
+            "action_type": "update_section",
+            "section_id": "validation_commands",
+            "status": "ok",
+            "slots": {
+                "summary": "发布前需要完成质量门禁与拓扑门禁。",
+                "key_facts": ["质量门禁负责结构化与证据一致性。"],
+                "next_steps": ["执行 doc_quality。"],
+                "risks": ["若 gate 配置与文档结构不一致会触发阻断。"],
+            },
+            "citations": [
+                "evidence://repo_scan.modules",
+            ],
+        }
+        result = self._apply_with_runtime(
+            action={
+                "id": "S004",
+                "type": "update_section",
+                "path": "docs/runbook.md",
+                "section_id": "validation_commands",
+            },
+            semantic_settings=semantic_settings,
+            runtime_entry=runtime_entry,
+            progressive_settings=progressive_settings,
+        )
+
+        self.assertEqual(result.get("status"), "applied")
+        semantic_runtime = result.get("semantic_runtime") or {}
+        gate = semantic_runtime.get("gate") or {}
+        self.assertEqual(gate.get("status"), "passed")
+
+        content = runbook.read_text(encoding="utf-8")
+        self.assertIn("### Risks", content)
+        self.assertIn("若 gate 配置与文档结构不一致会触发阻断。", content)
 
 
 if __name__ == "__main__":

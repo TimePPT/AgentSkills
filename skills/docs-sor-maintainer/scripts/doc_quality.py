@@ -480,14 +480,26 @@ def _extract_heading_block(content: str, markers: list[str]) -> list[str]:
     return []
 
 
+def _resolve_slot_markers(slot: str) -> list[str]:
+    markers = PROGRESSIVE_SLOT_MARKERS.get(slot)
+    if isinstance(markers, list) and markers:
+        return markers
+    heading = slot.replace("_", " ").strip().title()
+    if not heading:
+        return []
+    return [f"### {heading}"]
+
+
 def _count_items(lines: list[str]) -> int:
-    count = 0
-    for line in lines:
-        stripped = line.strip()
-        if not stripped:
-            continue
-        count += 1
-    return count
+    normalized_lines = [line.strip() for line in lines if line.strip()]
+    if not normalized_lines:
+        return 0
+    list_item_count = sum(
+        1 for line in normalized_lines if LIST_ITEM_PATTERN.match(line)
+    )
+    if list_item_count > 0:
+        return list_item_count
+    return 1
 
 
 def evaluate_progressive_disclosure_quality(
@@ -503,6 +515,7 @@ def evaluate_progressive_disclosure_quality(
     ]
     if not required_slots:
         required_slots = ["summary", "key_facts", "next_steps"]
+    next_steps_required = "next_steps" in set(required_slots)
 
     result: dict[str, Any] = {
         "enabled": enabled,
@@ -557,7 +570,7 @@ def evaluate_progressive_disclosure_quality(
             continue
         text = abs_path.read_text(encoding="utf-8", errors="replace")
         slot_blocks = {
-            slot: _extract_heading_block(text, PROGRESSIVE_SLOT_MARKERS.get(slot, []))
+            slot: _extract_heading_block(text, _resolve_slot_markers(slot))
             for slot in required_slots
         }
         present_slots = [slot for slot in required_slots if slot_blocks.get(slot)]
@@ -566,7 +579,7 @@ def evaluate_progressive_disclosure_quality(
 
         slot_totals += len(required_slots)
         slot_hits += len(present_slots)
-        if "next_steps" in present_slots:
+        if next_steps_required and "next_steps" in present_slots:
             next_step_hits += 1
 
         missing = [slot for slot in required_slots if slot not in present_slots]
@@ -614,7 +627,9 @@ def evaluate_progressive_disclosure_quality(
     candidate_sections = len(findings)
     completeness = 1.0 if slot_totals == 0 else round(slot_hits / slot_totals, 4)
     next_step_presence = (
-        1.0 if candidate_sections == 0 else round(next_step_hits / candidate_sections, 4)
+        1.0
+        if not next_steps_required or candidate_sections == 0
+        else round(next_step_hits / candidate_sections, 4)
     )
     result["metrics"] = {
         "progressive_candidate_sections": candidate_sections,
@@ -752,13 +767,19 @@ def evaluate_quality(
                 failed_checks.append("semantic_source_marker_integrity")
         if progressive_quality.get("enabled", False):
             progressive_metrics = progressive_quality.get("metrics") or {}
+            progressive_required_slots = {
+                str(slot).strip()
+                for slot in (progressive_quality.get("required_slots") or [])
+                if isinstance(slot, str) and str(slot).strip()
+            }
+            next_steps_required = "next_steps" in progressive_required_slots
             if float(progressive_metrics.get("progressive_slot_completeness", 1.0)) < float(
                 thresholds["min_progressive_slot_completeness"]
             ):
                 failed_checks.append("min_progressive_slot_completeness")
-            if float(progressive_metrics.get("next_step_presence", 1.0)) < float(
-                thresholds["min_next_step_presence"]
-            ):
+            if next_steps_required and float(
+                progressive_metrics.get("next_step_presence", 1.0)
+            ) < float(thresholds["min_next_step_presence"]):
                 failed_checks.append("min_next_step_presence")
             if int(
                 progressive_metrics.get("section_verbosity_over_budget_count", 0)

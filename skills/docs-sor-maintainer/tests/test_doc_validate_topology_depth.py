@@ -148,6 +148,54 @@ class DocTopologyDepthGateTests(unittest.TestCase):
         self.assertIn("topology_repair", action_types)
         self.assertIn("navigation_repair", action_types)
 
+    def test_validate_merges_topology_analysis_warnings_into_report(self) -> None:
+        self._write_docs()
+        policy = self._policy(max_depth=3)
+        policy["doc_topology"]["fail_on_orphan"] = False
+        policy["doc_topology"]["fail_on_unreachable"] = False
+        manifest = self._manifest()
+        (self.root / "docs/.doc-topology.json").write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "root": "docs/index.md",
+                    "max_depth": 3,
+                    "nodes": [
+                        {
+                            "path": "docs/index.md",
+                            "layer": "root",
+                            "parent": None,
+                            "domain": "core",
+                        },
+                        {
+                            "path": "docs/missing.md",
+                            "layer": "leaf",
+                            "parent": "docs/index.md",
+                            "domain": "reference",
+                        },
+                    ],
+                    "archive": {
+                        "root": "docs/archive",
+                        "excluded_from_depth_gate": True,
+                    },
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        errors, warnings, report = doc_validate.check_topology_contract(
+            self.root, policy, manifest
+        )
+
+        self.assertEqual(errors, [])
+        report_warnings = report.get("warnings") or []
+        self.assertTrue(any("docs/missing.md" in item for item in report_warnings))
+        self.assertTrue(any("docs/missing.md" in item for item in warnings))
+        self.assertEqual(len(report_warnings), len(set(report_warnings)))
+
 
 if __name__ == "__main__":
     unittest.main()
