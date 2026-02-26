@@ -1,5 +1,5 @@
 <!-- doc-owner: docs-maintainer -->
-<!-- doc-last-reviewed: 2026-02-24 -->
+<!-- doc-last-reviewed: 2026-02-26 -->
 <!-- doc-review-cycle-days: 90 -->
 
 # 文档索引
@@ -19,10 +19,11 @@
 
 ## 执行中计划（active）
 
-- 当前无进行中计划（下一阶段待立项）
+- 当前无进行中计划；下一轮里程碑待立项。
 
 ## 已完成但保留在 active 的历史计划（标记 completed）
 
+- [docs/exec-plans/active/docs-sor-roadmap-v2.7-agent-first-semantic-priority-governance.md](./exec-plans/active/docs-sor-roadmap-v2.7-agent-first-semantic-priority-governance.md)
 - [docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md](./exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md)
 - [docs/exec-plans/active/docs-sor-roadmap-v2.5-hybrid-template-llm-governance.md](./exec-plans/active/docs-sor-roadmap-v2.5-hybrid-template-llm-governance.md)
 - [docs/exec-plans/active/docs-sor-roadmap-v2.5-remediation-agent-strict-policy-enforcement.md](./exec-plans/active/docs-sor-roadmap-v2.5-remediation-agent-strict-policy-enforcement.md)
@@ -35,6 +36,11 @@
 
 ## 历史验收证据（active）
 
+- [docs/exec-plans/active/docs-sor-roadmap-v2.7-m4-acceptance-report.md](./exec-plans/active/docs-sor-roadmap-v2.7-m4-acceptance-report.md)
+- [docs/exec-plans/active/docs-sor-roadmap-v2.7-m4-test-matrix.md](./exec-plans/active/docs-sor-roadmap-v2.7-m4-test-matrix.md)
+- [docs/exec-plans/active/docs-sor-roadmap-v2.7-m3-acceptance-report.md](./exec-plans/active/docs-sor-roadmap-v2.7-m3-acceptance-report.md)
+- [docs/exec-plans/active/docs-sor-roadmap-v2.7-m2-acceptance-report.md](./exec-plans/active/docs-sor-roadmap-v2.7-m2-acceptance-report.md)
+- [docs/exec-plans/active/docs-sor-roadmap-v2.7-m1-acceptance-report.md](./exec-plans/active/docs-sor-roadmap-v2.7-m1-acceptance-report.md)
 - [docs/exec-plans/active/docs-sor-roadmap-v2.6-acceptance-report.md](./exec-plans/active/docs-sor-roadmap-v2.6-acceptance-report.md)
 - [docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-test-matrix.md](./exec-plans/active/docs-sor-roadmap-v2.1-phase-d-test-matrix.md)
 - [docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-acceptance-report.md](./exec-plans/active/docs-sor-roadmap-v2.1-phase-d-acceptance-report.md)
@@ -52,6 +58,7 @@
 - [docs/exec-plans/completed/docs-sor-roadmap-v2.5-closeout-2026-02-23.md](./exec-plans/completed/docs-sor-roadmap-v2.5-closeout-2026-02-23.md)
 - [docs/exec-plans/completed/docs-sor-roadmap-v2.5-remediation-closeout-2026-02-24.md](./exec-plans/completed/docs-sor-roadmap-v2.5-remediation-closeout-2026-02-24.md)
 - [docs/exec-plans/completed/docs-sor-roadmap-v2.6-closeout-2026-02-24.md](./exec-plans/completed/docs-sor-roadmap-v2.6-closeout-2026-02-24.md)
+- [docs/exec-plans/completed/docs-sor-roadmap-v2.7-closeout-2026-02-26.md](./exec-plans/completed/docs-sor-roadmap-v2.7-closeout-2026-02-26.md)
 
 ## 操作流程
 
@@ -70,5 +77,7 @@
   - V2.5（模板兜底 + Agent 语义增益）与 remediation（agent_strict + semantic policy 执行语义）均已完成收口。
   - V2.6（WP1-WP5）已完成验收并收口，详见：
     `docs/exec-plans/completed/docs-sor-roadmap-v2.6-closeout-2026-02-24.md`。
+  - V2.7（M1-M4）已完成验收并收口，详见：
+    `docs/exec-plans/completed/docs-sor-roadmap-v2.7-closeout-2026-02-26.md`。
   - V2.4 已按策略变更收口并废弃开发，详见：
     `docs/exec-plans/completed/docs-sor-roadmap-v2.4-closeout-2026-02-23.md`。

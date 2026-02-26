@@ -31,6 +31,7 @@ class DocAgentsGenerationTests(unittest.TestCase):
                     "docs/.doc-manifest.json",
                     "docs/runbook.md",
                 ],
+                "regenerate_on_semantic_actions": True,
                 "sync_on_manifest_change": True,
                 "fail_on_agents_drift": True,
             },
@@ -85,6 +86,10 @@ class DocAgentsGenerationTests(unittest.TestCase):
 
         stored_report = json.loads(report_path.read_text(encoding="utf-8"))
         self.assertEqual(stored_report.get("status"), "generated")
+
+    def test_resolve_agents_settings_includes_semantic_regenerate_toggle(self) -> None:
+        settings = doc_agents.resolve_agents_settings(self.policy)
+        self.assertTrue(settings.get("regenerate_on_semantic_actions"))
 
 
 if __name__ == "__main__":

@@ -118,6 +118,42 @@
       "domain": "evidence"
     },
     {
+      "path": "docs/exec-plans/active/docs-sor-roadmap-v2.7-agent-first-semantic-priority-governance.md",
+      "layer": "leaf",
+      "parent": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+      "domain": "planning"
+    },
+    {
+      "path": "docs/exec-plans/active/docs-sor-roadmap-v2.7-m1-acceptance-report.md",
+      "layer": "leaf",
+      "parent": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+      "domain": "evidence"
+    },
+    {
+      "path": "docs/exec-plans/active/docs-sor-roadmap-v2.7-m2-acceptance-report.md",
+      "layer": "leaf",
+      "parent": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+      "domain": "evidence"
+    },
+    {
+      "path": "docs/exec-plans/active/docs-sor-roadmap-v2.7-m3-acceptance-report.md",
+      "layer": "leaf",
+      "parent": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+      "domain": "evidence"
+    },
+    {
+      "path": "docs/exec-plans/active/docs-sor-roadmap-v2.7-m4-test-matrix.md",
+      "layer": "leaf",
+      "parent": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+      "domain": "evidence"
+    },
+    {
+      "path": "docs/exec-plans/active/docs-sor-roadmap-v2.7-m4-acceptance-report.md",
+      "layer": "leaf",
+      "parent": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+      "domain": "evidence"
+    },
+    {
       "path": "docs/exec-plans/completed/README.md",
       "layer": "section",
       "parent": "docs/index.md",
@@ -179,6 +215,12 @@
     },
     {
       "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.6-closeout-2026-02-24.md",
+      "layer": "leaf",
+      "parent": "docs/exec-plans/completed/README.md",
+      "domain": "history"
+    },
+    {
+      "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.7-closeout-2026-02-26.md",
       "layer": "leaf",
       "parent": "docs/exec-plans/completed/README.md",
       "domain": "history"

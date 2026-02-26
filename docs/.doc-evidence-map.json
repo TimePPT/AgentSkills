@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-02-25T14:20:55.044612+00:00",
+  "generated_at": "2026-02-26T10:44:12.237590+00:00",
   "root": "/Users/tompoet/AgentSkills",
   "plan": "/Users/tompoet/AgentSkills/docs/.doc-plan.json",
   "spec": "/Users/tompoet/AgentSkills/docs/.doc-spec.json",
   "facts": "/Users/tompoet/AgentSkills/docs/.repo-facts.json",
   "plan_meta": {
-    "generated_at": "2026-02-25T14:20:54.868151+00:00",
+    "generated_at": "2026-02-26T10:44:12.174001+00:00",
     "root": "/Users/tompoet/AgentSkills",
     "mode": "audit",
     "policy_path": "docs/.doc-policy.json",
@@ -29,6 +29,12 @@
           "docs/exec-plans/active/docs-sor-roadmap-v2.5-remediation-agent-strict-policy-enforcement.md",
           "docs/exec-plans/active/docs-sor-roadmap-v2.6-acceptance-report.md",
           "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.7-agent-first-semantic-priority-governance.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.7-m1-acceptance-report.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.7-m2-acceptance-report.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.7-m3-acceptance-report.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.7-m4-acceptance-report.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.7-m4-test-matrix.md",
           "docs/exec-plans/active/docs-sor-roadmap-v2.md",
           "docs/exec-plans/completed/README.md",
           "docs/exec-plans/completed/docs-sor-legacy-migration-automation-closeout-2026-02-22.md",
@@ -37,6 +43,7 @@
           "docs/exec-plans/completed/docs-sor-roadmap-v2.2-phase-f-closeout-2026-02-22.md",
           "docs/exec-plans/completed/docs-sor-roadmap-v2.5-remediation-closeout-2026-02-24.md",
           "docs/exec-plans/completed/docs-sor-roadmap-v2.6-closeout-2026-02-24.md",
+          "docs/exec-plans/completed/docs-sor-roadmap-v2.7-closeout-2026-02-26.md",
           "docs/index.md",
           "docs/references/doc_spec_schema.md",
           "docs/references/doc_topology_schema.md",
@@ -65,7 +72,7 @@
       "archive_dir": "docs/archive"
     },
     "manifest_reasoning": [
-      "include_files=12"
+      "include_files=16"
     ],
     "capability_decisions": [
       {
@@ -100,7 +107,7 @@
         "enabled": true,
         "source": "goal_include",
         "evidence": [
-          "file_count=148",
+          "file_count=159",
           "enabled by doc_goals.include"
         ],
         "required_files": [
@@ -115,7 +122,7 @@
         "source": "goal_include",
         "evidence": [
           "ci_configs=1",
-          "file_count=148",
+          "file_count=159",
           "enabled by doc_goals.include"
         ],
         "required_files": [],
@@ -131,7 +138,7 @@
         "enabled": true,
         "source": "signal",
         "evidence": [
-          "docs_markdown_count=33"
+          "docs_markdown_count=40"
         ],
         "required_files": [],
         "required_dirs": [],
@@ -193,8 +200,8 @@
       "errors": [],
       "warnings": [],
       "metrics": {
-        "node_count": 30,
-        "managed_markdown_count": 30,
+        "node_count": 37,
+        "managed_markdown_count": 37,
         "topology_reachable_ratio": 1.0,
         "topology_orphan_count": 0,
         "topology_unreachable_count": 0,
@@ -379,7 +386,7 @@
             {
               "claim_id": "runbook.validation_commands",
               "status": "supported",
-              "statement": "当前校验命令集合为：\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_validate.py\" --root \"$REPO_ROOT\" --facts \"$REPO_ROOT/docs/.repo-facts.json\" --fail-on-drift --fail-on-freshness --output \"$REPO_ROOT/docs/.doc-validate-report.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_quality.py\" --root \"$REPO_ROOT\" --output \"$REPO_ROOT/docs/.doc-quality-report.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_garden.py\" --root \"$REPO_ROOT\" --apply-mode apply-safe --repair-plan-mode repair --fail-on-drift --fail-on-freshness, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_legacy_migration, python3 -m unittest discover -s skills/docs-sor-maintainer/tests -p 'test_*.py', \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/repo_scan.py\" --root \"$REPO_ROOT\" --output \"$REPO_ROOT/docs/.repo-facts.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode audit --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode audit --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan-phase-f-audit.json\", python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_agents_validate, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_garden_repair_loop, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_validate_exec_plan_closeout, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_semantic_runtime, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_apply_section_actions, \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_apply.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan.json\" --mode apply-safe, \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_synthesize.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan.json\" --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-evidence-map.json\", python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_topology_schema, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_validate_topology_depth, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_quality_progressive_slots, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_apply_semantic_slots_v2, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_garden_skip_post_scan_when_no_apply, python3 - <<'PY', import json, from pathlib import Path, root = Path(\"/Users/tompoet/AgentSkills\"), report = json.loads((root / \"docs/.doc-garden-report.json\").read_text(encoding=\"utf-8\")), steps = [str(step.get(\"name\", \"\")) for step in report.get(\"steps\", [])], assert report.get(\"apply\", {}).get(\"applied\") == 0, assert \"run:scan-post-apply\" not in steps, assert isinstance(report.get(\"summary\", {}).get(\"garden_total_duration_ms\"), int), assert isinstance(report.get(\"performance\", {}).get(\"scan_duration_ms\"), int), assert isinstance(report.get(\"performance\", {}).get(\"plan_duration_ms\"), int), assert isinstance(report.get(\"performance\", {}).get(\"validate_duration_ms\"), int), print(\"WP4 acceptance checks passed\"), PY, artifacts = [, \"docs/exec-plans/active/docs-sor-roadmap-v2.6-acceptance-report.md\",, \"docs/references/exec-plan-closeout-template.md\",, \"docs/exec-plans/completed/docs-sor-roadmap-v2.6-closeout-2026-02-24.md\",, ], for rel in artifacts:, assert (root / rel).exists(), f\"missing required V2.6 WP5 artifact: {rel}\", plan_text = (, root / \"docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md\", ).read_text(encoding=\"utf-8\"), assert \"<!-- exec-plan-status: completed -->\" in plan_text, assert (, \"<!-- exec-plan-closeout: docs/exec-plans/completed/docs-sor-roadmap-v2.6-closeout-2026-02-24.md -->\", in plan_text, ), print(\"WP5 acceptance checks passed\"), python3 -m py_compile \"$SKILL_DIR\"/scripts/*.py",
+              "statement": "当前校验命令集合为：\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_validate.py\" --root \"$REPO_ROOT\" --facts \"$REPO_ROOT/docs/.repo-facts.json\" --fail-on-drift --fail-on-freshness --output \"$REPO_ROOT/docs/.doc-validate-report.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_quality.py\" --root \"$REPO_ROOT\" --output \"$REPO_ROOT/docs/.doc-quality-report.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_garden.py\" --root \"$REPO_ROOT\" --apply-mode apply-safe --repair-plan-mode repair --fail-on-drift --fail-on-freshness, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_legacy_migration, python3 -m unittest discover -s skills/docs-sor-maintainer/tests -p 'test_*.py', \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/repo_scan.py\" --root \"$REPO_ROOT\" --output \"$REPO_ROOT/docs/.repo-facts.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode audit --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode audit --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan-phase-f-audit.json\", python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_agents_validate, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_garden_repair_loop, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_validate_exec_plan_closeout, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_semantic_runtime, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_apply_section_actions, \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_apply.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan.json\" --mode apply-safe, \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_synthesize.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan.json\" --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-evidence-map.json\", python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_topology_schema, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_validate_topology_depth, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_quality_progressive_slots, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_apply_semantic_slots_v2, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_garden_skip_post_scan_when_no_apply, python3 - <<'PY', import json, from pathlib import Path, root = Path(\"/Users/tompoet/AgentSkills\"), report = json.loads((root / \"docs/.doc-garden-report.json\").read_text(encoding=\"utf-8\")), steps = [str(step.get(\"name\", \"\")) for step in report.get(\"steps\", [])], assert report.get(\"apply\", {}).get(\"applied\") == 0, assert \"run:scan-post-apply\" not in steps, assert isinstance(report.get(\"summary\", {}).get(\"garden_total_duration_ms\"), int), assert isinstance(report.get(\"performance\", {}).get(\"scan_duration_ms\"), int), assert isinstance(report.get(\"performance\", {}).get(\"plan_duration_ms\"), int), assert isinstance(report.get(\"performance\", {}).get(\"validate_duration_ms\"), int), print(\"WP4 acceptance checks passed\"), PY, artifacts = [, \"docs/exec-plans/active/docs-sor-roadmap-v2.6-acceptance-report.md\",, \"docs/references/exec-plan-closeout-template.md\",, \"docs/exec-plans/completed/docs-sor-roadmap-v2.6-closeout-2026-02-24.md\",, ], for rel in artifacts:, assert (root / rel).exists(), f\"missing required V2.6 WP5 artifact: {rel}\", plan_text = (, root / \"docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md\", ).read_text(encoding=\"utf-8\"), assert \"<!-- exec-plan-status: completed -->\" in plan_text, assert (, \"<!-- exec-plan-closeout: docs/exec-plans/completed/docs-sor-roadmap-v2.6-closeout-2026-02-24.md -->\", in plan_text, ), print(\"WP5 acceptance checks passed\"), \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode audit --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan-v2.7-m1.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_apply.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan-v2.7-m1.json\" --mode apply-safe, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_agents, \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode audit --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan-v2.7-m2.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_apply.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan-v2.7-m2.json\" --mode apply-safe, python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_plan_section_actions, \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode audit --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan-v2.7-m3.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_apply.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan-v2.7-m3.json\" --mode apply-safe, \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_synthesize.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan-v2.7-m3.json\" --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-evidence-map.json\", python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_validate_semantic_observability, \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_garden.py\" --root \"$REPO_ROOT\" --plan-mode audit --apply-mode apply-safe --fail-on-drift --fail-on-freshness, \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode audit --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan-v2.7-m4.json\", \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_apply.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan-v2.7-m4.json\" --mode apply-safe, \"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_synthesize.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan-v2.7-m4.json\" --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-evidence-map.json\", python3 -m unittest -v \\, skills.docs-sor-maintainer.tests.test_doc_semantic_runtime \\, skills.docs-sor-maintainer.tests.test_doc_plan_section_actions \\, skills.docs-sor-maintainer.tests.test_doc_apply_section_actions \\, skills.docs-sor-maintainer.tests.test_doc_validate_semantic_observability \\, skills.docs-sor-maintainer.tests.test_doc_garden_repair_loop \\, skills.docs-sor-maintainer.tests.test_doc_validate_exec_plan_closeout, python3 -m py_compile \"$SKILL_DIR\"/scripts/*.py",
               "statement_template": "当前校验命令集合为：{commands}",
               "required_evidence_types": [
                 "runbook.validation_commands"
@@ -440,6 +447,27 @@
                     "in plan_text",
                     ")",
                     "print(\"WP5 acceptance checks passed\")",
+                    "\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode audit --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan-v2.7-m1.json\"",
+                    "\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_apply.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan-v2.7-m1.json\" --mode apply-safe",
+                    "python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_agents",
+                    "\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode audit --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan-v2.7-m2.json\"",
+                    "\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_apply.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan-v2.7-m2.json\" --mode apply-safe",
+                    "python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_plan_section_actions",
+                    "\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode audit --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan-v2.7-m3.json\"",
+                    "\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_apply.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan-v2.7-m3.json\" --mode apply-safe",
+                    "\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_synthesize.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan-v2.7-m3.json\" --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-evidence-map.json\"",
+                    "python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_validate_semantic_observability",
+                    "\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_garden.py\" --root \"$REPO_ROOT\" --plan-mode audit --apply-mode apply-safe --fail-on-drift --fail-on-freshness",
+                    "\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_plan.py\" --root \"$REPO_ROOT\" --mode audit --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-plan-v2.7-m4.json\"",
+                    "\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_apply.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan-v2.7-m4.json\" --mode apply-safe",
+                    "\"$PYTHON_BIN\" \"$SKILL_DIR/scripts/doc_synthesize.py\" --root \"$REPO_ROOT\" --plan \"$REPO_ROOT/docs/.doc-plan-v2.7-m4.json\" --facts \"$REPO_ROOT/docs/.repo-facts.json\" --output \"$REPO_ROOT/docs/.doc-evidence-map.json\"",
+                    "python3 -m unittest -v \\",
+                    "skills.docs-sor-maintainer.tests.test_doc_semantic_runtime \\",
+                    "skills.docs-sor-maintainer.tests.test_doc_plan_section_actions \\",
+                    "skills.docs-sor-maintainer.tests.test_doc_apply_section_actions \\",
+                    "skills.docs-sor-maintainer.tests.test_doc_validate_semantic_observability \\",
+                    "skills.docs-sor-maintainer.tests.test_doc_garden_repair_loop \\",
+                    "skills.docs-sor-maintainer.tests.test_doc_validate_exec_plan_closeout",
                     "python3 -m py_compile \"$SKILL_DIR\"/scripts/*.py"
                   ]
                 }

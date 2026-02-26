@@ -1,5 +1,5 @@
 <!-- doc-owner: docs-maintainer -->
-<!-- doc-last-reviewed: 2026-02-24 -->
+<!-- doc-last-reviewed: 2026-02-26 -->
 <!-- doc-review-cycle-days: 90 -->
 
 # 运行手册
@@ -211,6 +211,66 @@ assert (
 )
 print("WP5 acceptance checks passed")
 PY
+```
+
+V2.7 M1（策略落地：语义优先接线 + AGENTS 再生触发）验收链路：
+
+```bash
+"$PYTHON_BIN" "$SKILL_DIR/scripts/repo_scan.py" --root "$REPO_ROOT" --output "$REPO_ROOT/docs/.repo-facts.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_plan.py" --root "$REPO_ROOT" --mode audit --facts "$REPO_ROOT/docs/.repo-facts.json" --output "$REPO_ROOT/docs/.doc-plan-v2.7-m1.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_apply.py" --root "$REPO_ROOT" --plan "$REPO_ROOT/docs/.doc-plan-v2.7-m1.json" --mode apply-safe
+python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_semantic_runtime
+python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_agents
+python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_apply_section_actions
+python3 -m unittest discover -s skills/docs-sor-maintainer/tests -p 'test_*.py'
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_validate.py" --root "$REPO_ROOT" --facts "$REPO_ROOT/docs/.repo-facts.json" --fail-on-drift --fail-on-freshness --output "$REPO_ROOT/docs/.doc-validate-report.json"
+```
+
+V2.7 M2（动作扩展：merge_docs + split_doc）验收链路：
+
+```bash
+"$PYTHON_BIN" "$SKILL_DIR/scripts/repo_scan.py" --root "$REPO_ROOT" --output "$REPO_ROOT/docs/.repo-facts.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_plan.py" --root "$REPO_ROOT" --mode audit --facts "$REPO_ROOT/docs/.repo-facts.json" --output "$REPO_ROOT/docs/.doc-plan-v2.7-m2.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_apply.py" --root "$REPO_ROOT" --plan "$REPO_ROOT/docs/.doc-plan-v2.7-m2.json" --mode apply-safe
+python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_semantic_runtime
+python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_plan_section_actions
+python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_apply_section_actions
+python3 -m unittest discover -s skills/docs-sor-maintainer/tests -p 'test_*.py'
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_validate.py" --root "$REPO_ROOT" --facts "$REPO_ROOT/docs/.repo-facts.json" --fail-on-drift --fail-on-freshness --output "$REPO_ROOT/docs/.doc-validate-report.json"
+```
+
+V2.7 M3（门禁与观测：validate/garden 语义优先闭环）验收链路：
+
+```bash
+"$PYTHON_BIN" "$SKILL_DIR/scripts/repo_scan.py" --root "$REPO_ROOT" --output "$REPO_ROOT/docs/.repo-facts.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_plan.py" --root "$REPO_ROOT" --mode audit --facts "$REPO_ROOT/docs/.repo-facts.json" --output "$REPO_ROOT/docs/.doc-plan-v2.7-m3.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_apply.py" --root "$REPO_ROOT" --plan "$REPO_ROOT/docs/.doc-plan-v2.7-m3.json" --mode apply-safe
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_synthesize.py" --root "$REPO_ROOT" --plan "$REPO_ROOT/docs/.doc-plan-v2.7-m3.json" --facts "$REPO_ROOT/docs/.repo-facts.json" --output "$REPO_ROOT/docs/.doc-evidence-map.json"
+python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_apply_section_actions
+python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_validate_semantic_observability
+python3 -m unittest -v skills.docs-sor-maintainer.tests.test_doc_garden_repair_loop
+python3 -m unittest discover -s skills/docs-sor-maintainer/tests -p 'test_*.py'
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_validate.py" --root "$REPO_ROOT" --facts "$REPO_ROOT/docs/.repo-facts.json" --fail-on-drift --fail-on-freshness --output "$REPO_ROOT/docs/.doc-validate-report.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_garden.py" --root "$REPO_ROOT" --plan-mode audit --apply-mode apply-safe --fail-on-drift --fail-on-freshness
+```
+
+V2.7 M4（验收收口：测试矩阵 + closeout）验收链路：
+
+```bash
+"$PYTHON_BIN" "$SKILL_DIR/scripts/repo_scan.py" --root "$REPO_ROOT" --output "$REPO_ROOT/docs/.repo-facts.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_plan.py" --root "$REPO_ROOT" --mode audit --facts "$REPO_ROOT/docs/.repo-facts.json" --output "$REPO_ROOT/docs/.doc-plan-v2.7-m4.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_apply.py" --root "$REPO_ROOT" --plan "$REPO_ROOT/docs/.doc-plan-v2.7-m4.json" --mode apply-safe
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_synthesize.py" --root "$REPO_ROOT" --plan "$REPO_ROOT/docs/.doc-plan-v2.7-m4.json" --facts "$REPO_ROOT/docs/.repo-facts.json" --output "$REPO_ROOT/docs/.doc-evidence-map.json"
+python3 -m unittest -v \
+  skills.docs-sor-maintainer.tests.test_doc_semantic_runtime \
+  skills.docs-sor-maintainer.tests.test_doc_plan_section_actions \
+  skills.docs-sor-maintainer.tests.test_doc_apply_section_actions \
+  skills.docs-sor-maintainer.tests.test_doc_validate_semantic_observability \
+  skills.docs-sor-maintainer.tests.test_doc_garden_repair_loop \
+  skills.docs-sor-maintainer.tests.test_doc_validate_exec_plan_closeout
+python3 -m unittest discover -s skills/docs-sor-maintainer/tests -p 'test_*.py'
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_validate.py" --root "$REPO_ROOT" --facts "$REPO_ROOT/docs/.repo-facts.json" --fail-on-drift --fail-on-freshness --output "$REPO_ROOT/docs/.doc-validate-report.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_garden.py" --root "$REPO_ROOT" --plan-mode audit --apply-mode apply-safe --fail-on-drift --fail-on-freshness
 ```
 
 脚本语法自检：

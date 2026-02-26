@@ -219,6 +219,73 @@ def collect_semantic_backlog(validate_report: dict[str, Any] | None) -> list[dic
     return items
 
 
+def collect_semantic_observability(
+    apply_summary: dict[str, Any] | None,
+    validate_report: dict[str, Any] | None,
+) -> dict[str, Any]:
+    apply_data = apply_summary if isinstance(apply_summary, dict) else {}
+    validate_metrics = (
+        (validate_report.get("metrics") or {})
+        if isinstance(validate_report, dict)
+        else {}
+    )
+    fallback_reason_breakdown = apply_data.get("fallback_reason_breakdown")
+    if not isinstance(fallback_reason_breakdown, dict):
+        fallback_reason_breakdown = validate_metrics.get("fallback_reason_breakdown")
+    if not isinstance(fallback_reason_breakdown, dict):
+        fallback_reason_breakdown = {}
+
+    semantic_attempt_count = int(
+        apply_data.get(
+            "semantic_attempt_count",
+            validate_metrics.get("semantic_attempt_count", 0),
+        )
+        or 0
+    )
+    semantic_success_count = int(
+        apply_data.get(
+            "semantic_success_count",
+            validate_metrics.get("semantic_success_count", 0),
+        )
+        or 0
+    )
+    fallback_count = int(
+        apply_data.get("fallback_count", validate_metrics.get("fallback_count", 0)) or 0
+    )
+    semantic_action_count = int(
+        apply_data.get(
+            "semantic_action_count",
+            validate_metrics.get("semantic_action_count", 0),
+        )
+        or 0
+    )
+    semantic_unattempted_without_exemption = int(
+        apply_data.get(
+            "semantic_unattempted_without_exemption",
+            validate_metrics.get("semantic_unattempted_without_exemption", 0),
+        )
+        or 0
+    )
+    semantic_hit_rate = (
+        round(semantic_success_count / semantic_attempt_count, 4)
+        if semantic_attempt_count > 0
+        else 0.0
+    )
+    return {
+        "semantic_action_count": semantic_action_count,
+        "semantic_attempt_count": semantic_attempt_count,
+        "semantic_success_count": semantic_success_count,
+        "semantic_hit_rate": semantic_hit_rate,
+        "fallback_count": fallback_count,
+        "fallback_reason_breakdown": {
+            str(k): int(v)
+            for k, v in sorted(fallback_reason_breakdown.items())
+            if str(k).strip()
+        },
+        "semantic_unattempted_without_exemption": semantic_unattempted_without_exemption,
+    }
+
+
 def render_report_markdown(report: dict[str, Any]) -> str:
     lines = [
         "# Doc Garden Report",
@@ -306,6 +373,25 @@ def render_report_markdown(report: dict[str, Any]) -> str:
                 source_path = item.get("source_path", "UNKNOWN")
                 reason = item.get("reason", "UNKNOWN")
                 lines.append(f"- `{source_path}`: {reason}")
+
+    semantic_observability = report.get("semantic_observability") or {}
+    if semantic_observability:
+        lines.extend(
+            [
+                "",
+                "## Semantic Observability",
+                "",
+                f"- Semantic actions: {semantic_observability.get('semantic_action_count', 0)}",
+                f"- Semantic attempts: {semantic_observability.get('semantic_attempt_count', 0)}",
+                f"- Semantic successes: {semantic_observability.get('semantic_success_count', 0)}",
+                f"- Semantic path hit rate: {semantic_observability.get('semantic_hit_rate', 0.0)}",
+                f"- Fallback count: {semantic_observability.get('fallback_count', 0)}",
+                "- Fallback reason breakdown: "
+                f"{json.dumps(semantic_observability.get('fallback_reason_breakdown', {}), ensure_ascii=False)}",
+                "- Unattempted without exemption: "
+                f"{semantic_observability.get('semantic_unattempted_without_exemption', 0)}",
+            ]
+        )
 
     performance = report.get("performance") or {}
     if performance:
@@ -591,6 +677,12 @@ def main() -> int:
     apply_report_data = load_json_object(root / "docs/.doc-apply-report.json") or {}
     validate_report = last_validate_report or {}
     semantic_backlog = collect_semantic_backlog(validate_report)
+    semantic_observability = collect_semantic_observability(
+        apply_report_data.get("summary")
+        if isinstance(apply_report_data.get("summary"), dict)
+        else {},
+        validate_report,
+    )
     finished_at = datetime.now(timezone.utc)
     garden_total_duration_ms = int((finished_at - started_at).total_seconds() * 1000)
     performance_metrics = build_performance_metrics(steps, garden_total_duration_ms)
@@ -625,6 +717,21 @@ def main() -> int:
             "metadata_stale_docs": (
                 (validate_report.get("metrics") or {}).get("metadata_stale_docs")
             ),
+            "semantic_action_count": (
+                (validate_report.get("metrics") or {}).get("semantic_action_count")
+            ),
+            "semantic_attempt_count": (
+                (validate_report.get("metrics") or {}).get("semantic_attempt_count")
+            ),
+            "semantic_success_count": (
+                (validate_report.get("metrics") or {}).get("semantic_success_count")
+            ),
+            "fallback_count": (
+                (validate_report.get("metrics") or {}).get("fallback_count")
+            ),
+            "semantic_hit_rate": (
+                (validate_report.get("metrics") or {}).get("semantic_hit_rate")
+            ),
         },
         "repair": {
             "attempts": repair_attempts,
@@ -638,6 +745,7 @@ def main() -> int:
             "count": len(semantic_backlog),
             "sample": semantic_backlog[:20],
         },
+        "semantic_observability": semantic_observability,
         "summary": {
             "status": "passed" if ok else "failed",
             "apply_mode": apply_mode,

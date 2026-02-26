@@ -99,12 +99,15 @@ BASE_POLICY = {
             "docs/.doc-manifest.json",
             "docs/runbook.md",
         ],
+        "regenerate_on_semantic_actions": True,
         "sync_on_manifest_change": True,
         "fail_on_agents_drift": True,
     },
     "semantic_generation": {
         "enabled": True,
         "mode": "hybrid",
+        "prefer_agent_semantic_first": True,
+        "require_semantic_attempt": True,
         "source": "invoking_agent",
         "runtime_report_path": "docs/.semantic-runtime-report.json",
         "fail_closed": True,
@@ -116,8 +119,17 @@ BASE_POLICY = {
         "actions": {
             "update_section": True,
             "fill_claim": True,
+            "semantic_rewrite": True,
             "migrate_legacy": True,
+            "merge_docs": True,
+            "split_doc": True,
             "agents_generate": True,
+        },
+        "observability": {
+            "enabled": True,
+            "large_unattempted_ratio": 0.5,
+            "large_unattempted_count": 3,
+            "fail_on_large_unattempted": True,
         },
     },
     "legacy_sources": {

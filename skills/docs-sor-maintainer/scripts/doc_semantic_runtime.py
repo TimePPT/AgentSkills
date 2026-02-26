@@ -11,13 +11,18 @@ import doc_capabilities as dc
 DEFAULT_SEMANTIC_ACTIONS = {
     "update_section": True,
     "fill_claim": True,
+    "semantic_rewrite": True,
     "migrate_legacy": True,
+    "merge_docs": True,
+    "split_doc": True,
     "agents_generate": True,
 }
 
 DEFAULT_SEMANTIC_GENERATION_SETTINGS = {
     "enabled": True,
     "mode": "hybrid",
+    "prefer_agent_semantic_first": True,
+    "require_semantic_attempt": True,
     "source": "invoking_agent",
     "runtime_report_path": "docs/.semantic-runtime-report.json",
     "fail_closed": True,
@@ -70,6 +75,52 @@ def _normalize_positive_int(value: Any, fallback: int) -> int:
     return parsed
 
 
+def _normalize_split_outputs(
+    value: Any,
+    *,
+    entry_index: int,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    warnings: list[str] = []
+    if value is None:
+        return [], warnings
+    if not isinstance(value, list):
+        return [], [f"entry[{entry_index}] split_outputs ignored: expected list"]
+
+    outputs: list[dict[str, Any]] = []
+    for split_index, item in enumerate(value):
+        if not isinstance(item, dict):
+            warnings.append(
+                f"entry[{entry_index}] split_outputs[{split_index}] ignored: expected object"
+            )
+            continue
+        path = item.get("path")
+        content = item.get("content")
+        if not isinstance(path, str) or not path.strip():
+            warnings.append(
+                f"entry[{entry_index}] split_outputs[{split_index}] ignored: missing path"
+            )
+            continue
+        if not isinstance(content, str) or not content.strip():
+            warnings.append(
+                f"entry[{entry_index}] split_outputs[{split_index}] ignored: missing content"
+            )
+            continue
+        normalized_item: dict[str, Any] = {
+            "path": normalize_rel(path.strip()),
+            "content": content.strip(),
+        }
+        title = item.get("title")
+        if isinstance(title, str) and title.strip():
+            normalized_item["title"] = title.strip()
+        source_paths = _normalize_string_list(
+            item.get("source_paths"), normalize_paths=True
+        )
+        if source_paths:
+            normalized_item["source_paths"] = source_paths
+        outputs.append(normalized_item)
+    return outputs, warnings
+
+
 def _normalize_actions(value: Any) -> dict[str, bool]:
     settings = dict(DEFAULT_SEMANTIC_ACTIONS)
     if not isinstance(value, dict):
@@ -93,6 +144,15 @@ def resolve_semantic_generation_settings(policy: dict[str, Any] | None) -> dict[
     settings["enabled"] = bool(raw.get("enabled", settings["enabled"]))
     mode = str(raw.get("mode", settings["mode"])).strip()
     settings["mode"] = mode if mode in SUPPORTED_SEMANTIC_MODES else settings["mode"]
+    settings["prefer_agent_semantic_first"] = bool(
+        raw.get(
+            "prefer_agent_semantic_first",
+            settings["prefer_agent_semantic_first"],
+        )
+    )
+    settings["require_semantic_attempt"] = bool(
+        raw.get("require_semantic_attempt", settings["require_semantic_attempt"])
+    )
     source = str(raw.get("source", settings["source"])).strip()
     settings["source"] = source or settings["source"]
     runtime_report_path = str(
@@ -133,10 +193,25 @@ def should_attempt_runtime_semantics(action_type: str, settings: dict[str, Any])
         return False
     if settings.get("mode") == "deterministic":
         return False
+    if not settings.get("prefer_agent_semantic_first", True):
+        return False
     actions = settings.get("actions")
     if not isinstance(actions, dict):
         return False
     return bool(actions.get(action_type, False))
+
+
+def runtime_semantic_attempt_required(action_type: str, settings: dict[str, Any]) -> bool:
+    actions = settings.get("actions")
+    if not isinstance(actions, dict):
+        return False
+    if not bool(settings.get("enabled", False)):
+        return False
+    if settings.get("mode") == "deterministic":
+        return False
+    if not bool(actions.get(action_type, False)):
+        return False
+    return bool(settings.get("require_semantic_attempt", True))
 
 
 def _normalize_runtime_entry(
@@ -229,7 +304,10 @@ def _normalize_runtime_entry(
 
     content_raw = raw.get("content")
     statement_raw = raw.get("statement")
-    if content_raw is None and statement_raw is None and not slots:
+    has_split_outputs = isinstance(raw.get("split_outputs"), list) and bool(
+        raw.get("split_outputs")
+    )
+    if content_raw is None and statement_raw is None and not slots and not has_split_outputs:
         return None, [f"entry[{entry_index}] requires content or statement or slots"]
 
     content: str = ""
@@ -275,6 +353,40 @@ def _normalize_runtime_entry(
     risk_notes = _normalize_string_list(raw.get("risk_notes"), normalize_paths=False)
     if risk_notes:
         entry["risk_notes"] = risk_notes
+
+    source_paths = _normalize_string_list(raw.get("source_paths"), normalize_paths=True)
+    if source_paths:
+        entry["source_paths"] = source_paths
+    target_paths = _normalize_string_list(raw.get("target_paths"), normalize_paths=True)
+    if target_paths:
+        entry["target_paths"] = target_paths
+    index_links = _normalize_string_list(raw.get("index_links"), normalize_paths=True)
+    if index_links:
+        entry["index_links"] = index_links
+
+    evidence_map_raw = raw.get("evidence_map")
+    if evidence_map_raw is not None:
+        if not isinstance(evidence_map_raw, dict):
+            warnings.append(f"entry[{entry_index}] evidence_map ignored: expected object")
+        else:
+            normalized_map: dict[str, list[str]] = {}
+            for source, evidence in evidence_map_raw.items():
+                if not isinstance(source, str) or not source.strip():
+                    continue
+                normalized_evidence = _normalize_string_list(
+                    evidence, normalize_paths=False
+                )
+                normalized_map[normalize_rel(source.strip())] = normalized_evidence
+            if normalized_map:
+                entry["evidence_map"] = normalized_map
+
+    split_outputs, split_warnings = _normalize_split_outputs(
+        raw.get("split_outputs"),
+        entry_index=entry_index,
+    )
+    warnings.extend(split_warnings)
+    if split_outputs:
+        entry["split_outputs"] = split_outputs
 
     return entry, warnings
 

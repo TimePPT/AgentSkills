@@ -30,6 +30,8 @@ ACTIONABLE_TYPES = {
     "fill_claim",
     "refresh_evidence",
     "semantic_rewrite",
+    "merge_docs",
+    "split_doc",
     "quality_repair",
     "topology_repair",
     "navigation_repair",
@@ -99,6 +101,49 @@ def build_semantic_action_fields(record: dict[str, Any] | None) -> dict[str, Any
         "semantic_model": record.get("model"),
         "decision_source": normalized_source,
     }
+
+
+def _normalize_optional_rel_path(value: Any) -> str:
+    if not isinstance(value, str) or not value.strip():
+        return ""
+    return normalize_rel(value.strip())
+
+
+def _normalize_rel_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for item in value:
+        path = _normalize_optional_rel_path(item)
+        if not path or path in seen:
+            continue
+        seen.add(path)
+        out.append(path)
+    return out
+
+
+def _normalize_split_rules(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    rules: list[dict[str, Any]] = []
+    seen_targets: set[str] = set()
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        target_path = _normalize_optional_rel_path(item.get("target_path"))
+        if not target_path or target_path in seen_targets:
+            continue
+        rule: dict[str, Any] = {"target_path": target_path}
+        title = item.get("title")
+        if isinstance(title, str) and title.strip():
+            rule["title"] = title.strip()
+        reason = item.get("reason")
+        if isinstance(reason, str) and reason.strip():
+            rule["reason"] = reason.strip()
+        seen_targets.add(target_path)
+        rules.append(rule)
+    return rules
 
 
 def maybe_write_semantic_report(root: Path, plan: dict[str, Any]) -> Path | None:
@@ -980,15 +1025,28 @@ def build_plan(
                 if isinstance(semantic.get("backlog"), list)
                 else []
             )
-            emitted_semantic_rewrite: set[tuple[str, str, str]] = set()
+            emitted_semantic_actions: set[tuple[str, str, str, str]] = set()
             for item in semantic_backlog:
                 if not isinstance(item, dict):
                     continue
+                requested_action = (
+                    str(item.get("action_type")).strip()
+                    if isinstance(item.get("action_type"), str)
+                    and str(item.get("action_type")).strip()
+                    else ""
+                )
                 backlog_reason = (
                     str(item.get("reason")).strip()
                     if isinstance(item.get("reason"), str)
                     else "semantic_backlog"
                 )
+                action_type = requested_action or (
+                    backlog_reason
+                    if backlog_reason in {"merge_docs", "split_doc", "semantic_rewrite"}
+                    else "semantic_rewrite"
+                )
+                if action_type not in {"merge_docs", "split_doc", "semantic_rewrite"}:
+                    action_type = "semantic_rewrite"
                 source_path = (
                     normalize_rel(str(item.get("source_path")).strip())
                     if isinstance(item.get("source_path"), str)
@@ -1001,26 +1059,84 @@ def build_plan(
                     and str(item.get("target_path")).strip()
                     else ""
                 )
+                source_paths = _normalize_rel_list(item.get("source_paths"))
+                split_rules = _normalize_split_rules(item.get("split_rules"))
+                target_paths = _normalize_rel_list(item.get("target_paths"))
+                index_path = _normalize_optional_rel_path(item.get("index_path"))
                 action_path = target_path or source_path or "docs/.legacy-semantic-report.json"
-                dedupe_key = (action_path, source_path, backlog_reason)
-                if dedupe_key in emitted_semantic_rewrite:
+                if action_type == "merge_docs" and target_path:
+                    action_path = target_path
+                elif action_type == "split_doc":
+                    action_path = source_path or action_path
+
+                dedupe_key = (action_type, action_path, source_path, backlog_reason)
+                if dedupe_key in emitted_semantic_actions:
                     continue
-                emitted_semantic_rewrite.add(dedupe_key)
+                emitted_semantic_actions.add(dedupe_key)
                 evidence = [f"semantic backlog reason: {backlog_reason}"]
                 if source_path:
                     evidence.append(f"source_path={source_path}")
                 if target_path:
                     evidence.append(f"target_path={target_path}")
-                add_action(
-                    "semantic_rewrite",
-                    "semantic",
-                    action_path,
-                    "semantic backlog requires rewrite",
-                    evidence,
-                    source_path=source_path,
-                    target_path=target_path,
-                    backlog_reason=backlog_reason,
-                )
+                if source_paths:
+                    evidence.append(f"source_paths={', '.join(source_paths)}")
+                if split_rules:
+                    evidence.append(
+                        "split_rules="
+                        + ", ".join(str(rule.get("target_path")) for rule in split_rules)
+                    )
+                if target_paths:
+                    evidence.append(f"target_paths={', '.join(target_paths)}")
+                if index_path:
+                    evidence.append(f"index_path={index_path}")
+
+                if action_type == "merge_docs":
+                    resolved_source_paths = source_paths or ([source_path] if source_path else [])
+                    add_action(
+                        "merge_docs",
+                        "semantic",
+                        action_path,
+                        "semantic backlog requires document merge",
+                        evidence,
+                        source_paths=resolved_source_paths,
+                        target_path=target_path or action_path,
+                        preserve_source_trace=True,
+                        backlog_reason=backlog_reason,
+                    )
+                elif action_type == "split_doc":
+                    resolved_source_path = source_path or action_path
+                    resolved_target_paths = (
+                        target_paths
+                        or [rule.get("target_path") for rule in split_rules if isinstance(rule, dict)]
+                    )
+                    resolved_target_paths = [
+                        normalize_rel(str(path))
+                        for path in resolved_target_paths
+                        if isinstance(path, str) and str(path).strip()
+                    ]
+                    add_action(
+                        "split_doc",
+                        "semantic",
+                        resolved_source_path,
+                        "semantic backlog requires document split",
+                        evidence,
+                        source_path=resolved_source_path,
+                        split_rules=split_rules,
+                        target_paths=resolved_target_paths,
+                        index_path=index_path or "docs/index.md",
+                        backlog_reason=backlog_reason,
+                    )
+                else:
+                    add_action(
+                        "semantic_rewrite",
+                        "semantic",
+                        action_path,
+                        "semantic backlog requires rewrite",
+                        evidence,
+                        source_path=source_path,
+                        target_path=target_path,
+                        backlog_reason=backlog_reason,
+                    )
             if gate.get("status") != "passed":
                 metrics = quality_report.get("metrics") or {}
                 add_action(

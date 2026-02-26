@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import fnmatch
 import hashlib
 import json
+import os
 import re
 import shutil
 import sys
@@ -792,6 +794,284 @@ def resolve_agents_runtime_payload(
     return {"content": normalized}, []
 
 
+def _normalize_rel_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    paths: list[str] = []
+    seen: set[str] = set()
+    for item in value:
+        if not isinstance(item, str) or not item.strip():
+            continue
+        rel = normalize(item.strip())
+        if not rel or rel in seen:
+            continue
+        seen.add(rel)
+        paths.append(rel)
+    return paths
+
+
+def _write_if_changed(path: Path, content: str, dry_run: bool) -> bool:
+    normalized = content.rstrip() + "\n"
+    if path.exists():
+        current = path.read_text(encoding="utf-8")
+        if current == normalized:
+            return False
+    write_text(path, normalized, dry_run)
+    return True
+
+
+def _build_fallback_merge_content(
+    root: Path,
+    source_paths: list[str],
+    template_profile: str,
+) -> tuple[str | None, list[str]]:
+    if not source_paths:
+        return None, ["missing_source_paths"]
+    missing_sources: list[str] = []
+    lines: list[str] = []
+    title = "# 文档合并结果" if template_profile == "zh-CN" else "# Document Merge Result"
+    summary = (
+        "以下内容由 `merge_docs` fallback 合并，并保留来源追踪。"
+        if template_profile == "zh-CN"
+        else "The following content is merged by `merge_docs` fallback with source traceability."
+    )
+    lines.extend([title, "", summary, ""])
+    for source_rel in source_paths:
+        source_abs = root / source_rel
+        if not source_abs.exists():
+            missing_sources.append(source_rel)
+            continue
+        source_text = source_abs.read_text(encoding="utf-8").strip()
+        heading = (
+            f"## 来源 `{source_rel}`"
+            if template_profile == "zh-CN"
+            else f"## Source `{source_rel}`"
+        )
+        lines.extend(
+            [
+                heading,
+                "",
+                f"<!-- source-path: {source_rel} -->",
+                "",
+                source_text,
+                "",
+            ]
+        )
+    if missing_sources:
+        return None, [f"missing_source:{source}" for source in missing_sources]
+    return "\n".join(lines).rstrip() + "\n", []
+
+
+def resolve_merge_docs_runtime_payload(
+    action: dict[str, Any],
+    runtime_entry: dict[str, Any] | None,
+) -> tuple[dict[str, Any] | None, list[str]]:
+    if not isinstance(runtime_entry, dict):
+        return None, ["runtime_entry_not_found"]
+    failed_checks: list[str] = []
+    if runtime_entry.get("status") != "ok":
+        failed_checks.append("runtime_status_not_ok")
+
+    content_raw = runtime_entry.get("content")
+    content = content_raw.strip() if isinstance(content_raw, str) and content_raw.strip() else ""
+    if not content:
+        failed_checks.append("missing_content")
+
+    runtime_sources = _normalize_rel_list(runtime_entry.get("source_paths"))
+    action_sources = _normalize_rel_list(action.get("source_paths"))
+    merged_sources = runtime_sources or action_sources
+    if not merged_sources:
+        failed_checks.append("missing_source_paths")
+    if action_sources:
+        missing_declared = [p for p in action_sources if p not in set(merged_sources)]
+        if missing_declared:
+            failed_checks.append("missing_declared_sources")
+
+    deduped_failures = _dedupe_failures(failed_checks)
+    if deduped_failures:
+        return None, deduped_failures
+    return {
+        "content": content,
+        "source_paths": merged_sources,
+    }, []
+
+
+def _normalize_split_outputs(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    outputs: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        path = item.get("path")
+        content = item.get("content")
+        if not isinstance(path, str) or not path.strip():
+            continue
+        if not isinstance(content, str) or not content.strip():
+            continue
+        rel = normalize(path.strip())
+        if rel in seen:
+            continue
+        seen.add(rel)
+        normalized: dict[str, Any] = {
+            "path": rel,
+            "content": content.strip(),
+        }
+        source_paths = _normalize_rel_list(item.get("source_paths"))
+        if source_paths:
+            normalized["source_paths"] = source_paths
+        outputs.append(normalized)
+    return outputs
+
+
+def resolve_split_doc_runtime_payload(
+    action: dict[str, Any],
+    runtime_entry: dict[str, Any] | None,
+) -> tuple[dict[str, Any] | None, list[str]]:
+    if not isinstance(runtime_entry, dict):
+        return None, ["runtime_entry_not_found"]
+    failed_checks: list[str] = []
+    if runtime_entry.get("status") != "ok":
+        failed_checks.append("runtime_status_not_ok")
+
+    split_outputs = _normalize_split_outputs(runtime_entry.get("split_outputs"))
+    if not split_outputs:
+        failed_checks.append("missing_split_outputs")
+
+    action_target_paths = _normalize_rel_list(action.get("target_paths"))
+    output_paths = {str(item.get("path")) for item in split_outputs}
+    if action_target_paths:
+        missing_targets = [path for path in action_target_paths if path not in output_paths]
+        if missing_targets:
+            failed_checks.append("missing_declared_split_targets")
+
+    index_links = _normalize_rel_list(runtime_entry.get("index_links"))
+    if not index_links:
+        index_links = [str(item.get("path")) for item in split_outputs if isinstance(item.get("path"), str)]
+
+    deduped_failures = _dedupe_failures(failed_checks)
+    if deduped_failures:
+        return None, deduped_failures
+    return {
+        "split_outputs": split_outputs,
+        "index_links": index_links,
+    }, []
+
+
+def _build_split_doc_fallback_payload(
+    root: Path,
+    action: dict[str, Any],
+    template_profile: str,
+) -> tuple[dict[str, Any] | None, list[str]]:
+    source_rel = normalize(
+        str(action.get("source_path") or action.get("path") or "").strip()
+    )
+    if not source_rel:
+        return None, ["missing_source_path"]
+    source_abs = root / source_rel
+    if not source_abs.exists():
+        return None, [f"missing_source:{source_rel}"]
+    source_content = source_abs.read_text(encoding="utf-8").strip()
+    split_rules = action.get("split_rules")
+    target_paths = _normalize_rel_list(action.get("target_paths"))
+    if isinstance(split_rules, list):
+        for item in split_rules:
+            if not isinstance(item, dict):
+                continue
+            target = item.get("target_path")
+            if isinstance(target, str) and target.strip():
+                target_paths.append(normalize(target.strip()))
+    deduped_targets: list[str] = []
+    seen: set[str] = set()
+    for target in target_paths:
+        if target in seen:
+            continue
+        seen.add(target)
+        deduped_targets.append(target)
+    if not deduped_targets:
+        return None, ["missing_target_paths"]
+
+    outputs: list[dict[str, Any]] = []
+    for target in deduped_targets:
+        title = (
+            f"# 拆分文档：{target}"
+            if template_profile == "zh-CN"
+            else f"# Split Document: {target}"
+        )
+        trace_title = "## 来源追踪" if template_profile == "zh-CN" else "## Source Trace"
+        excerpt_title = "## 来源摘录" if template_profile == "zh-CN" else "## Source Excerpt"
+        excerpt = "\n".join(source_content.splitlines()[:20]).strip()
+        content = "\n".join(
+            [
+                title,
+                "",
+                f"<!-- split-from: {source_rel} -->",
+                "",
+                trace_title,
+                "",
+                f"- source_path: `{source_rel}`",
+                f"- split_target: `{target}`",
+                "",
+                excerpt_title,
+                "",
+                "```markdown",
+                excerpt or ("TODO: source content is empty." if template_profile != "zh-CN" else "TODO: 来源内容为空。"),
+                "```",
+            ]
+        )
+        outputs.append(
+            {
+                "path": target,
+                "content": content,
+                "source_paths": [source_rel],
+            }
+        )
+
+    return {
+        "split_outputs": outputs,
+        "index_links": [item["path"] for item in outputs],
+    }, []
+
+
+def _upsert_index_links(
+    root: Path,
+    index_path: str,
+    target_paths: list[str],
+    dry_run: bool,
+    template_profile: str,
+) -> bool:
+    index_rel = normalize(index_path)
+    index_abs = root / index_rel
+    if not index_abs.exists():
+        base = (
+            "# 文档索引\n\n## 结构化拆分产物\n"
+            if template_profile == "zh-CN"
+            else "# Documentation Index\n\n## Split Artifacts\n"
+        )
+        write_text(index_abs, base + "\n", dry_run)
+    text = index_abs.read_text(encoding="utf-8")
+    lines_to_add: list[str] = []
+    for target_rel in target_paths:
+        rel_link = os.path.relpath(target_rel, start=str(Path(index_rel).parent))
+        rel_link = rel_link.replace("\\", "/")
+        link_line = f"- [{target_rel}](./{rel_link})"
+        if target_rel in text or f"](./{rel_link})" in text:
+            continue
+        lines_to_add.append(link_line)
+    if not lines_to_add:
+        return False
+    section_heading = "## 结构化拆分产物" if template_profile == "zh-CN" else "## Split Artifacts"
+    updated = text.rstrip()
+    if section_heading not in text:
+        updated += "\n\n" + section_heading + "\n\n"
+    else:
+        updated += "\n"
+    updated += "\n".join(lines_to_add) + "\n"
+    write_text(index_abs, updated, dry_run)
+    return True
+
+
 def upsert_module_inventory(path: Path, modules: list[str], dry_run: bool, template_profile: str) -> bool:
     if not modules or not path.exists():
         return False
@@ -927,16 +1207,104 @@ def build_summary_hash(entry_content: str) -> str:
     return hashlib.sha256(entry_content.encode("utf-8")).hexdigest()
 
 
+FALLBACK_REASON_CODES = {
+    "runtime_unavailable",
+    "runtime_entry_not_found",
+    "runtime_gate_failed",
+    "path_denied",
+}
+AGENTS_STRUCTURAL_TRIGGER_TYPES = {
+    "sync_manifest",
+    "add",
+    "archive",
+    "archive_legacy",
+    "migrate_legacy",
+    "semantic_rewrite",
+}
+AGENTS_SEMANTIC_TRIGGER_TYPES = {
+    "update_section",
+    "fill_claim",
+    "semantic_rewrite",
+    "migrate_legacy",
+    "merge_docs",
+    "split_doc",
+}
+AGENTS_SEMANTIC_RUNTIME_HIT_STATUSES = {
+    "candidate_loaded",
+    "section_runtime_applied",
+    "claim_runtime_applied",
+    "semantic_rewrite_applied",
+    "merge_docs_runtime_applied",
+    "split_doc_runtime_applied",
+    "agents_runtime_applied",
+}
+SEMANTIC_OBSERVABILITY_EXEMPT_STATUSES = {
+    "deterministic_mode",
+    "semantic_disabled",
+    "action_disabled",
+    "semantic_not_enabled",
+}
+
+
 def is_agent_strict_mode(semantic_settings: dict[str, Any]) -> bool:
     return str(semantic_settings.get("mode", "")).strip() == "agent_strict"
 
 
-def resolve_runtime_fallback_allowed(semantic_settings: dict[str, Any]) -> bool:
+def resolve_fallback_reason_code(failures: list[str]) -> str | None:
+    if not failures:
+        return None
+    if "path_denied" in failures:
+        return "path_denied"
+    if "runtime_unavailable" in failures:
+        return "runtime_unavailable"
+    if "runtime_entry_not_found" in failures:
+        return "runtime_entry_not_found"
+    return "runtime_gate_failed"
+
+
+def resolve_runtime_fallback_allowed(
+    semantic_settings: dict[str, Any], fallback_reason: str | None
+) -> bool:
     if is_agent_strict_mode(semantic_settings):
         return False
-    if not bool(semantic_settings.get("fail_closed", True)):
+    if not bool(semantic_settings.get("allow_fallback_template", True)):
+        return False
+    return bool(fallback_reason in FALLBACK_REASON_CODES)
+
+
+def has_agents_structural_trigger(results: list[dict[str, Any]]) -> bool:
+    for result in results:
+        if not isinstance(result, dict):
+            continue
+        result_type = str(result.get("type", "")).strip()
+        result_status = str(result.get("status", "")).strip()
+        if result_type == "add" and normalize(str(result.get("path", ""))) == "AGENTS.md":
+            continue
+        if result_status == "applied" and result_type in AGENTS_STRUCTURAL_TRIGGER_TYPES:
+            return True
+    return False
+
+
+def has_agents_semantic_trigger(
+    actions: list[dict[str, Any]], results: list[dict[str, Any]]
+) -> bool:
+    semantic_action_seen = any(
+        isinstance(action, dict)
+        and str(action.get("type", "")).strip() in AGENTS_SEMANTIC_TRIGGER_TYPES
+        for action in actions
+    )
+    if semantic_action_seen:
         return True
-    return bool(semantic_settings.get("allow_fallback_template", True))
+    for result in results:
+        if not isinstance(result, dict):
+            continue
+        semantic_runtime = result.get("semantic_runtime")
+        if not isinstance(semantic_runtime, dict):
+            continue
+        status = str(semantic_runtime.get("status", "")).strip()
+        if status in AGENTS_SEMANTIC_RUNTIME_HIT_STATUSES:
+            return True
+    return False
 
 
 def is_runtime_path_denied(rel_path: str, semantic_settings: dict[str, Any]) -> bool:
@@ -957,6 +1325,104 @@ def runtime_required_for_action(action_type: str, semantic_settings: dict[str, A
         is_agent_strict_mode(semantic_settings)
         and dsr.should_attempt_runtime_semantics(action_type, semantic_settings)
     )
+
+
+def summarize_semantic_observability(
+    results: list[dict[str, Any]],
+    semantic_settings: dict[str, Any],
+) -> dict[str, Any]:
+    summary: dict[str, Any] = {
+        "semantic_action_count": 0,
+        "semantic_attempt_count": 0,
+        "semantic_success_count": 0,
+        "fallback_count": 0,
+        "fallback_reason_breakdown": {},
+        "semantic_exempt_count": 0,
+        "semantic_unattempted_count": 0,
+        "semantic_unattempted_without_exemption": 0,
+        "semantic_hit_rate": 0.0,
+        "semantic_unattempted_samples": [],
+    }
+    if not bool(semantic_settings.get("enabled", False)):
+        return summary
+
+    actions = semantic_settings.get("actions")
+    if not isinstance(actions, dict):
+        return summary
+    enabled_actions = {
+        str(action_type).strip()
+        for action_type, enabled in actions.items()
+        if isinstance(action_type, str) and bool(enabled)
+    }
+    if not enabled_actions:
+        return summary
+
+    fallback_reasons: Counter[str] = Counter()
+    unattempted_samples: list[dict[str, Any]] = []
+    for result in results:
+        if not isinstance(result, dict):
+            continue
+        action_type = str(result.get("type", "")).strip()
+        if action_type not in enabled_actions:
+            continue
+
+        summary["semantic_action_count"] += 1
+        runtime = result.get("semantic_runtime")
+        if not isinstance(runtime, dict):
+            summary["semantic_unattempted_without_exemption"] += 1
+            if len(unattempted_samples) < 20:
+                unattempted_samples.append(
+                    {
+                        "id": result.get("id"),
+                        "type": action_type,
+                        "path": normalize(str(result.get("path", ""))),
+                        "reason": "missing_semantic_runtime_trace",
+                    }
+                )
+            continue
+
+        attempted = bool(runtime.get("attempted"))
+        if attempted:
+            summary["semantic_attempt_count"] += 1
+        status = str(runtime.get("status", "")).strip()
+        consumed = bool(runtime.get("consumed"))
+        if consumed or status in AGENTS_SEMANTIC_RUNTIME_HIT_STATUSES:
+            summary["semantic_success_count"] += 1
+
+        if bool(runtime.get("fallback_used")):
+            summary["fallback_count"] += 1
+            fallback_reason = str(runtime.get("fallback_reason", "")).strip() or "unknown"
+            fallback_reasons[fallback_reason] += 1
+
+        if not attempted:
+            exemption_reason = runtime.get("exemption_reason")
+            if isinstance(exemption_reason, str) and exemption_reason.strip():
+                summary["semantic_exempt_count"] += 1
+            elif status in SEMANTIC_OBSERVABILITY_EXEMPT_STATUSES:
+                summary["semantic_exempt_count"] += 1
+            else:
+                summary["semantic_unattempted_without_exemption"] += 1
+                if len(unattempted_samples) < 20:
+                    unattempted_samples.append(
+                        {
+                            "id": result.get("id"),
+                            "type": action_type,
+                            "path": normalize(str(result.get("path", ""))),
+                            "reason": "attempt_missing_without_exemption",
+                            "status": status or "unknown",
+                        }
+                    )
+
+    action_count = int(summary["semantic_action_count"])
+    attempt_count = int(summary["semantic_attempt_count"])
+    success_count = int(summary["semantic_success_count"])
+    summary["fallback_reason_breakdown"] = dict(sorted(fallback_reasons.items()))
+    summary["semantic_unattempted_count"] = max(action_count - attempt_count, 0)
+    summary["semantic_hit_rate"] = (
+        round(success_count / attempt_count, 4) if attempt_count > 0 else 0.0
+    )
+    summary["semantic_unattempted_samples"] = unattempted_samples
+    return summary
 
 
 def apply_action(
@@ -1001,17 +1467,25 @@ def apply_action(
     runtime_state = (
         semantic_runtime_state if isinstance(semantic_runtime_state, dict) else {}
     )
-    fallback_allowed = resolve_runtime_fallback_allowed(semantic_cfg)
 
     def attach_runtime_candidate() -> tuple[dict[str, Any] | None, list[str]]:
         failures: list[str] = []
         if not isinstance(action_type, str):
             return None, failures
         if not dsr.should_attempt_runtime_semantics(action_type, semantic_cfg):
+            if dsr.runtime_semantic_attempt_required(action_type, semantic_cfg):
+                result["semantic_runtime"] = {
+                    "status": "semantic_attempt_missing",
+                    "attempted": False,
+                    "required": True,
+                    "mode": semantic_cfg.get("mode"),
+                    "source": semantic_cfg.get("source"),
+                }
             return None, failures
         if is_runtime_path_denied(rel_path, semantic_cfg):
             result["semantic_runtime"] = {
                 "status": "path_denied",
+                "attempted": True,
                 "mode": semantic_cfg.get("mode"),
                 "source": semantic_cfg.get("source"),
             }
@@ -1022,6 +1496,7 @@ def apply_action(
                 "status": "candidate_loaded",
                 "entry_id": candidate.get("entry_id"),
                 "candidate_status": candidate.get("status"),
+                "attempted": True,
                 "mode": semantic_cfg.get("mode"),
                 "source": semantic_cfg.get("source"),
             }
@@ -1030,11 +1505,12 @@ def apply_action(
         state_status = (
             "runtime_unavailable"
             if not runtime_state.get("available", False)
-            else "entry_not_found"
+            else "runtime_entry_not_found"
         )
         state_error = runtime_state.get("error")
         semantic_state: dict[str, Any] = {
             "status": state_status,
+            "attempted": True,
             "mode": semantic_cfg.get("mode"),
             "source": semantic_cfg.get("source"),
         }
@@ -1043,7 +1519,7 @@ def apply_action(
         result["semantic_runtime"] = semantic_state
         if state_status == "runtime_unavailable":
             failures.append("runtime_unavailable")
-        elif state_status == "entry_not_found":
+        elif state_status == "runtime_entry_not_found":
             failures.append("runtime_entry_not_found")
         return None, failures
 
@@ -1185,6 +1661,10 @@ def apply_action(
                     semantic_runtime["required"] = True
                 return result
 
+            fallback_reason = resolve_fallback_reason_code(runtime_gate_failures)
+            fallback_allowed = resolve_runtime_fallback_allowed(
+                semantic_cfg, fallback_reason
+            )
             if runtime_gate_failures and not fallback_allowed:
                 result["status"] = "skipped"
                 result["details"] = (
@@ -1195,6 +1675,7 @@ def apply_action(
                     semantic_runtime["status"] = "fallback_blocked"
                     semantic_runtime["required"] = False
                     semantic_runtime["fallback_allowed"] = False
+                    semantic_runtime["fallback_reason"] = fallback_reason
                     semantic_runtime["gate"] = {
                         "status": "failed",
                         "failed_checks": runtime_gate_failures,
@@ -1215,6 +1696,10 @@ def apply_action(
                     rel_path, str(section_id), template_profile
                 )
                 if runtime_gate_failures:
+                    semantic_runtime = result.get("semantic_runtime")
+                    if isinstance(semantic_runtime, dict):
+                        semantic_runtime["fallback_used"] = True
+                        semantic_runtime["fallback_reason"] = fallback_reason
                     result["details"] = (
                         f"runtime gate failed; fallback section scaffold upserted: {heading}"
                     )
@@ -1222,6 +1707,10 @@ def apply_action(
                     result["details"] = f"section upserted: {heading}"
             else:
                 if runtime_gate_failures:
+                    semantic_runtime = result.get("semantic_runtime")
+                    if isinstance(semantic_runtime, dict):
+                        semantic_runtime["fallback_used"] = True
+                        semantic_runtime["fallback_reason"] = fallback_reason
                     result["details"] = (
                         "runtime gate failed; section already present or unsupported section_id"
                     )
@@ -1305,6 +1794,10 @@ def apply_action(
                     semantic_runtime["required"] = True
                 return result
 
+            fallback_reason = resolve_fallback_reason_code(runtime_gate_failures)
+            fallback_allowed = resolve_runtime_fallback_allowed(
+                semantic_cfg, fallback_reason
+            )
             if runtime_gate_failures and not fallback_allowed:
                 result["status"] = "skipped"
                 result["details"] = (
@@ -1315,6 +1808,7 @@ def apply_action(
                     semantic_runtime["status"] = "fallback_blocked"
                     semantic_runtime["required"] = False
                     semantic_runtime["fallback_allowed"] = False
+                    semantic_runtime["fallback_reason"] = fallback_reason
                     semantic_runtime["gate"] = {
                         "status": "failed",
                         "failed_checks": runtime_gate_failures,
@@ -1333,6 +1827,10 @@ def apply_action(
             if changed:
                 result["status"] = "applied"
                 if runtime_gate_failures:
+                    semantic_runtime = result.get("semantic_runtime")
+                    if isinstance(semantic_runtime, dict):
+                        semantic_runtime["fallback_used"] = True
+                        semantic_runtime["fallback_reason"] = fallback_reason
                     result["details"] = (
                         f"runtime gate failed; fallback claim TODO appended: {claim_id_str}"
                     )
@@ -1340,6 +1838,10 @@ def apply_action(
                     result["details"] = f"claim TODO appended: {claim_id_str}"
             else:
                 if runtime_gate_failures:
+                    semantic_runtime = result.get("semantic_runtime")
+                    if isinstance(semantic_runtime, dict):
+                        semantic_runtime["fallback_used"] = True
+                        semantic_runtime["fallback_reason"] = fallback_reason
                     result["details"] = (
                         "runtime gate failed; claim TODO already exists or invalid claim metadata"
                     )
@@ -1455,6 +1957,10 @@ def apply_action(
                     semantic_runtime["required"] = True
                 return result
 
+            fallback_reason = resolve_fallback_reason_code(runtime_gate_failures)
+            fallback_allowed = resolve_runtime_fallback_allowed(
+                semantic_cfg, fallback_reason
+            )
             if runtime_gate_failures and not fallback_allowed:
                 result["status"] = "skipped"
                 result["details"] = (
@@ -1465,6 +1971,7 @@ def apply_action(
                     semantic_runtime["status"] = "fallback_blocked"
                     semantic_runtime["required"] = False
                     semantic_runtime["fallback_allowed"] = False
+                    semantic_runtime["fallback_reason"] = fallback_reason
                     semantic_runtime["gate"] = {
                         "status": "failed",
                         "failed_checks": runtime_gate_failures,
@@ -1479,9 +1986,259 @@ def apply_action(
             if source_rel:
                 details += f", source={source_rel}"
             if runtime_gate_failures:
+                semantic_runtime = result.get("semantic_runtime")
+                if isinstance(semantic_runtime, dict):
+                    semantic_runtime["fallback_used"] = True
+                    semantic_runtime["fallback_reason"] = fallback_reason
                 details += ", runtime gate failed"
             result["status"] = "applied"
             result["details"] = details
+            return result
+
+        if action_type == "merge_docs":
+            runtime_candidate, runtime_candidate_failures = attach_runtime_candidate()
+            runtime_payload = None
+            runtime_gate_failures: list[str] = list(runtime_candidate_failures)
+            if isinstance(runtime_candidate, dict):
+                runtime_payload, runtime_gate_failures = resolve_merge_docs_runtime_payload(
+                    action, runtime_candidate
+                )
+                runtime_gate_failures = list(runtime_candidate_failures) + runtime_gate_failures
+                semantic_runtime = result.get("semantic_runtime")
+                if isinstance(semantic_runtime, dict):
+                    semantic_runtime["gate"] = {
+                        "status": "passed" if runtime_payload else "failed",
+                        "failed_checks": runtime_gate_failures,
+                    }
+                    semantic_runtime["consumed"] = bool(runtime_payload)
+                    if not runtime_payload:
+                        semantic_runtime["status"] = "merge_docs_runtime_gate_failed"
+
+            if isinstance(runtime_payload, dict):
+                runtime_content = runtime_payload.get("content")
+                changed = _write_if_changed(
+                    abs_path,
+                    str(runtime_content) if isinstance(runtime_content, str) else "",
+                    dry_run,
+                )
+                semantic_runtime = result.get("semantic_runtime")
+                if isinstance(semantic_runtime, dict):
+                    semantic_runtime["status"] = (
+                        "merge_docs_runtime_applied"
+                        if changed
+                        else "merge_docs_runtime_no_change"
+                    )
+                if changed:
+                    result["status"] = "applied"
+                    result["details"] = "merge docs content upserted from runtime semantic candidate"
+                else:
+                    result["details"] = "merge docs content already up-to-date"
+                result["merged_sources"] = runtime_payload.get("source_paths") or []
+                return result
+
+            if runtime_required_for_action("merge_docs", semantic_cfg):
+                result["status"] = "error"
+                result["details"] = (
+                    "agent_strict requires runtime semantic candidate with passing gate for merge_docs"
+                )
+                semantic_runtime = result.get("semantic_runtime")
+                if isinstance(semantic_runtime, dict):
+                    semantic_runtime["status"] = "runtime_required"
+                    semantic_runtime["required"] = True
+                return result
+
+            fallback_reason = resolve_fallback_reason_code(runtime_gate_failures)
+            fallback_allowed = resolve_runtime_fallback_allowed(
+                semantic_cfg, fallback_reason
+            )
+            if runtime_gate_failures and not fallback_allowed:
+                result["status"] = "skipped"
+                result["details"] = (
+                    "runtime semantics unavailable or gate failed, and fallback blocked by semantic policy"
+                )
+                semantic_runtime = result.get("semantic_runtime")
+                if isinstance(semantic_runtime, dict):
+                    semantic_runtime["status"] = "fallback_blocked"
+                    semantic_runtime["required"] = False
+                    semantic_runtime["fallback_allowed"] = False
+                    semantic_runtime["fallback_reason"] = fallback_reason
+                    semantic_runtime["gate"] = {
+                        "status": "failed",
+                        "failed_checks": runtime_gate_failures,
+                    }
+                return result
+
+            source_paths = _normalize_rel_list(action.get("source_paths"))
+            fallback_content, fallback_errors = _build_fallback_merge_content(
+                root,
+                source_paths,
+                template_profile,
+            )
+            if fallback_errors or not isinstance(fallback_content, str):
+                result["status"] = "skipped"
+                result["details"] = (
+                    "merge docs fallback skipped: "
+                    + ", ".join(fallback_errors or ["unknown_fallback_error"])
+                )
+                return result
+            changed = _write_if_changed(abs_path, fallback_content, dry_run)
+            if changed:
+                result["status"] = "applied"
+                result["details"] = "merge docs generated by deterministic fallback"
+            else:
+                result["details"] = "merge docs fallback content already up-to-date"
+            result["merged_sources"] = source_paths
+            semantic_runtime = result.get("semantic_runtime")
+            if isinstance(semantic_runtime, dict) and runtime_gate_failures:
+                semantic_runtime["fallback_used"] = True
+                semantic_runtime["fallback_reason"] = fallback_reason
+            return result
+
+        if action_type == "split_doc":
+            runtime_candidate, runtime_candidate_failures = attach_runtime_candidate()
+            runtime_payload = None
+            runtime_gate_failures: list[str] = list(runtime_candidate_failures)
+            if isinstance(runtime_candidate, dict):
+                runtime_payload, runtime_gate_failures = resolve_split_doc_runtime_payload(
+                    action, runtime_candidate
+                )
+                runtime_gate_failures = list(runtime_candidate_failures) + runtime_gate_failures
+                semantic_runtime = result.get("semantic_runtime")
+                if isinstance(semantic_runtime, dict):
+                    semantic_runtime["gate"] = {
+                        "status": "passed" if runtime_payload else "failed",
+                        "failed_checks": runtime_gate_failures,
+                    }
+                    semantic_runtime["consumed"] = bool(runtime_payload)
+                    if not runtime_payload:
+                        semantic_runtime["status"] = "split_doc_runtime_gate_failed"
+
+            if isinstance(runtime_payload, dict):
+                split_outputs = runtime_payload.get("split_outputs") or []
+                changed_count = 0
+                created_targets: list[str] = []
+                for output in split_outputs:
+                    if not isinstance(output, dict):
+                        continue
+                    target_path = output.get("path")
+                    content = output.get("content")
+                    if not isinstance(target_path, str) or not target_path.strip():
+                        continue
+                    if not isinstance(content, str) or not content.strip():
+                        continue
+                    target_rel = normalize(target_path.strip())
+                    target_abs = root / target_rel
+                    if _write_if_changed(target_abs, content, dry_run):
+                        changed_count += 1
+                    created_targets.append(target_rel)
+                index_path = normalize(
+                    str(action.get("index_path") or "docs/index.md").strip()
+                )
+                index_changed = _upsert_index_links(
+                    root,
+                    index_path,
+                    _normalize_rel_list(runtime_payload.get("index_links")),
+                    dry_run,
+                    template_profile,
+                )
+                semantic_runtime = result.get("semantic_runtime")
+                if isinstance(semantic_runtime, dict):
+                    semantic_runtime["status"] = (
+                        "split_doc_runtime_applied"
+                        if changed_count > 0 or index_changed
+                        else "split_doc_runtime_no_change"
+                    )
+                if changed_count > 0 or index_changed:
+                    result["status"] = "applied"
+                    result["details"] = (
+                        f"split doc applied from runtime: files_changed={changed_count}, "
+                        f"index_changed={str(index_changed).lower()}"
+                    )
+                else:
+                    result["details"] = "split doc runtime outputs already up-to-date"
+                result["split_targets"] = created_targets
+                return result
+
+            if runtime_required_for_action("split_doc", semantic_cfg):
+                result["status"] = "error"
+                result["details"] = (
+                    "agent_strict requires runtime semantic candidate with passing gate for split_doc"
+                )
+                semantic_runtime = result.get("semantic_runtime")
+                if isinstance(semantic_runtime, dict):
+                    semantic_runtime["status"] = "runtime_required"
+                    semantic_runtime["required"] = True
+                return result
+
+            fallback_reason = resolve_fallback_reason_code(runtime_gate_failures)
+            fallback_allowed = resolve_runtime_fallback_allowed(
+                semantic_cfg, fallback_reason
+            )
+            if runtime_gate_failures and not fallback_allowed:
+                result["status"] = "skipped"
+                result["details"] = (
+                    "runtime semantics unavailable or gate failed, and fallback blocked by semantic policy"
+                )
+                semantic_runtime = result.get("semantic_runtime")
+                if isinstance(semantic_runtime, dict):
+                    semantic_runtime["status"] = "fallback_blocked"
+                    semantic_runtime["required"] = False
+                    semantic_runtime["fallback_allowed"] = False
+                    semantic_runtime["fallback_reason"] = fallback_reason
+                    semantic_runtime["gate"] = {
+                        "status": "failed",
+                        "failed_checks": runtime_gate_failures,
+                    }
+                return result
+
+            fallback_payload, fallback_errors = _build_split_doc_fallback_payload(
+                root,
+                action,
+                template_profile,
+            )
+            if fallback_errors or not isinstance(fallback_payload, dict):
+                result["status"] = "skipped"
+                result["details"] = (
+                    "split doc fallback skipped: "
+                    + ", ".join(fallback_errors or ["unknown_fallback_error"])
+                )
+                return result
+            changed_count = 0
+            created_targets: list[str] = []
+            for output in fallback_payload.get("split_outputs") or []:
+                if not isinstance(output, dict):
+                    continue
+                target_path = output.get("path")
+                content = output.get("content")
+                if not isinstance(target_path, str) or not target_path.strip():
+                    continue
+                if not isinstance(content, str) or not content.strip():
+                    continue
+                target_rel = normalize(target_path.strip())
+                if _write_if_changed(root / target_rel, content, dry_run):
+                    changed_count += 1
+                created_targets.append(target_rel)
+            index_path = normalize(str(action.get("index_path") or "docs/index.md").strip())
+            index_changed = _upsert_index_links(
+                root,
+                index_path,
+                _normalize_rel_list(fallback_payload.get("index_links")),
+                dry_run,
+                template_profile,
+            )
+            if changed_count > 0 or index_changed:
+                result["status"] = "applied"
+                result["details"] = (
+                    f"split doc generated by deterministic fallback: files_changed={changed_count}, "
+                    f"index_changed={str(index_changed).lower()}"
+                )
+            else:
+                result["details"] = "split doc fallback outputs already up-to-date"
+            result["split_targets"] = created_targets
+            semantic_runtime = result.get("semantic_runtime")
+            if isinstance(semantic_runtime, dict) and runtime_gate_failures:
+                semantic_runtime["fallback_used"] = True
+                semantic_runtime["fallback_reason"] = fallback_reason
             return result
 
         if action_type == "migrate_legacy":
@@ -1668,6 +2425,13 @@ def render_markdown_report(report: dict[str, Any]) -> str:
         f"- Applied: {report['summary']['applied']}",
         f"- Skipped: {report['summary']['skipped']}",
         f"- Errors: {report['summary']['errors']}",
+        f"- Semantic actions: {report['summary'].get('semantic_action_count', 0)}",
+        f"- Semantic attempts: {report['summary'].get('semantic_attempt_count', 0)}",
+        f"- Semantic successes: {report['summary'].get('semantic_success_count', 0)}",
+        f"- Semantic hit rate: {report['summary'].get('semantic_hit_rate', 0.0)}",
+        f"- Fallback count: {report['summary'].get('fallback_count', 0)}",
+        "- Fallback reason breakdown: "
+        f"{json.dumps(report['summary'].get('fallback_reason_breakdown', {}), ensure_ascii=False)}",
         "",
         "## Action Results",
         "",
@@ -1776,6 +2540,7 @@ def main() -> int:
 
     plan_meta = plan.get("meta") if isinstance(plan.get("meta"), dict) else {}
     agents_settings = doc_agents.resolve_agents_settings(effective_policy)
+    agents_mode = str(agents_settings.get("mode", "dynamic")).strip().lower() or "dynamic"
     manifest_changed = bool(plan_meta.get("manifest_changed", False))
     sync_manifest_applied = any(
         r.get("type") == "sync_manifest" and r.get("status") == "applied"
@@ -1788,12 +2553,19 @@ def main() -> int:
         for r in results
     )
     agents_missing = not (root / "AGENTS.md").exists()
+    structural_triggered = has_agents_structural_trigger(results)
+    semantic_triggered = has_agents_semantic_trigger(actions, results)
     should_generate_agents = (
         agents_settings.get("enabled", False)
         and (
             args.mode == "bootstrap"
             or agents_add_applied
             or agents_missing
+            or structural_triggered
+            or (
+                agents_settings.get("regenerate_on_semantic_actions", True)
+                and semantic_triggered
+            )
             or (
                 agents_settings.get("sync_on_manifest_change", True)
                 and (manifest_changed or sync_manifest_applied)
@@ -1805,18 +2577,27 @@ def main() -> int:
     agents_runtime_result: dict[str, Any] | None = None
     agents_runtime_payload: dict[str, Any] | None = None
     agents_runtime_gate_failures: list[str] = []
-    agents_runtime_enabled = dsr.should_attempt_runtime_semantics(
-        "agents_generate", semantic_settings
+    agents_runtime_enabled = bool(
+        agents_mode != "deterministic"
+        and dsr.should_attempt_runtime_semantics("agents_generate", semantic_settings)
     )
-    agents_runtime_required = runtime_required_for_action(
-        "agents_generate", semantic_settings
+    agents_runtime_required = bool(
+        agents_runtime_enabled
+        and runtime_required_for_action("agents_generate", semantic_settings)
     )
-    agents_fallback_allowed = resolve_runtime_fallback_allowed(semantic_settings)
+    if agents_mode == "deterministic":
+        agents_runtime_result = {
+            "status": "deterministic_mode",
+            "attempted": False,
+            "mode": semantic_settings.get("mode"),
+            "source": semantic_settings.get("source"),
+        }
     if agents_runtime_enabled:
         if is_runtime_path_denied("AGENTS.md", semantic_settings):
             agents_runtime_gate_failures = ["path_denied"]
             agents_runtime_result = {
                 "status": "path_denied",
+                "attempted": True,
                 "mode": semantic_settings.get("mode"),
                 "source": semantic_settings.get("source"),
             }
@@ -1831,6 +2612,7 @@ def main() -> int:
                     "status": "candidate_loaded",
                     "entry_id": agents_runtime_candidate.get("entry_id"),
                     "candidate_status": agents_runtime_candidate.get("status"),
+                    "attempted": True,
                     "mode": semantic_settings.get("mode"),
                     "source": semantic_settings.get("source"),
                 }
@@ -1846,7 +2628,7 @@ def main() -> int:
                 state_status = (
                     "runtime_unavailable"
                     if not semantic_runtime_state.get("available", False)
-                    else "entry_not_found"
+                    else "runtime_entry_not_found"
                 )
                 agents_runtime_gate_failures = (
                     ["runtime_unavailable"]
@@ -1855,12 +2637,17 @@ def main() -> int:
                 )
                 agents_runtime_result = {
                     "status": state_status,
+                    "attempted": True,
                     "mode": semantic_settings.get("mode"),
                     "source": semantic_settings.get("source"),
                 }
                 state_error = semantic_runtime_state.get("error")
                 if isinstance(state_error, str) and state_error.strip():
                     agents_runtime_result["error"] = state_error.strip()
+    agents_fallback_reason = resolve_fallback_reason_code(agents_runtime_gate_failures)
+    agents_fallback_allowed = resolve_runtime_fallback_allowed(
+        semantic_settings, agents_fallback_reason
+    )
 
     agents_generation_report: dict[str, Any] | None = None
     if should_generate_agents:
@@ -1897,6 +2684,7 @@ def main() -> int:
                 agents_runtime_result["status"] = "fallback_blocked"
                 agents_runtime_result["required"] = False
                 agents_runtime_result["fallback_allowed"] = False
+                agents_runtime_result["fallback_reason"] = agents_fallback_reason
                 skipped_result["semantic_runtime"] = dict(agents_runtime_result)
             results.append(skipped_result)
         else:
@@ -1919,7 +2707,9 @@ def main() -> int:
                 )
                 if agents_generation_report.get("status") == "generated":
                     details = "AGENTS generated from policy/manifest/index/facts"
-                    if isinstance(agents_runtime_payload, dict):
+                    if agents_mode == "deterministic":
+                        details = "AGENTS generated from deterministic mode"
+                    elif isinstance(agents_runtime_payload, dict):
                         write_text(
                             root / "AGENTS.md",
                             str(agents_runtime_payload.get("content", "")),
@@ -1930,7 +2720,8 @@ def main() -> int:
                             agents_runtime_result["status"] = "agents_runtime_applied"
                     elif agents_runtime_enabled and agents_runtime_gate_failures:
                         details = (
-                            "AGENTS generated via deterministic fallback (runtime gate failed)"
+                            "AGENTS generated via deterministic fallback "
+                            f"(reason={agents_fallback_reason})"
                         )
                         if isinstance(agents_runtime_result, dict):
                             agents_runtime_result["status"] = "agents_runtime_gate_failed"
@@ -1968,6 +2759,26 @@ def main() -> int:
         "skipped": sum(1 for r in results if r["status"] == "skipped"),
         "errors": sum(1 for r in results if r["status"] == "error"),
     }
+    semantic_observability = summarize_semantic_observability(results, semantic_settings)
+    summary.update(
+        {
+            "semantic_action_count": semantic_observability["semantic_action_count"],
+            "semantic_attempt_count": semantic_observability["semantic_attempt_count"],
+            "semantic_success_count": semantic_observability["semantic_success_count"],
+            "fallback_count": semantic_observability["fallback_count"],
+            "fallback_reason_breakdown": semantic_observability[
+                "fallback_reason_breakdown"
+            ],
+            "semantic_hit_rate": semantic_observability["semantic_hit_rate"],
+            "semantic_unattempted_count": semantic_observability[
+                "semantic_unattempted_count"
+            ],
+            "semantic_exempt_count": semantic_observability["semantic_exempt_count"],
+            "semantic_unattempted_without_exemption": semantic_observability[
+                "semantic_unattempted_without_exemption"
+            ],
+        }
+    )
 
     report = {
         "generated_at": utc_now(),
@@ -1987,6 +2798,7 @@ def main() -> int:
             "settings": semantic_settings,
             "runtime": semantic_runtime_state,
         },
+        "semantic_observability": semantic_observability,
         "agents_generation": agents_generation_report
         or {
             "status": "skipped",

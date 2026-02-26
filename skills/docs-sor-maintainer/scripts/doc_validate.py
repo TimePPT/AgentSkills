@@ -18,6 +18,7 @@ import doc_agents_validate  # noqa: E402
 import doc_legacy as dl  # noqa: E402
 import doc_plan  # noqa: E402
 import doc_quality  # noqa: E402
+import doc_semantic_runtime as dsr  # noqa: E402
 import doc_spec  # noqa: E402
 import doc_topology as dt  # noqa: E402
 
@@ -657,6 +658,366 @@ def resolve_agents_gate_settings(policy: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+SEMANTIC_OBSERVABILITY_EXEMPT_STATUSES = {
+    "deterministic_mode",
+    "semantic_disabled",
+    "action_disabled",
+    "semantic_not_enabled",
+}
+DEFAULT_SEMANTIC_OBSERVABILITY_SETTINGS = {
+    "enabled": True,
+    "large_unattempted_ratio": 0.5,
+    "large_unattempted_count": 3,
+    "fail_on_large_unattempted": True,
+}
+
+
+def _safe_int(value: Any, default: int = 0) -> int:
+    if isinstance(value, bool):
+        return default
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        return default
+
+
+def _safe_float(value: Any, default: float = 0.0) -> float:
+    if isinstance(value, bool):
+        return default
+    if isinstance(value, (int, float)):
+        return float(value)
+    try:
+        return float(str(value).strip())
+    except (TypeError, ValueError):
+        return default
+
+
+def resolve_semantic_observability_settings(policy: dict[str, Any]) -> dict[str, Any]:
+    settings = dict(DEFAULT_SEMANTIC_OBSERVABILITY_SETTINGS)
+    if not isinstance(policy, dict):
+        return settings
+    semantic_raw = policy.get("semantic_generation")
+    if not isinstance(semantic_raw, dict):
+        return settings
+    observability_raw = semantic_raw.get("observability")
+    if not isinstance(observability_raw, dict):
+        return settings
+
+    settings["enabled"] = bool(observability_raw.get("enabled", settings["enabled"]))
+    ratio = _safe_float(
+        observability_raw.get(
+            "large_unattempted_ratio",
+            settings["large_unattempted_ratio"],
+        ),
+        settings["large_unattempted_ratio"],
+    )
+    settings["large_unattempted_ratio"] = min(max(ratio, 0.0), 1.0)
+    count = _safe_int(
+        observability_raw.get(
+            "large_unattempted_count",
+            settings["large_unattempted_count"],
+        ),
+        settings["large_unattempted_count"],
+    )
+    settings["large_unattempted_count"] = max(count, 0)
+    settings["fail_on_large_unattempted"] = bool(
+        observability_raw.get(
+            "fail_on_large_unattempted",
+            settings["fail_on_large_unattempted"],
+        )
+    )
+    return settings
+
+
+def _normalize_reason_breakdown(value: Any) -> dict[str, int]:
+    if not isinstance(value, dict):
+        return {}
+    normalized: dict[str, int] = {}
+    for key, raw_value in value.items():
+        reason = str(key).strip()
+        if not reason:
+            continue
+        normalized[reason] = max(_safe_int(raw_value, 0), 0)
+    return dict(sorted(normalized.items()))
+
+
+def _derive_semantic_observability_from_results(
+    apply_report: dict[str, Any],
+    semantic_settings: dict[str, Any],
+) -> dict[str, Any]:
+    actions = semantic_settings.get("actions")
+    enabled_actions = (
+        {
+            str(action_type).strip()
+            for action_type, enabled in actions.items()
+            if isinstance(action_type, str) and bool(enabled)
+        }
+        if isinstance(actions, dict)
+        else set()
+    )
+    metrics = {
+        "semantic_action_count": 0,
+        "semantic_attempt_count": 0,
+        "semantic_success_count": 0,
+        "fallback_count": 0,
+        "fallback_reason_breakdown": {},
+        "semantic_exempt_count": 0,
+        "semantic_unattempted_count": 0,
+        "semantic_unattempted_without_exemption": 0,
+        "semantic_hit_rate": 0.0,
+        "semantic_unattempted_samples": [],
+    }
+    if not enabled_actions:
+        return metrics
+
+    fallback_reason_breakdown: dict[str, int] = {}
+    results = apply_report.get("results")
+    if not isinstance(results, list):
+        return metrics
+    for item in results:
+        if not isinstance(item, dict):
+            continue
+        action_type = str(item.get("type", "")).strip()
+        if action_type not in enabled_actions:
+            continue
+        metrics["semantic_action_count"] += 1
+        semantic_runtime = item.get("semantic_runtime")
+        if not isinstance(semantic_runtime, dict):
+            metrics["semantic_unattempted_without_exemption"] += 1
+            if len(metrics["semantic_unattempted_samples"]) < 20:
+                metrics["semantic_unattempted_samples"].append(
+                    {
+                        "id": item.get("id"),
+                        "type": action_type,
+                        "path": normalize(str(item.get("path", ""))),
+                        "reason": "missing_semantic_runtime_trace",
+                    }
+                )
+            continue
+
+        attempted = bool(semantic_runtime.get("attempted"))
+        if attempted:
+            metrics["semantic_attempt_count"] += 1
+        if bool(semantic_runtime.get("consumed")):
+            metrics["semantic_success_count"] += 1
+        if bool(semantic_runtime.get("fallback_used")):
+            metrics["fallback_count"] += 1
+            fallback_reason = (
+                str(semantic_runtime.get("fallback_reason", "")).strip() or "unknown"
+            )
+            fallback_reason_breakdown[fallback_reason] = (
+                fallback_reason_breakdown.get(fallback_reason, 0) + 1
+            )
+        if not attempted:
+            exemption_reason = semantic_runtime.get("exemption_reason")
+            status = str(semantic_runtime.get("status", "")).strip()
+            if (
+                isinstance(exemption_reason, str)
+                and exemption_reason.strip()
+                or status in SEMANTIC_OBSERVABILITY_EXEMPT_STATUSES
+            ):
+                metrics["semantic_exempt_count"] += 1
+            else:
+                metrics["semantic_unattempted_without_exemption"] += 1
+                if len(metrics["semantic_unattempted_samples"]) < 20:
+                    metrics["semantic_unattempted_samples"].append(
+                        {
+                            "id": item.get("id"),
+                            "type": action_type,
+                            "path": normalize(str(item.get("path", ""))),
+                            "reason": "attempt_missing_without_exemption",
+                            "status": status or "unknown",
+                        }
+                    )
+
+    action_count = metrics["semantic_action_count"]
+    attempt_count = metrics["semantic_attempt_count"]
+    metrics["fallback_reason_breakdown"] = dict(sorted(fallback_reason_breakdown.items()))
+    metrics["semantic_unattempted_count"] = max(action_count - attempt_count, 0)
+    metrics["semantic_hit_rate"] = (
+        round(metrics["semantic_success_count"] / attempt_count, 4)
+        if attempt_count > 0
+        else 0.0
+    )
+    return metrics
+
+
+def check_semantic_observability(
+    root: Path,
+    policy: dict[str, Any],
+    apply_report_path: Path,
+) -> tuple[list[str], list[str], dict[str, Any]]:
+    errors: list[str] = []
+    warnings: list[str] = []
+    semantic_settings = dsr.resolve_semantic_generation_settings(policy)
+    observability_settings = resolve_semantic_observability_settings(policy)
+    semantic_first_required = bool(
+        semantic_settings.get("enabled", False)
+        and semantic_settings.get("mode") != "deterministic"
+        and semantic_settings.get("prefer_agent_semantic_first", True)
+        and semantic_settings.get("require_semantic_attempt", True)
+    )
+
+    try:
+        apply_report_rel = normalize(str(apply_report_path.relative_to(root)))
+    except ValueError:
+        apply_report_rel = normalize(str(apply_report_path))
+
+    report: dict[str, Any] = {
+        "enabled": bool(observability_settings.get("enabled", True)),
+        "semantic_first_required": semantic_first_required,
+        "settings": observability_settings,
+        "apply_report_path": apply_report_rel,
+        "apply_report_exists": apply_report_path.exists(),
+        "gate": {"status": "skipped", "failed_checks": []},
+        "metrics": {
+            "semantic_action_count": 0,
+            "semantic_attempt_count": 0,
+            "semantic_success_count": 0,
+            "fallback_count": 0,
+            "fallback_reason_breakdown": {},
+            "semantic_exempt_count": 0,
+            "semantic_unattempted_count": 0,
+            "semantic_unattempted_without_exemption": 0,
+            "semantic_hit_rate": 0.0,
+        },
+        "samples": [],
+    }
+
+    if not observability_settings.get("enabled", True):
+        report["gate"]["status"] = "skipped"
+        return errors, warnings, report
+    if not semantic_first_required:
+        report["gate"]["status"] = "not_required"
+        return errors, warnings, report
+    if not apply_report_path.exists():
+        warnings.append(
+            "semantic gate warning: apply report missing; cannot evaluate semantic attempt coverage"
+        )
+        report["gate"]["status"] = "warn"
+        return errors, warnings, report
+
+    apply_report = load_json(apply_report_path)
+    summary = apply_report.get("summary") if isinstance(apply_report, dict) else {}
+    metrics_from_summary = {
+        "semantic_action_count": _safe_int(
+            (summary or {}).get("semantic_action_count", -1), -1
+        ),
+        "semantic_attempt_count": _safe_int(
+            (summary or {}).get("semantic_attempt_count", -1), -1
+        ),
+        "semantic_success_count": _safe_int(
+            (summary or {}).get("semantic_success_count", -1), -1
+        ),
+        "fallback_count": _safe_int((summary or {}).get("fallback_count", -1), -1),
+        "semantic_exempt_count": _safe_int(
+            (summary or {}).get("semantic_exempt_count", -1), -1
+        ),
+        "semantic_unattempted_count": _safe_int(
+            (summary or {}).get("semantic_unattempted_count", -1), -1
+        ),
+        "semantic_unattempted_without_exemption": _safe_int(
+            (summary or {}).get("semantic_unattempted_without_exemption", -1), -1
+        ),
+        "semantic_hit_rate": _safe_float(
+            (summary or {}).get("semantic_hit_rate", -1.0), -1.0
+        ),
+        "fallback_reason_breakdown": _normalize_reason_breakdown(
+            (summary or {}).get("fallback_reason_breakdown")
+        ),
+    }
+    summary_complete = all(
+        metrics_from_summary[key] >= 0
+        for key in (
+            "semantic_action_count",
+            "semantic_attempt_count",
+            "semantic_success_count",
+            "fallback_count",
+            "semantic_exempt_count",
+            "semantic_unattempted_count",
+            "semantic_unattempted_without_exemption",
+        )
+    )
+    if summary_complete and metrics_from_summary["semantic_hit_rate"] >= 0:
+        metrics = dict(metrics_from_summary)
+    else:
+        metrics = _derive_semantic_observability_from_results(apply_report, semantic_settings)
+
+    report["metrics"] = {
+        "semantic_action_count": max(_safe_int(metrics.get("semantic_action_count", 0), 0), 0),
+        "semantic_attempt_count": max(
+            _safe_int(metrics.get("semantic_attempt_count", 0), 0), 0
+        ),
+        "semantic_success_count": max(
+            _safe_int(metrics.get("semantic_success_count", 0), 0), 0
+        ),
+        "fallback_count": max(_safe_int(metrics.get("fallback_count", 0), 0), 0),
+        "fallback_reason_breakdown": _normalize_reason_breakdown(
+            metrics.get("fallback_reason_breakdown")
+        ),
+        "semantic_exempt_count": max(
+            _safe_int(metrics.get("semantic_exempt_count", 0), 0), 0
+        ),
+        "semantic_unattempted_count": max(
+            _safe_int(metrics.get("semantic_unattempted_count", 0), 0), 0
+        ),
+        "semantic_unattempted_without_exemption": max(
+            _safe_int(metrics.get("semantic_unattempted_without_exemption", 0), 0), 0
+        ),
+        "semantic_hit_rate": max(
+            min(_safe_float(metrics.get("semantic_hit_rate", 0.0), 0.0), 1.0), 0.0
+        ),
+    }
+    samples = metrics.get("semantic_unattempted_samples")
+    if isinstance(samples, list):
+        report["samples"] = [item for item in samples if isinstance(item, dict)][:20]
+
+    semantic_action_count = report["metrics"]["semantic_action_count"]
+    unattempted_without_exemption = report["metrics"][
+        "semantic_unattempted_without_exemption"
+    ]
+    if semantic_action_count <= 0:
+        report["gate"]["status"] = "passed"
+        return errors, warnings, report
+
+    unattempted_ratio = unattempted_without_exemption / semantic_action_count
+    report["metrics"]["semantic_unattempted_ratio"] = round(unattempted_ratio, 4)
+
+    large_ratio_threshold = float(observability_settings["large_unattempted_ratio"])
+    large_count_threshold = int(observability_settings["large_unattempted_count"])
+    large_gap = (
+        unattempted_without_exemption >= large_count_threshold
+        or unattempted_ratio >= large_ratio_threshold
+    )
+
+    if unattempted_without_exemption > 0:
+        message = (
+            "semantic gate warning: semantic-first actions missing runtime attempts: "
+            f"count={unattempted_without_exemption}/{semantic_action_count} "
+            f"ratio={round(unattempted_ratio, 4)}"
+        )
+        if large_gap and observability_settings.get("fail_on_large_unattempted", True):
+            errors.append(message)
+            report["gate"] = {
+                "status": "failed",
+                "failed_checks": ["semantic_unattempted_large_gap"],
+            }
+        else:
+            warnings.append(message)
+            report["gate"] = {
+                "status": "warn" if large_gap else "passed_with_warning",
+                "failed_checks": ["semantic_unattempted_large_gap"] if large_gap else [],
+            }
+    else:
+        report["gate"]["status"] = "passed"
+
+    return errors, warnings, report
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Validate repository docs consistency and drift."
@@ -669,6 +1030,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--spec", default="docs/.doc-spec.json", help="Doc spec path")
     parser.add_argument(
         "--facts", default="docs/.repo-facts.json", help="Facts JSON path"
+    )
+    parser.add_argument(
+        "--apply-report",
+        default="docs/.doc-apply-report.json",
+        help="Doc apply JSON report path for semantic observability gate",
     )
     parser.add_argument(
         "--output",
@@ -712,6 +1078,11 @@ def main() -> int:
         (root / args.facts).resolve()
         if not Path(args.facts).is_absolute()
         else Path(args.facts)
+    )
+    apply_report_path = (
+        (root / args.apply_report).resolve()
+        if not Path(args.apply_report).is_absolute()
+        else Path(args.apply_report)
     )
     output_path = (
         (root / args.output).resolve()
@@ -806,6 +1177,12 @@ def main() -> int:
     errors.extend(exec_plan_errors)
     warnings.extend(exec_plan_warnings)
 
+    semantic_obs_errors, semantic_obs_warnings, semantic_obs_report = (
+        check_semantic_observability(root, policy, apply_report_path)
+    )
+    errors.extend(semantic_obs_errors)
+    warnings.extend(semantic_obs_warnings)
+
     has_stale_metadata = metadata_metrics.get("stale_docs", 0) > 0
     passed = (
         len(errors) == 0
@@ -889,6 +1266,39 @@ def main() -> int:
             "structured_section_completeness": legacy_report.get("metrics", {}).get(
                 "structured_section_completeness", 1.0
             ),
+            "semantic_observability_enabled": semantic_obs_report.get("enabled", False),
+            "semantic_observability_required": semantic_obs_report.get(
+                "semantic_first_required", False
+            ),
+            "semantic_observability_gate_status": (
+                (semantic_obs_report.get("gate") or {}).get("status", "skipped")
+            ),
+            "semantic_action_count": (semantic_obs_report.get("metrics") or {}).get(
+                "semantic_action_count", 0
+            ),
+            "semantic_attempt_count": (semantic_obs_report.get("metrics") or {}).get(
+                "semantic_attempt_count", 0
+            ),
+            "semantic_success_count": (semantic_obs_report.get("metrics") or {}).get(
+                "semantic_success_count", 0
+            ),
+            "fallback_count": (semantic_obs_report.get("metrics") or {}).get(
+                "fallback_count", 0
+            ),
+            "fallback_reason_breakdown": (semantic_obs_report.get("metrics") or {}).get(
+                "fallback_reason_breakdown", {}
+            ),
+            "semantic_hit_rate": (semantic_obs_report.get("metrics") or {}).get(
+                "semantic_hit_rate", 0.0
+            ),
+            "semantic_unattempted_count": (semantic_obs_report.get("metrics") or {}).get(
+                "semantic_unattempted_count", 0
+            ),
+            "semantic_unattempted_without_exemption": (
+                (semantic_obs_report.get("metrics") or {}).get(
+                    "semantic_unattempted_without_exemption", 0
+                )
+            ),
             "active_exec_plan_files": exec_plan_metrics.get(
                 "active_exec_plan_files", 0
             ),
@@ -939,6 +1349,7 @@ def main() -> int:
             "metrics": {},
         },
         "legacy": legacy_report,
+        "semantic_observability": semantic_obs_report,
         "exec_plan_closeout": {
             "errors": exec_plan_errors,
             "warnings": exec_plan_warnings,
