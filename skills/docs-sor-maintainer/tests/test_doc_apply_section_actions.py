@@ -777,6 +777,52 @@ class DocApplySectionActionTests(unittest.TestCase):
         self.assertIn("source-path: docs/history/a.md", merged_text)
         self.assertIn("source-path: docs/history/b.md", merged_text)
 
+    def test_split_doc_hybrid_fallback_dry_run_handles_missing_index_file(self) -> None:
+        (self.root / "docs/history").mkdir(parents=True, exist_ok=True)
+        (self.root / "docs/history/merged.md").write_text(
+            "# merged\n\nfallback-source\n", encoding="utf-8"
+        )
+        semantic_settings = dsr.resolve_semantic_generation_settings(
+            {"semantic_generation": {"enabled": True, "mode": "hybrid"}}
+        )
+        runtime_state = {
+            "enabled": True,
+            "mode": "hybrid",
+            "source": "invoking_agent",
+            "available": False,
+            "entry_count": 0,
+            "error": "runtime report not found",
+            "warnings": [],
+        }
+
+        result = doc_apply.apply_action(
+            self.root,
+            {
+                "id": "A011B",
+                "type": "split_doc",
+                "path": "docs/history/merged.md",
+                "source_path": "docs/history/merged.md",
+                "target_paths": ["docs/history/part-a.md"],
+                "index_path": "docs/index-fallback-generated.md",
+            },
+            dry_run=True,
+            language_settings=self.language,
+            template_profile=self.profile,
+            metadata_policy=self.metadata_policy,
+            semantic_settings=semantic_settings,
+            semantic_runtime_entries=[],
+            semantic_runtime_state=runtime_state,
+        )
+
+        self.assertNotEqual(result.get("status"), "error")
+        self.assertEqual(result.get("status"), "applied")
+        self.assertIn("deterministic fallback", str(result.get("details", "")))
+        semantic_runtime = result.get("semantic_runtime") or {}
+        self.assertTrue(semantic_runtime.get("fallback_used"))
+        self.assertEqual(semantic_runtime.get("fallback_reason"), "runtime_unavailable")
+        self.assertFalse((self.root / "docs/history/part-a.md").exists())
+        self.assertFalse((self.root / "docs/index-fallback-generated.md").exists())
+
     def test_agents_generate_prefers_runtime_candidate_when_available(self) -> None:
         policy = lp.build_default_policy(primary_language="zh-CN", profile="zh-CN")
         policy["agents_generation"]["enabled"] = True
