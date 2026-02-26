@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-02-26T12:09:08.569335+00:00",
+  "generated_at": "2026-02-26T14:19:26.523664+00:00",
   "root": "/Users/tompoet/AgentSkills",
   "mode": "apply-safe",
   "dry_run": false,
@@ -20,6 +20,9 @@
     "semantic_success_count": 0,
     "fallback_count": 0,
     "fallback_reason_breakdown": {},
+    "runtime_quality_grade_distribution": {},
+    "runtime_quality_decision_breakdown": {},
+    "runtime_quality_degraded_count": 0,
     "semantic_hit_rate": 0.0,
     "semantic_unattempted_count": 0,
     "semantic_exempt_count": 0,
@@ -56,6 +59,16 @@
         "merge_docs": true,
         "split_doc": true,
         "agents_generate": true
+      },
+      "input_quality": {
+        "enabled": true,
+        "grade_thresholds": {
+          "A": 90,
+          "B": 75,
+          "C": 60
+        },
+        "agent_strict_min_grade": "B",
+        "c_grade_decision": "fallback"
       }
     },
     "runtime": {
@@ -66,7 +79,12 @@
       "available": false,
       "entry_count": 0,
       "error": "runtime report not found: docs/.semantic-runtime-report.json",
-      "warnings": []
+      "warnings": [],
+      "quality": {
+        "enabled": true,
+        "grade_distribution": {},
+        "decision_breakdown": {}
+      }
     }
   },
   "semantic_observability": {
@@ -75,6 +93,9 @@
     "semantic_success_count": 0,
     "fallback_count": 0,
     "fallback_reason_breakdown": {},
+    "runtime_quality_grade_distribution": {},
+    "runtime_quality_decision_breakdown": {},
+    "runtime_quality_degraded_count": 0,
     "semantic_exempt_count": 0,
     "semantic_unattempted_count": 0,
     "semantic_unattempted_without_exemption": 0,

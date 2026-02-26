@@ -34,10 +34,28 @@ DEFAULT_SEMANTIC_GENERATION_SETTINGS = {
     "required_evidence_prefixes": ["repo_scan.", "runbook.", "semantic_report."],
     "deny_paths": ["docs/adr/**"],
     "actions": deepcopy(DEFAULT_SEMANTIC_ACTIONS),
+    "input_quality": {
+        "enabled": True,
+        "grade_thresholds": {
+            "A": 90,
+            "B": 75,
+            "C": 60,
+        },
+        "agent_strict_min_grade": "B",
+        "c_grade_decision": "fallback",
+    },
 }
 
 SUPPORTED_SEMANTIC_MODES = {"deterministic", "hybrid", "agent_strict"}
 SUPPORTED_ENTRY_STATUS = {"ok", "manual_review"}
+SUPPORTED_RUNTIME_QUALITY_GRADES = ("A", "B", "C", "D")
+SUPPORTED_C_GRADE_DECISIONS = {"fallback", "manual_review"}
+QUALITY_GRADE_RANK = {
+    "A": 0,
+    "B": 1,
+    "C": 2,
+    "D": 3,
+}
 
 
 def normalize_rel(path_str: str) -> str:
@@ -75,6 +93,44 @@ def _normalize_positive_int(value: Any, fallback: int) -> int:
     if parsed <= 0:
         return fallback
     return parsed
+
+
+def _normalize_non_negative_int(value: Any, fallback: int) -> int:
+    if isinstance(value, bool):
+        return fallback
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return fallback
+    if parsed < 0:
+        return fallback
+    return parsed
+
+
+def _normalize_runtime_quality_grade(value: Any, fallback: str = "D") -> str:
+    text = str(value).strip().upper() if isinstance(value, str) else ""
+    return text if text in SUPPORTED_RUNTIME_QUALITY_GRADES else fallback
+
+
+def _normalize_c_grade_decision(value: Any, fallback: str = "fallback") -> str:
+    text = str(value).strip().lower() if isinstance(value, str) else ""
+    return text if text in SUPPORTED_C_GRADE_DECISIONS else fallback
+
+
+def _normalize_grade_thresholds(raw: Any, defaults: dict[str, int]) -> dict[str, int]:
+    if not isinstance(raw, dict):
+        return dict(defaults)
+
+    normalized = dict(defaults)
+    for grade in ("A", "B", "C"):
+        if grade in raw:
+            normalized[grade] = _normalize_non_negative_int(raw.get(grade), defaults[grade])
+
+    # Keep threshold order deterministic: A >= B >= C.
+    normalized["A"] = max(normalized["A"], normalized["B"], normalized["C"])
+    normalized["B"] = min(max(normalized["B"], normalized["C"]), normalized["A"])
+    normalized["C"] = min(normalized["C"], normalized["B"], normalized["A"])
+    return normalized
 
 
 def _normalize_split_outputs(
@@ -133,6 +189,27 @@ def _normalize_actions(value: Any) -> dict[str, bool]:
     return settings
 
 
+def _resolve_input_quality_settings(raw: Any) -> dict[str, Any]:
+    defaults = deepcopy(DEFAULT_SEMANTIC_GENERATION_SETTINGS["input_quality"])
+    if not isinstance(raw, dict):
+        return defaults
+
+    defaults["enabled"] = bool(raw.get("enabled", defaults["enabled"]))
+    defaults["grade_thresholds"] = _normalize_grade_thresholds(
+        raw.get("grade_thresholds"),
+        defaults["grade_thresholds"],
+    )
+    defaults["agent_strict_min_grade"] = _normalize_runtime_quality_grade(
+        raw.get("agent_strict_min_grade"),
+        str(defaults["agent_strict_min_grade"]),
+    )
+    defaults["c_grade_decision"] = _normalize_c_grade_decision(
+        raw.get("c_grade_decision"),
+        str(defaults["c_grade_decision"]),
+    )
+    return defaults
+
+
 def resolve_semantic_generation_settings(policy: dict[str, Any] | None) -> dict[str, Any]:
     raw = (
         policy.get("semantic_generation")
@@ -187,6 +264,7 @@ def resolve_semantic_generation_settings(policy: dict[str, Any] | None) -> dict[
     if deny_paths:
         settings["deny_paths"] = deny_paths
     settings["actions"] = _normalize_actions(raw.get("actions"))
+    settings["input_quality"] = _resolve_input_quality_settings(raw.get("input_quality"))
     return settings
 
 
@@ -214,6 +292,325 @@ def runtime_semantic_attempt_required(action_type: str, settings: dict[str, Any]
     if not bool(actions.get(action_type, False)):
         return False
     return bool(settings.get("require_semantic_attempt", True))
+
+
+def _parse_citation_token(token: str) -> str | None:
+    if not isinstance(token, str):
+        return None
+    prefix = "evidence://"
+    if not token.startswith(prefix):
+        return None
+    value = token[len(prefix) :].strip()
+    return value or None
+
+
+def _append_quality_finding(
+    findings: list[dict[str, Any]],
+    code: str,
+    penalty: int,
+    message: str,
+    *,
+    severity: str = "warn",
+) -> int:
+    applied_penalty = max(int(penalty), 0)
+    findings.append(
+        {
+            "code": code,
+            "severity": severity,
+            "penalty": applied_penalty,
+            "message": message,
+        }
+    )
+    return applied_penalty
+
+
+def _score_to_runtime_quality_grade(score: int, thresholds: dict[str, int]) -> str:
+    normalized_score = max(int(score), 0)
+    if normalized_score >= int(thresholds.get("A", 90)):
+        return "A"
+    if normalized_score >= int(thresholds.get("B", 75)):
+        return "B"
+    if normalized_score >= int(thresholds.get("C", 60)):
+        return "C"
+    return "D"
+
+
+def resolve_runtime_quality_decision(
+    grade: str,
+    settings: dict[str, Any] | None,
+) -> dict[str, str]:
+    semantic_settings = (
+        settings
+        if isinstance(settings, dict)
+        else deepcopy(DEFAULT_SEMANTIC_GENERATION_SETTINGS)
+    )
+    input_quality = _resolve_input_quality_settings(
+        semantic_settings.get("input_quality")
+        if isinstance(semantic_settings.get("input_quality"), dict)
+        else None
+    )
+    normalized_grade = _normalize_runtime_quality_grade(grade, "D")
+    mode = str(semantic_settings.get("mode", "hybrid")).strip()
+
+    if not bool(input_quality.get("enabled", True)):
+        return {"decision": "consume", "reason": "quality_gate_disabled"}
+
+    strict_min_grade = _normalize_runtime_quality_grade(
+        input_quality.get("agent_strict_min_grade"),
+        "B",
+    )
+    if mode == "agent_strict":
+        if QUALITY_GRADE_RANK[normalized_grade] > QUALITY_GRADE_RANK[strict_min_grade]:
+            return {
+                "decision": "block",
+                "reason": "quality_below_agent_strict_min_grade",
+            }
+
+    if normalized_grade in {"A", "B"}:
+        return {"decision": "consume", "reason": "quality_grade_pass"}
+    if normalized_grade == "C":
+        decision = _normalize_c_grade_decision(
+            input_quality.get("c_grade_decision"),
+            "fallback",
+        )
+        if decision == "manual_review":
+            return {"decision": "manual_review", "reason": "quality_grade_c_manual_review"}
+        return {"decision": "fallback", "reason": "quality_grade_c_fallback"}
+    return {"decision": "block", "reason": "quality_grade_d_blocked"}
+
+
+def evaluate_runtime_entry_quality(
+    entry: dict[str, Any] | None,
+    settings: dict[str, Any] | None,
+    *,
+    entry_warnings: list[str] | None = None,
+) -> dict[str, Any]:
+    semantic_settings = (
+        settings
+        if isinstance(settings, dict)
+        else deepcopy(DEFAULT_SEMANTIC_GENERATION_SETTINGS)
+    )
+    input_quality = _resolve_input_quality_settings(
+        semantic_settings.get("input_quality")
+        if isinstance(semantic_settings.get("input_quality"), dict)
+        else None
+    )
+    thresholds = _normalize_grade_thresholds(
+        input_quality.get("grade_thresholds"),
+        dict(DEFAULT_SEMANTIC_GENERATION_SETTINGS["input_quality"]["grade_thresholds"]),
+    )
+
+    findings: list[dict[str, Any]] = []
+    score = 100
+    payload = entry if isinstance(entry, dict) else {}
+    warnings = entry_warnings if isinstance(entry_warnings, list) else []
+    action_type = str(payload.get("action_type", "")).strip()
+    status = str(payload.get("status", "")).strip()
+
+    if status and status != "ok":
+        score -= _append_quality_finding(
+            findings,
+            "runtime_status_not_ok",
+            35,
+            f"runtime entry status={status}, semantic payload not trusted for auto consume",
+            severity="error",
+        )
+
+    if not action_type:
+        score -= _append_quality_finding(
+            findings,
+            "missing_action_type",
+            12,
+            "runtime entry missing action_type, semantic binding is ambiguous",
+        )
+
+    content = payload.get("content")
+    statement = payload.get("statement")
+    slots = payload.get("slots") if isinstance(payload.get("slots"), dict) else {}
+    split_outputs = payload.get("split_outputs")
+    target_paths = payload.get("target_paths")
+    index_links = payload.get("index_links")
+
+    has_text_payload = isinstance(content, str) and bool(content.strip())
+    has_statement = isinstance(statement, str) and bool(statement.strip())
+    has_slots_payload = bool(slots)
+    has_split_payload = isinstance(split_outputs, list) and bool(split_outputs)
+    has_navigation_payload = bool(
+        (isinstance(target_paths, list) and target_paths)
+        or (isinstance(index_links, list) and index_links)
+    )
+    if not (
+        has_text_payload
+        or has_statement
+        or has_slots_payload
+        or has_split_payload
+        or has_navigation_payload
+    ):
+        score -= _append_quality_finding(
+            findings,
+            "missing_payload",
+            45,
+            "runtime entry missing consumable payload",
+            severity="error",
+        )
+
+    if action_type == "fill_claim" and not has_statement and not has_text_payload:
+        score -= _append_quality_finding(
+            findings,
+            "missing_statement",
+            30,
+            "fill_claim runtime entry requires statement/content",
+            severity="error",
+        )
+    if action_type in {"update_section", "semantic_rewrite", "agents_generate"} and not (
+        has_text_payload or has_slots_payload
+    ):
+        score -= _append_quality_finding(
+            findings,
+            "missing_section_payload",
+            25,
+            "update_section-like runtime entry requires content or slots",
+            severity="error",
+        )
+    if action_type == "merge_docs" and not (
+        isinstance(payload.get("source_paths"), list) and payload.get("source_paths")
+    ):
+        score -= _append_quality_finding(
+            findings,
+            "missing_source_paths",
+            15,
+            "merge_docs runtime entry missing source_paths",
+        )
+    if action_type == "split_doc" and not has_split_payload:
+        score -= _append_quality_finding(
+            findings,
+            "missing_split_outputs",
+            25,
+            "split_doc runtime entry missing split_outputs",
+            severity="error",
+        )
+    if action_type == "navigation_repair" and not has_navigation_payload:
+        score -= _append_quality_finding(
+            findings,
+            "missing_navigation_targets",
+            20,
+            "navigation_repair runtime entry missing target paths",
+            severity="error",
+        )
+    if action_type == "migrate_legacy":
+        source_path = payload.get("source_path")
+        if not isinstance(source_path, str) or not source_path.strip():
+            score -= _append_quality_finding(
+                findings,
+                "missing_source_path",
+                12,
+                "migrate_legacy runtime entry missing source_path",
+            )
+
+    if action_type in {"update_section", "semantic_rewrite"} and has_slots_payload:
+        if not isinstance(slots.get("summary"), str) or not str(slots.get("summary")).strip():
+            score -= _append_quality_finding(
+                findings,
+                "missing_slot_summary",
+                10,
+                "slots.summary missing for structured section payload",
+            )
+        if not isinstance(slots.get("key_facts"), list) or not slots.get("key_facts"):
+            score -= _append_quality_finding(
+                findings,
+                "missing_slot_key_facts",
+                10,
+                "slots.key_facts missing for structured section payload",
+            )
+        if not isinstance(slots.get("next_steps"), list) or not slots.get("next_steps"):
+            score -= _append_quality_finding(
+                findings,
+                "missing_slot_next_steps",
+                10,
+                "slots.next_steps missing for structured section payload",
+            )
+
+    citations = _normalize_string_list(payload.get("citations"), normalize_paths=False)
+    if not citations:
+        score -= _append_quality_finding(
+            findings,
+            "missing_citations",
+            10,
+            "runtime entry missing citations evidence",
+        )
+    else:
+        evidence_types: list[str] = []
+        invalid_tokens = 0
+        for token in citations:
+            evidence_type = _parse_citation_token(token)
+            if evidence_type is None:
+                invalid_tokens += 1
+                continue
+            evidence_types.append(evidence_type)
+        if invalid_tokens > 0:
+            score -= _append_quality_finding(
+                findings,
+                "invalid_citation_token",
+                min(30, 10 * invalid_tokens),
+                f"runtime entry has {invalid_tokens} invalid citation tokens",
+                severity="error",
+            )
+        required_prefixes = _normalize_string_list(
+            semantic_settings.get("required_evidence_prefixes"),
+            normalize_paths=False,
+        )
+        if required_prefixes and evidence_types:
+            prefix_violations = 0
+            for evidence in evidence_types:
+                if not any(evidence.startswith(prefix) for prefix in required_prefixes):
+                    prefix_violations += 1
+            if prefix_violations > 0:
+                score -= _append_quality_finding(
+                    findings,
+                    "citation_prefix_not_allowed",
+                    min(24, 8 * prefix_violations),
+                    f"runtime entry has {prefix_violations} citations outside required prefixes",
+                    severity="error",
+                )
+
+    risk_notes = _normalize_string_list(payload.get("risk_notes"), normalize_paths=False)
+    if risk_notes:
+        score -= _append_quality_finding(
+            findings,
+            "risk_notes_present",
+            min(15, 3 * len(risk_notes)),
+            "runtime entry carries risk notes that require downgrade",
+        )
+
+    warning_hits = [str(item).strip() for item in warnings if str(item).strip()]
+    truncated_warnings = [item for item in warning_hits if "truncated" in item]
+    if truncated_warnings:
+        score -= _append_quality_finding(
+            findings,
+            "content_truncated",
+            10,
+            "runtime content truncated by max_output_chars_per_section",
+        )
+    normalize_warnings = [item for item in warning_hits if "ignored" in item]
+    if normalize_warnings:
+        score -= _append_quality_finding(
+            findings,
+            "normalization_warnings",
+            min(10, len(normalize_warnings)),
+            "runtime entry contains normalization warnings",
+        )
+
+    score = max(score, 0)
+    grade = _score_to_runtime_quality_grade(score, thresholds)
+    decision = resolve_runtime_quality_decision(grade, semantic_settings)
+    return {
+        "enabled": bool(input_quality.get("enabled", True)),
+        "quality_score": score,
+        "quality_grade": grade,
+        "quality_findings": findings,
+        "quality_decision": decision.get("decision", "consume"),
+        "quality_decision_reason": decision.get("reason", "quality_grade_pass"),
+    }
 
 
 def _normalize_runtime_entry(
@@ -417,6 +814,15 @@ def load_runtime_report(
         "entry_count": 0,
         "error": None,
         "warnings": [],
+        "quality": {
+            "enabled": bool(
+                _resolve_input_quality_settings(settings.get("input_quality")).get(
+                    "enabled", True
+                )
+            ),
+            "grade_distribution": {},
+            "decision_breakdown": {},
+        },
     }
 
     if not metadata["enabled"]:
@@ -450,6 +856,8 @@ def load_runtime_report(
     )
     entries: list[dict[str, Any]] = []
     warnings: list[str] = []
+    grade_distribution: dict[str, int] = {}
+    decision_breakdown: dict[str, int] = {}
     for entry_index, item in enumerate(entries_raw):
         if not isinstance(item, dict):
             warnings.append(f"entry[{entry_index}] ignored: entry must be object")
@@ -462,11 +870,30 @@ def load_runtime_report(
         warnings.extend(entry_warnings)
         if normalized_entry is None:
             continue
+        quality = evaluate_runtime_entry_quality(
+            normalized_entry,
+            settings,
+            entry_warnings=entry_warnings,
+        )
+        normalized_entry.update(quality)
+        grade = _normalize_runtime_quality_grade(normalized_entry.get("quality_grade"), "D")
+        decision = str(normalized_entry.get("quality_decision", "consume")).strip() or "consume"
+        grade_distribution[grade] = grade_distribution.get(grade, 0) + 1
+        decision_breakdown[decision] = decision_breakdown.get(decision, 0) + 1
         entries.append(normalized_entry)
 
     metadata["available"] = True
     metadata["entry_count"] = len(entries)
     metadata["warnings"] = warnings
+    metadata["quality"] = {
+        "enabled": bool(
+            _resolve_input_quality_settings(settings.get("input_quality")).get(
+                "enabled", True
+            )
+        ),
+        "grade_distribution": dict(sorted(grade_distribution.items())),
+        "decision_breakdown": dict(sorted(decision_breakdown.items())),
+    }
     return entries, metadata
 
 
@@ -508,7 +935,7 @@ def select_runtime_entry(
         else None
     )
 
-    best_score: int | None = None
+    best_score: tuple[int, int, int] | None = None
     best_entry: dict[str, Any] | None = None
     for entry in entries:
         entry_path = (
@@ -559,7 +986,7 @@ def select_runtime_entry(
             continue
 
         status_score = 2 if entry.get("status") == "ok" else 0
-        score = (
+        match_score = (
             action_score
             + path_score
             + section_score
@@ -567,6 +994,10 @@ def select_runtime_entry(
             + source_score
             + status_score
         )
+        quality_grade = _normalize_runtime_quality_grade(entry.get("quality_grade"), "D")
+        quality_rank_score = len(SUPPORTED_RUNTIME_QUALITY_GRADES) - QUALITY_GRADE_RANK[quality_grade]
+        quality_score = _normalize_non_negative_int(entry.get("quality_score"), 0)
+        score = (match_score, quality_rank_score, quality_score)
         if best_score is None or score > best_score:
             best_score = score
             best_entry = entry

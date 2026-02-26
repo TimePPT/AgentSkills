@@ -40,6 +40,9 @@ class DocSemanticRuntimeTests(unittest.TestCase):
         self.assertTrue(settings["actions"]["navigation_repair"])
         self.assertTrue(settings["actions"]["merge_docs"])
         self.assertTrue(settings["actions"]["split_doc"])
+        self.assertTrue(settings["input_quality"]["enabled"])
+        self.assertEqual(settings["input_quality"]["agent_strict_min_grade"], "B")
+        self.assertEqual(settings["input_quality"]["c_grade_decision"], "fallback")
 
     def test_resolve_semantic_generation_settings_normalizes_fields(self) -> None:
         policy = {
@@ -80,6 +83,7 @@ class DocSemanticRuntimeTests(unittest.TestCase):
         self.assertTrue(settings["actions"]["split_doc"])
         self.assertTrue(settings["actions"]["topology_repair"])
         self.assertTrue(settings["actions"]["navigation_repair"])
+        self.assertEqual(settings["input_quality"]["grade_thresholds"]["A"], 90)
 
     def test_should_attempt_runtime_semantics_respects_semantic_first_flag(self) -> None:
         settings = dsr.resolve_semantic_generation_settings(
@@ -391,6 +395,93 @@ class DocSemanticRuntimeTests(unittest.TestCase):
         self.assertEqual(entries, [])
         self.assertFalse(metadata["available"])
         self.assertIn("entries must be list", metadata["error"])
+
+    def test_runtime_quality_grade_controls_select_priority(self) -> None:
+        report_path = self.root / "docs/.semantic-runtime-report.json"
+        report_path.write_text(
+            json.dumps(
+                {
+                    "version": 2,
+                    "entries": [
+                        {
+                            "entry_id": "low-grade",
+                            "path": "docs/runbook.md",
+                            "action_type": "fill_claim",
+                            "claim_id": "runbook.dev_commands",
+                            "status": "manual_review",
+                            "content": "fallback-only",
+                            "citations": [],
+                        },
+                        {
+                            "entry_id": "high-grade",
+                            "path": "docs/runbook.md",
+                            "action_type": "fill_claim",
+                            "claim_id": "runbook.dev_commands",
+                            "status": "ok",
+                            "statement": "stable claim",
+                            "citations": ["evidence://runbook.dev_commands"],
+                        },
+                    ],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        settings = dsr.resolve_semantic_generation_settings(
+            {"semantic_generation": {"enabled": True, "mode": "hybrid"}}
+        )
+        entries, _ = dsr.load_runtime_report(self.root, settings)
+        candidate = dsr.select_runtime_entry(
+            {
+                "type": "fill_claim",
+                "path": "docs/runbook.md",
+                "claim_id": "runbook.dev_commands",
+            },
+            entries,
+            settings,
+        )
+        self.assertIsNotNone(candidate)
+        self.assertEqual(candidate.get("entry_id"), "high-grade")
+
+    def test_runtime_quality_decision_blocks_below_agent_strict_threshold(self) -> None:
+        settings = dsr.resolve_semantic_generation_settings(
+            {
+                "semantic_generation": {
+                    "enabled": True,
+                    "mode": "agent_strict",
+                    "input_quality": {
+                        "enabled": True,
+                        "agent_strict_min_grade": "B",
+                        "c_grade_decision": "fallback",
+                    },
+                }
+            }
+        )
+        decision = dsr.resolve_runtime_quality_decision("C", settings)
+        self.assertEqual(decision.get("decision"), "block")
+        self.assertEqual(
+            decision.get("reason"),
+            "quality_below_agent_strict_min_grade",
+        )
+
+    def test_runtime_quality_decision_allows_c_grade_fallback_in_hybrid(self) -> None:
+        settings = dsr.resolve_semantic_generation_settings(
+            {
+                "semantic_generation": {
+                    "enabled": True,
+                    "mode": "hybrid",
+                    "input_quality": {
+                        "enabled": True,
+                        "c_grade_decision": "fallback",
+                    },
+                }
+            }
+        )
+        decision = dsr.resolve_runtime_quality_decision("C", settings)
+        self.assertEqual(decision.get("decision"), "fallback")
+        self.assertEqual(decision.get("reason"), "quality_grade_c_fallback")
 
 
 if __name__ == "__main__":

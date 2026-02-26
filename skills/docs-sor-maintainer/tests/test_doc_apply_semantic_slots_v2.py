@@ -284,6 +284,111 @@ class DocApplySemanticSlotsV2Tests(unittest.TestCase):
         self.assertIn("### Risks", content)
         self.assertIn("若 gate 配置与文档结构不一致会触发阻断。", content)
 
+    def test_update_section_slots_v2_quality_grade_c_uses_fallback_when_configured(self) -> None:
+        runbook = self.root / "docs/runbook.md"
+        runbook.write_text(
+            lp.get_section_text("docs/runbook.md", "title", self.profile).strip() + "\n",
+            encoding="utf-8",
+        )
+        semantic_settings = dsr.resolve_semantic_generation_settings(
+            {
+                "semantic_generation": {
+                    "enabled": True,
+                    "mode": "hybrid",
+                    "input_quality": {
+                        "enabled": True,
+                        "c_grade_decision": "fallback",
+                    },
+                }
+            }
+        )
+        runtime_entry = {
+            "entry_id": "slots-grade-c",
+            "path": "docs/runbook.md",
+            "action_type": "update_section",
+            "section_id": "custom_checks",
+            "status": "manual_review",
+            "slots": {
+                "summary": "先做审计，再做修复。",
+                "key_facts": ["语义结果需保留证据映射。"],
+                "next_steps": ["执行 scoped validate。"],
+            },
+            "citations": ["evidence://runbook.dev_commands"],
+        }
+        result = self._apply_with_runtime(
+            action={
+                "id": "S005",
+                "type": "update_section",
+                "path": "docs/runbook.md",
+                "section_id": "custom_checks",
+                "section_heading": "## 自定义检查",
+            },
+            semantic_settings=semantic_settings,
+            runtime_entry=runtime_entry,
+        )
+
+        self.assertEqual(result.get("status"), "applied")
+        semantic_runtime = result.get("semantic_runtime") or {}
+        self.assertEqual(semantic_runtime.get("quality_grade"), "C")
+        self.assertEqual(semantic_runtime.get("quality_decision"), "fallback")
+        self.assertTrue(semantic_runtime.get("fallback_used"))
+        self.assertEqual(semantic_runtime.get("fallback_reason"), "runtime_quality_grade_c")
+        content = runbook.read_text(encoding="utf-8")
+        self.assertIn("## 自定义检查", content)
+        self.assertIn("TODO: 补充本节内容。", content)
+
+    def test_update_section_slots_v2_quality_grade_d_blocks_auto_apply(self) -> None:
+        runbook = self.root / "docs/runbook.md"
+        runbook.write_text(
+            lp.get_section_text("docs/runbook.md", "title", self.profile).strip() + "\n",
+            encoding="utf-8",
+        )
+        semantic_settings = dsr.resolve_semantic_generation_settings(
+            {
+                "semantic_generation": {
+                    "enabled": True,
+                    "mode": "hybrid",
+                    "input_quality": {
+                        "enabled": True,
+                        "c_grade_decision": "fallback",
+                    },
+                }
+            }
+        )
+        runtime_entry = {
+            "entry_id": "slots-grade-d",
+            "path": "docs/runbook.md",
+            "action_type": "update_section",
+            "section_id": "custom_checks",
+            "status": "manual_review",
+            "slots": {
+                "summary": "该条目质量不足。",
+                "key_facts": ["状态为 manual_review。"],
+                "next_steps": ["需要人工处理。"],
+            },
+            "citations": [],
+        }
+        result = self._apply_with_runtime(
+            action={
+                "id": "S006",
+                "type": "update_section",
+                "path": "docs/runbook.md",
+                "section_id": "custom_checks",
+                "section_heading": "## 自定义检查",
+            },
+            semantic_settings=semantic_settings,
+            runtime_entry=runtime_entry,
+        )
+
+        self.assertEqual(result.get("status"), "skipped")
+        self.assertIn("fallback blocked", str(result.get("details", "")))
+        semantic_runtime = result.get("semantic_runtime") or {}
+        self.assertEqual(semantic_runtime.get("quality_grade"), "D")
+        self.assertEqual(semantic_runtime.get("quality_decision"), "block")
+        self.assertEqual(semantic_runtime.get("fallback_reason"), "runtime_quality_grade_d")
+        self.assertFalse(semantic_runtime.get("fallback_allowed"))
+        self.assertNotIn("## 自定义检查", runbook.read_text(encoding="utf-8"))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -127,6 +127,16 @@ BASE_POLICY = {
             "split_doc": True,
             "agents_generate": True,
         },
+        "input_quality": {
+            "enabled": True,
+            "grade_thresholds": {
+                "A": 90,
+                "B": 75,
+                "C": 60,
+            },
+            "agent_strict_min_grade": "B",
+            "c_grade_decision": "fallback",
+        },
         "observability": {
             "enabled": True,
             "large_unattempted_ratio": 0.5,

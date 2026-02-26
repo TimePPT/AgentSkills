@@ -56,6 +56,19 @@ fi
 "$PYTHON_BIN" "$SKILL_DIR/scripts/doc_validate.py" --root "$REPO_ROOT" --facts "$REPO_ROOT/docs/.repo-facts.json" --fail-on-drift --fail-on-freshness --output "$REPO_ROOT/docs/.doc-validate-report.json"
 ```
 
+PR scoped gate（可选，命中高风险会自动升级 full）：
+
+```bash
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_validate.py" \
+  --root "$REPO_ROOT" \
+  --facts "$REPO_ROOT/docs/.repo-facts.json" \
+  --scope-files "docs/index.md,docs/runbook.md" \
+  --scope-mode explicit \
+  --fail-on-drift \
+  --fail-on-freshness \
+  --output "$REPO_ROOT/docs/.doc-validate-report-scoped.json"
+```
+
 双副本一致性检查（`skills` vs `.agents`）：
 
 ```bash
@@ -284,6 +297,17 @@ python3 -m unittest -v \
 python3 -m unittest discover -s skills/docs-sor-maintainer/tests -p 'test_*.py'
 "$PYTHON_BIN" "$SKILL_DIR/scripts/doc_validate.py" --root "$REPO_ROOT" --facts "$REPO_ROOT/docs/.repo-facts.json" --fail-on-drift --fail-on-freshness --output "$REPO_ROOT/docs/.doc-validate-report.json"
 "$PYTHON_BIN" "$SKILL_DIR/scripts/doc_garden.py" --root "$REPO_ROOT" --plan-mode audit --apply-mode apply-safe --fail-on-drift --fail-on-freshness
+```
+
+V2.7.3（Semantic Input Quality Grading + Scoped Validate）验收链路：
+
+```bash
+"$PYTHON_BIN" "$SKILL_DIR/scripts/repo_scan.py" --root "$REPO_ROOT" --output "$REPO_ROOT/docs/.repo-facts.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_plan.py" --root "$REPO_ROOT" --mode audit --facts "$REPO_ROOT/docs/.repo-facts.json" --output "$REPO_ROOT/docs/.doc-plan-v2.7.3.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_apply.py" --root "$REPO_ROOT" --plan "$REPO_ROOT/docs/.doc-plan-v2.7.3.json" --mode apply-safe
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_validate.py" --root "$REPO_ROOT" --facts "$REPO_ROOT/docs/.repo-facts.json" --scope-files "docs/index.md,docs/runbook.md" --scope-mode explicit --fail-on-drift --fail-on-freshness --output "$REPO_ROOT/docs/.doc-validate-report-scoped.json"
+"$PYTHON_BIN" "$SKILL_DIR/scripts/doc_validate.py" --root "$REPO_ROOT" --facts "$REPO_ROOT/docs/.repo-facts.json" --fail-on-drift --fail-on-freshness --output "$REPO_ROOT/docs/.doc-validate-report.json"
+python3 -m unittest discover -s skills/docs-sor-maintainer/tests -p 'test_*.py'
 ```
 
 脚本语法自检：

@@ -30,13 +30,16 @@
       "docs/exec-plans/active/docs-sor-roadmap-v2.7-m4-acceptance-report.md",
       "docs/exec-plans/active/docs-sor-roadmap-v2.7-m4-test-matrix.md",
       "docs/exec-plans/active/docs-sor-roadmap-v2.7-m3-acceptance-report.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.7.3-semantic-input-quality-and-scoped-validate.md",
       "docs/exec-plans/active/docs-sor-roadmap-v2.7.1-acceptance-report.md",
       "docs/exec-plans/completed/docs-sor-roadmap-v2.7.1-closeout-2026-02-26.md",
       "docs/exec-plans/completed/docs-sor-roadmap-v2.5-remediation-closeout-2026-02-24.md",
       "docs/exec-plans/completed/docs-sor-roadmap-v2.2-phase-f-closeout-2026-02-22.md",
       "docs/exec-plans/completed/docs-sor-roadmap-v2.6-closeout-2026-02-24.md",
       "docs/exec-plans/completed/docs-sor-roadmap-v2.7-closeout-2026-02-26.md",
-      "docs/references/exec-plan-closeout-template.md"
+      "docs/references/exec-plan-closeout-template.md",
+      "docs/exec-plans/active/docs-sor-roadmap-v2.7.3-acceptance-report.md",
+      "docs/exec-plans/completed/docs-sor-roadmap-v2.7.3-closeout-2026-02-26.md"
     ],
     "include_dirs": [],
     "exclude_files": [],
@@ -151,6 +154,16 @@
       "large_unattempted_ratio": 0.5,
       "large_unattempted_count": 3,
       "fail_on_large_unattempted": true
+    },
+    "input_quality": {
+      "enabled": true,
+      "grade_thresholds": {
+        "A": 90,
+        "B": 75,
+        "C": 60
+      },
+      "agent_strict_min_grade": "B",
+      "c_grade_decision": "fallback"
     }
   },
   "legacy_sources": {

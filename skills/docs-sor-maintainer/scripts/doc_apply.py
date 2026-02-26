@@ -1381,6 +1381,7 @@ FALLBACK_REASON_CODES = {
     "runtime_entry_not_found",
     "runtime_gate_failed",
     "path_denied",
+    "runtime_quality_grade_c",
 }
 AGENTS_STRUCTURAL_TRIGGER_TYPES = {
     "sync_manifest",
@@ -1422,6 +1423,12 @@ def is_agent_strict_mode(semantic_settings: dict[str, Any]) -> bool:
 def resolve_fallback_reason_code(failures: list[str]) -> str | None:
     if not failures:
         return None
+    if "runtime_quality_manual_review" in failures:
+        return "runtime_quality_manual_review"
+    if "runtime_quality_grade_d" in failures:
+        return "runtime_quality_grade_d"
+    if "runtime_quality_grade_c" in failures:
+        return "runtime_quality_grade_c"
     if "path_denied" in failures:
         return "path_denied"
     if "runtime_unavailable" in failures:
@@ -1436,6 +1443,15 @@ def resolve_runtime_fallback_allowed(
 ) -> bool:
     if is_agent_strict_mode(semantic_settings):
         return False
+    if fallback_reason in {"runtime_quality_grade_d", "runtime_quality_manual_review"}:
+        return False
+    if fallback_reason == "runtime_quality_grade_c":
+        input_quality = semantic_settings.get("input_quality")
+        if not isinstance(input_quality, dict):
+            return False
+        c_grade_decision = str(input_quality.get("c_grade_decision", "fallback")).strip()
+        if c_grade_decision != "fallback":
+            return False
     if not bool(semantic_settings.get("allow_fallback_template", True)):
         return False
     return bool(fallback_reason in FALLBACK_REASON_CODES)
@@ -1506,6 +1522,9 @@ def summarize_semantic_observability(
         "semantic_success_count": 0,
         "fallback_count": 0,
         "fallback_reason_breakdown": {},
+        "runtime_quality_grade_distribution": {},
+        "runtime_quality_decision_breakdown": {},
+        "runtime_quality_degraded_count": 0,
         "semantic_exempt_count": 0,
         "semantic_unattempted_count": 0,
         "semantic_unattempted_without_exemption": 0,
@@ -1527,6 +1546,8 @@ def summarize_semantic_observability(
         return summary
 
     fallback_reasons: Counter[str] = Counter()
+    quality_grades: Counter[str] = Counter()
+    quality_decisions: Counter[str] = Counter()
     unattempted_samples: list[dict[str, Any]] = []
     for result in results:
         if not isinstance(result, dict):
@@ -1563,6 +1584,15 @@ def summarize_semantic_observability(
             fallback_reason = str(runtime.get("fallback_reason", "")).strip() or "unknown"
             fallback_reasons[fallback_reason] += 1
 
+        quality_grade = str(runtime.get("quality_grade", "")).strip().upper()
+        if quality_grade in dsr.SUPPORTED_RUNTIME_QUALITY_GRADES:
+            quality_grades[quality_grade] += 1
+        quality_decision = str(runtime.get("quality_decision", "")).strip()
+        if quality_decision:
+            quality_decisions[quality_decision] += 1
+            if quality_decision in {"fallback", "manual_review", "block"}:
+                summary["runtime_quality_degraded_count"] += 1
+
         if not attempted:
             exemption_reason = runtime.get("exemption_reason")
             if isinstance(exemption_reason, str) and exemption_reason.strip():
@@ -1586,6 +1616,8 @@ def summarize_semantic_observability(
     attempt_count = int(summary["semantic_attempt_count"])
     success_count = int(summary["semantic_success_count"])
     summary["fallback_reason_breakdown"] = dict(sorted(fallback_reasons.items()))
+    summary["runtime_quality_grade_distribution"] = dict(sorted(quality_grades.items()))
+    summary["runtime_quality_decision_breakdown"] = dict(sorted(quality_decisions.items()))
     summary["semantic_unattempted_count"] = max(action_count - attempt_count, 0)
     summary["semantic_hit_rate"] = (
         round(success_count / attempt_count, 4) if attempt_count > 0 else 0.0
@@ -1661,14 +1693,44 @@ def apply_action(
             return None, ["path_denied"]
         candidate = dsr.select_runtime_entry(action, runtime_entries, semantic_cfg)
         if isinstance(candidate, dict):
-            result["semantic_runtime"] = {
+            if not isinstance(candidate.get("quality_decision"), str):
+                candidate = dict(candidate)
+                candidate.update(dsr.evaluate_runtime_entry_quality(candidate, semantic_cfg))
+            quality_grade = str(candidate.get("quality_grade", "")).strip().upper()
+            quality_score = candidate.get("quality_score")
+            quality_findings = (
+                candidate.get("quality_findings")
+                if isinstance(candidate.get("quality_findings"), list)
+                else []
+            )
+            quality_decision = str(candidate.get("quality_decision", "")).strip() or "consume"
+            quality_decision_reason = (
+                str(candidate.get("quality_decision_reason", "")).strip()
+                or "quality_grade_pass"
+            )
+            semantic_runtime_state: dict[str, Any] = {
                 "status": "candidate_loaded",
                 "entry_id": candidate.get("entry_id"),
                 "candidate_status": candidate.get("status"),
                 "attempted": True,
                 "mode": semantic_cfg.get("mode"),
                 "source": semantic_cfg.get("source"),
+                "quality_grade": quality_grade,
+                "quality_score": quality_score,
+                "quality_decision": quality_decision,
+                "quality_decision_reason": quality_decision_reason,
+                "quality_findings": quality_findings,
             }
+            result["semantic_runtime"] = semantic_runtime_state
+            if quality_decision != "consume":
+                if quality_decision == "fallback":
+                    semantic_runtime_state["status"] = "quality_grade_c_downgraded"
+                    return None, ["runtime_quality_grade_c"]
+                if quality_decision == "manual_review":
+                    semantic_runtime_state["status"] = "quality_manual_review"
+                    return None, ["runtime_quality_manual_review"]
+                semantic_runtime_state["status"] = "quality_blocked"
+                return None, ["runtime_quality_grade_d"]
             return candidate, failures
 
         state_status = (
@@ -2931,6 +2993,10 @@ def render_markdown_report(report: dict[str, Any]) -> str:
         f"- Fallback count: {report['summary'].get('fallback_count', 0)}",
         "- Fallback reason breakdown: "
         f"{json.dumps(report['summary'].get('fallback_reason_breakdown', {}), ensure_ascii=False)}",
+        "- Runtime quality grade distribution: "
+        f"{json.dumps(report['summary'].get('runtime_quality_grade_distribution', {}), ensure_ascii=False)}",
+        "- Runtime quality decision breakdown: "
+        f"{json.dumps(report['summary'].get('runtime_quality_decision_breakdown', {}), ensure_ascii=False)}",
         "",
         "## Action Results",
         "",
@@ -3107,6 +3173,33 @@ def main() -> int:
                 semantic_settings,
             )
             if isinstance(agents_runtime_candidate, dict):
+                if not isinstance(agents_runtime_candidate.get("quality_decision"), str):
+                    agents_runtime_candidate = dict(agents_runtime_candidate)
+                    agents_runtime_candidate.update(
+                        dsr.evaluate_runtime_entry_quality(
+                            agents_runtime_candidate, semantic_settings
+                        )
+                    )
+                quality_grade = str(agents_runtime_candidate.get("quality_grade", "")).strip().upper()
+                quality_score = agents_runtime_candidate.get("quality_score")
+                quality_findings = (
+                    agents_runtime_candidate.get("quality_findings")
+                    if isinstance(agents_runtime_candidate.get("quality_findings"), list)
+                    else []
+                )
+                quality_decision = (
+                    str(agents_runtime_candidate.get("quality_decision", "")).strip()
+                    or "consume"
+                )
+                quality_decision_reason = (
+                    str(
+                        agents_runtime_candidate.get(
+                            "quality_decision_reason",
+                            "",
+                        )
+                    ).strip()
+                    or "quality_grade_pass"
+                )
                 agents_runtime_result = {
                     "status": "candidate_loaded",
                     "entry_id": agents_runtime_candidate.get("entry_id"),
@@ -3114,15 +3207,33 @@ def main() -> int:
                     "attempted": True,
                     "mode": semantic_settings.get("mode"),
                     "source": semantic_settings.get("source"),
+                    "quality_grade": quality_grade,
+                    "quality_score": quality_score,
+                    "quality_decision": quality_decision,
+                    "quality_decision_reason": quality_decision_reason,
+                    "quality_findings": quality_findings,
                 }
-                agents_runtime_payload, agents_runtime_gate_failures = (
-                    resolve_agents_runtime_payload(agents_runtime_candidate)
-                )
-                agents_runtime_result["gate"] = {
-                    "status": "passed" if agents_runtime_payload else "failed",
-                    "failed_checks": agents_runtime_gate_failures,
-                }
-                agents_runtime_result["consumed"] = bool(agents_runtime_payload)
+                if quality_decision == "fallback":
+                    agents_runtime_result["status"] = "quality_grade_c_downgraded"
+                    agents_runtime_gate_failures = ["runtime_quality_grade_c"]
+                    agents_runtime_payload = None
+                elif quality_decision == "manual_review":
+                    agents_runtime_result["status"] = "quality_manual_review"
+                    agents_runtime_gate_failures = ["runtime_quality_manual_review"]
+                    agents_runtime_payload = None
+                elif quality_decision == "block":
+                    agents_runtime_result["status"] = "quality_blocked"
+                    agents_runtime_gate_failures = ["runtime_quality_grade_d"]
+                    agents_runtime_payload = None
+                else:
+                    agents_runtime_payload, agents_runtime_gate_failures = (
+                        resolve_agents_runtime_payload(agents_runtime_candidate)
+                    )
+                    agents_runtime_result["gate"] = {
+                        "status": "passed" if agents_runtime_payload else "failed",
+                        "failed_checks": agents_runtime_gate_failures,
+                    }
+                    agents_runtime_result["consumed"] = bool(agents_runtime_payload)
             else:
                 state_status = (
                     "runtime_unavailable"
@@ -3267,6 +3378,15 @@ def main() -> int:
             "fallback_count": semantic_observability["fallback_count"],
             "fallback_reason_breakdown": semantic_observability[
                 "fallback_reason_breakdown"
+            ],
+            "runtime_quality_grade_distribution": semantic_observability[
+                "runtime_quality_grade_distribution"
+            ],
+            "runtime_quality_decision_breakdown": semantic_observability[
+                "runtime_quality_decision_breakdown"
+            ],
+            "runtime_quality_degraded_count": semantic_observability[
+                "runtime_quality_degraded_count"
             ],
             "semantic_hit_rate": semantic_observability["semantic_hit_rate"],
             "semantic_unattempted_count": semantic_observability[
