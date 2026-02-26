@@ -18,6 +18,7 @@ import doc_legacy as dl  # noqa: E402
 import doc_metadata as dm  # noqa: E402
 import doc_plan  # noqa: E402
 import doc_quality  # noqa: E402
+import doc_semantic_runtime as dsr  # noqa: E402
 import doc_validate  # noqa: E402
 import language_profiles as lp  # noqa: E402
 
@@ -190,6 +191,184 @@ class DocLegacyMigrationTests(unittest.TestCase):
         self.assertIsInstance(entry, dict)
         self.assertEqual(entry.get("status"), "archived")
         self.assertEqual(entry.get("archive_path"), archive_rel)
+
+    def test_apply_migrate_legacy_prefers_runtime_semantic_payload(self) -> None:
+        policy = self._write_policy(semantic_enabled=True)
+        settings = dl.resolve_legacy_settings(policy)
+        source_rel = "legacy/runtime-first.md"
+        source_abs = self.root / source_rel
+        source_abs.write_text("fallback source content\n", encoding="utf-8")
+
+        language = {
+            "primary": "zh-CN",
+            "profile": "zh-CN",
+            "locked": False,
+            "source": "test",
+        }
+        metadata_policy = dm.resolve_metadata_policy(policy)
+        target_rel = dl.resolve_target_path(source_rel, settings)
+        archive_rel = dl.resolve_archive_path(source_rel, settings)
+        semantic_settings = lp.build_default_policy(primary_language="zh-CN", profile="zh-CN")[
+            "semantic_generation"
+        ]
+        semantic_settings = {"semantic_generation": semantic_settings}
+        semantic_cfg = dsr.resolve_semantic_generation_settings(semantic_settings)
+        runtime_entries = [
+            {
+                "entry_id": "legacy-runtime-1",
+                "path": source_rel,
+                "source_path": source_rel,
+                "action_type": "migrate_legacy",
+                "status": "ok",
+                "content": "runtime semantic migration content",
+            }
+        ]
+        runtime_state = {
+            "enabled": True,
+            "mode": "hybrid",
+            "source": "invoking_agent",
+            "available": True,
+            "entry_count": 1,
+            "error": None,
+            "warnings": [],
+        }
+
+        result = doc_apply.apply_action(
+            self.root,
+            {
+                "id": "A003",
+                "type": "migrate_legacy",
+                "kind": "file",
+                "path": target_rel,
+                "source_path": source_rel,
+                "archive_path": archive_rel,
+            },
+            dry_run=False,
+            language_settings=language,
+            template_profile="zh-CN",
+            metadata_policy=metadata_policy,
+            legacy_settings=settings,
+            semantic_settings=semantic_cfg,
+            semantic_runtime_entries=runtime_entries,
+            semantic_runtime_state=runtime_state,
+        )
+
+        self.assertEqual(result.get("status"), "applied")
+        semantic_runtime = result.get("semantic_runtime") or {}
+        self.assertEqual(semantic_runtime.get("status"), "migrate_legacy_runtime_applied")
+        self.assertEqual(semantic_runtime.get("gate", {}).get("status"), "passed")
+        self.assertTrue(semantic_runtime.get("consumed"))
+        target_text = (self.root / target_rel).read_text(encoding="utf-8")
+        self.assertIn("runtime semantic migration content", target_text)
+        registry = dl.load_registry(self.root / settings["registry_path"])
+        entry = (registry.get("entries") or {}).get(source_rel) or {}
+        self.assertEqual(entry.get("decision_source"), "semantic")
+
+    def test_apply_migrate_legacy_runtime_failure_uses_structured_fallback(self) -> None:
+        policy = self._write_policy(semantic_enabled=True)
+        settings = dl.resolve_legacy_settings(policy)
+        source_rel = "legacy/runtime-fallback.md"
+        (self.root / source_rel).write_text("line from source\n", encoding="utf-8")
+        language = {
+            "primary": "zh-CN",
+            "profile": "zh-CN",
+            "locked": False,
+            "source": "test",
+        }
+        metadata_policy = dm.resolve_metadata_policy(policy)
+        target_rel = dl.resolve_target_path(source_rel, settings)
+        archive_rel = dl.resolve_archive_path(source_rel, settings)
+        semantic_cfg = dsr.resolve_semantic_generation_settings(
+            {"semantic_generation": {"enabled": True, "mode": "hybrid"}}
+        )
+        runtime_state = {
+            "enabled": True,
+            "mode": "hybrid",
+            "source": "invoking_agent",
+            "available": False,
+            "entry_count": 0,
+            "error": "runtime report not found",
+            "warnings": [],
+        }
+
+        result = doc_apply.apply_action(
+            self.root,
+            {
+                "id": "A004",
+                "type": "migrate_legacy",
+                "kind": "file",
+                "path": target_rel,
+                "source_path": source_rel,
+                "archive_path": archive_rel,
+            },
+            dry_run=False,
+            language_settings=language,
+            template_profile="zh-CN",
+            metadata_policy=metadata_policy,
+            legacy_settings=settings,
+            semantic_settings=semantic_cfg,
+            semantic_runtime_entries=[],
+            semantic_runtime_state=runtime_state,
+        )
+
+        self.assertEqual(result.get("status"), "applied")
+        self.assertIn("deterministic fallback", str(result.get("details", "")))
+        semantic_runtime = result.get("semantic_runtime") or {}
+        self.assertTrue(semantic_runtime.get("fallback_used"))
+        self.assertEqual(semantic_runtime.get("fallback_reason"), "runtime_unavailable")
+        target_text = (self.root / target_rel).read_text(encoding="utf-8")
+        self.assertIn("line from source", target_text)
+
+    def test_apply_migrate_legacy_agent_strict_blocks_fallback(self) -> None:
+        policy = self._write_policy(semantic_enabled=True)
+        settings = dl.resolve_legacy_settings(policy)
+        source_rel = "legacy/runtime-strict.md"
+        (self.root / source_rel).write_text("strict source\n", encoding="utf-8")
+        language = {
+            "primary": "zh-CN",
+            "profile": "zh-CN",
+            "locked": False,
+            "source": "test",
+        }
+        metadata_policy = dm.resolve_metadata_policy(policy)
+        target_rel = dl.resolve_target_path(source_rel, settings)
+        archive_rel = dl.resolve_archive_path(source_rel, settings)
+        semantic_cfg = dsr.resolve_semantic_generation_settings(
+            {"semantic_generation": {"enabled": True, "mode": "agent_strict"}}
+        )
+        runtime_state = {
+            "enabled": True,
+            "mode": "agent_strict",
+            "source": "invoking_agent",
+            "available": False,
+            "entry_count": 0,
+            "error": "runtime report not found",
+            "warnings": [],
+        }
+
+        result = doc_apply.apply_action(
+            self.root,
+            {
+                "id": "A005",
+                "type": "migrate_legacy",
+                "kind": "file",
+                "path": target_rel,
+                "source_path": source_rel,
+                "archive_path": archive_rel,
+            },
+            dry_run=False,
+            language_settings=language,
+            template_profile="zh-CN",
+            metadata_policy=metadata_policy,
+            legacy_settings=settings,
+            semantic_settings=semantic_cfg,
+            semantic_runtime_entries=[],
+            semantic_runtime_state=runtime_state,
+        )
+
+        self.assertEqual(result.get("status"), "error")
+        self.assertIn("agent_strict requires runtime semantic candidate", str(result.get("details", "")))
+        self.assertFalse((self.root / target_rel).exists())
 
     def test_validate_legacy_gate_detects_unresolved_and_passes_after_archive(self) -> None:
         policy = self._write_policy()

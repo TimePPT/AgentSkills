@@ -12,8 +12,6 @@
 - [docs/.doc-manifest.json](./docs/.doc-manifest.json)
 - [docs/runbook.md](./docs/runbook.md)
 - [docs/exec-plans/active/docs-sor-roadmap-v2.7-agent-first-semantic-priority-governance.md](./docs/exec-plans/active/docs-sor-roadmap-v2.7-agent-first-semantic-priority-governance.md)
-- [docs/exec-plans/active/docs-sor-roadmap-v2.7-m4-acceptance-report.md](./docs/exec-plans/active/docs-sor-roadmap-v2.7-m4-acceptance-report.md)
-- [docs/exec-plans/completed/docs-sor-roadmap-v2.7-closeout-2026-02-26.md](./docs/exec-plans/completed/docs-sor-roadmap-v2.7-closeout-2026-02-26.md)
 - [docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md](./docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md)
 - [docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md](./docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md)
 - [docs/exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md](./docs/exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md)

@@ -120,6 +120,8 @@ BASE_POLICY = {
             "update_section": True,
             "fill_claim": True,
             "semantic_rewrite": True,
+            "topology_repair": True,
+            "navigation_repair": True,
             "migrate_legacy": True,
             "merge_docs": True,
             "split_doc": True,

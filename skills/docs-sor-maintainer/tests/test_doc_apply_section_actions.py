@@ -1099,6 +1099,55 @@ class DocApplySectionActionTests(unittest.TestCase):
             "runtime semantic candidate", str(agent_results[0].get("details", ""))
         )
 
+    def test_navigation_repair_adds_missing_links_and_is_idempotent(self) -> None:
+        index_path = self.root / "docs/index.md"
+        index_path.write_text("# 文档索引\n", encoding="utf-8")
+        action = {
+            "id": "A200",
+            "type": "navigation_repair",
+            "path": "docs/index.md",
+            "parent_path": "docs/index.md",
+            "missing_children": ["docs/runbook.md"],
+        }
+
+        first = self._apply(action)
+        second = self._apply(action)
+
+        self.assertEqual(first.get("status"), "applied")
+        self.assertEqual(second.get("status"), "skipped")
+        content = index_path.read_text(encoding="utf-8")
+        self.assertEqual(content.count("docs/runbook.md"), 1)
+        self.assertIn("## 子级文档导航", content)
+
+    def test_navigation_repair_skips_when_parent_missing(self) -> None:
+        result = self._apply(
+            {
+                "id": "A201",
+                "type": "navigation_repair",
+                "path": "docs/missing-parent.md",
+                "parent_path": "docs/missing-parent.md",
+                "missing_children": ["docs/runbook.md"],
+            }
+        )
+        self.assertEqual(result.get("status"), "skipped")
+        self.assertIn("does not exist", str(result.get("details", "")))
+
+    def test_topology_repair_is_consumed_by_apply(self) -> None:
+        result = self._apply(
+            {
+                "id": "A202",
+                "type": "topology_repair",
+                "path": "docs/.doc-topology.json",
+                "orphan_docs": ["docs/runbook.md"],
+                "unreachable_docs": ["docs/architecture.md"],
+                "over_depth_docs": [],
+                "topology_metrics": {"topology_max_depth": 4, "topology_depth_limit": 3},
+            }
+        )
+        self.assertEqual(result.get("status"), "applied")
+        self.assertTrue((self.root / "docs/.doc-topology.json").exists())
+        self.assertIn("topology", result)
+
     def test_summarize_semantic_observability_metrics(self) -> None:
         semantic_settings = dsr.resolve_semantic_generation_settings(
             {"semantic_generation": {"enabled": True, "mode": "hybrid"}}
@@ -1158,6 +1207,46 @@ class DocApplySectionActionTests(unittest.TestCase):
         self.assertEqual(summary.get("semantic_unattempted_count"), 1)
         self.assertEqual(summary.get("semantic_unattempted_without_exemption"), 1)
         self.assertEqual(summary.get("semantic_hit_rate"), 0.5)
+
+    def test_summarize_semantic_observability_includes_topology_navigation(self) -> None:
+        semantic_settings = dsr.resolve_semantic_generation_settings(
+            {"semantic_generation": {"enabled": True, "mode": "hybrid"}}
+        )
+        results = [
+            {
+                "id": "A300",
+                "type": "navigation_repair",
+                "path": "docs/index.md",
+                "status": "applied",
+                "semantic_runtime": {
+                    "status": "navigation_runtime_applied",
+                    "attempted": True,
+                    "consumed": True,
+                },
+            },
+            {
+                "id": "A301",
+                "type": "topology_repair",
+                "path": "docs/.doc-topology.json",
+                "status": "applied",
+                "semantic_runtime": {
+                    "status": "topology_runtime_gate_failed",
+                    "attempted": True,
+                    "fallback_used": True,
+                    "fallback_reason": "runtime_gate_failed",
+                },
+            },
+        ]
+
+        summary = doc_apply.summarize_semantic_observability(results, semantic_settings)
+        self.assertEqual(summary.get("semantic_action_count"), 2)
+        self.assertEqual(summary.get("semantic_attempt_count"), 2)
+        self.assertEqual(summary.get("semantic_success_count"), 1)
+        self.assertEqual(summary.get("fallback_count"), 1)
+        self.assertEqual(
+            summary.get("fallback_reason_breakdown"),
+            {"runtime_gate_failed": 1},
+        )
 
 
 if __name__ == "__main__":

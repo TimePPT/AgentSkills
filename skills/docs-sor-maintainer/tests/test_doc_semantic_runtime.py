@@ -36,6 +36,8 @@ class DocSemanticRuntimeTests(unittest.TestCase):
         self.assertFalse(settings["allow_external_llm_api"])
         self.assertTrue(settings["actions"]["fill_claim"])
         self.assertTrue(settings["actions"]["semantic_rewrite"])
+        self.assertTrue(settings["actions"]["topology_repair"])
+        self.assertTrue(settings["actions"]["navigation_repair"])
         self.assertTrue(settings["actions"]["merge_docs"])
         self.assertTrue(settings["actions"]["split_doc"])
 
@@ -76,6 +78,8 @@ class DocSemanticRuntimeTests(unittest.TestCase):
         self.assertFalse(settings["actions"]["semantic_rewrite"])
         self.assertFalse(settings["actions"]["merge_docs"])
         self.assertTrue(settings["actions"]["split_doc"])
+        self.assertTrue(settings["actions"]["topology_repair"])
+        self.assertTrue(settings["actions"]["navigation_repair"])
 
     def test_should_attempt_runtime_semantics_respects_semantic_first_flag(self) -> None:
         settings = dsr.resolve_semantic_generation_settings(
@@ -280,6 +284,92 @@ class DocSemanticRuntimeTests(unittest.TestCase):
         self.assertEqual(len(split_outputs), 2)
         self.assertEqual(split_outputs[0].get("path"), "docs/history/part-a.md")
         self.assertEqual(entries[0].get("index_links"), ["docs/history/part-a.md", "docs/history/part-b.md"])
+
+    def test_load_runtime_report_accepts_navigation_targets_entry(self) -> None:
+        report_path = self.root / "docs/.semantic-runtime-report.json"
+        report_path.write_text(
+            json.dumps(
+                {
+                    "version": 2,
+                    "entries": [
+                        {
+                            "entry_id": "nav-runtime",
+                            "path": "docs/index.md",
+                            "action_type": "navigation_repair",
+                            "status": "ok",
+                            "target_paths": [
+                                "docs/runbook.md",
+                                "docs/architecture.md",
+                            ],
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        settings = dsr.resolve_semantic_generation_settings(
+            {
+                "semantic_generation": {
+                    "enabled": True,
+                    "mode": "hybrid",
+                }
+            }
+        )
+        entries, metadata = dsr.load_runtime_report(self.root, settings)
+        self.assertTrue(metadata["available"])
+        self.assertEqual(metadata["entry_count"], 1)
+        self.assertEqual(
+            entries[0].get("target_paths"),
+            ["docs/runbook.md", "docs/architecture.md"],
+        )
+
+    def test_select_runtime_entry_uses_source_path_for_migrate_legacy(self) -> None:
+        report = {
+            "version": 1,
+            "entries": [
+                {
+                    "entry_id": "target-only",
+                    "path": "docs/history/legacy/legacy/a.md",
+                    "action_type": "migrate_legacy",
+                    "status": "ok",
+                    "content": "generic",
+                },
+                {
+                    "entry_id": "source-aware",
+                    "path": "legacy/a.md",
+                    "source_path": "legacy/a.md",
+                    "action_type": "migrate_legacy",
+                    "status": "ok",
+                    "content": "from source",
+                },
+            ],
+        }
+        report_path = self.root / "docs/.semantic-runtime-report.json"
+        report_path.write_text(
+            json.dumps(report, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        settings = dsr.resolve_semantic_generation_settings(
+            {
+                "semantic_generation": {
+                    "enabled": True,
+                    "mode": "hybrid",
+                }
+            }
+        )
+        entries, metadata = dsr.load_runtime_report(self.root, settings)
+        self.assertTrue(metadata["available"])
+        action = {
+            "type": "migrate_legacy",
+            "path": "docs/history/legacy/legacy/a.md",
+            "source_path": "legacy/a.md",
+        }
+        candidate = dsr.select_runtime_entry(action, entries, settings)
+        self.assertIsNotNone(candidate)
+        self.assertEqual(candidate.get("entry_id"), "source-aware")
 
     def test_load_runtime_report_fails_when_entries_not_list(self) -> None:
         report_path = self.root / "docs/.semantic-runtime-report.json"

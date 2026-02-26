@@ -12,6 +12,8 @@ DEFAULT_SEMANTIC_ACTIONS = {
     "update_section": True,
     "fill_claim": True,
     "semantic_rewrite": True,
+    "topology_repair": True,
+    "navigation_repair": True,
     "migrate_legacy": True,
     "merge_docs": True,
     "split_doc": True,
@@ -245,6 +247,10 @@ def _normalize_runtime_entry(
             if field == "action_type":
                 action_type = normalized_value
 
+    source_path_raw = raw.get("source_path")
+    if isinstance(source_path_raw, str) and source_path_raw.strip():
+        entry["source_path"] = normalize_rel(source_path_raw.strip())
+
     status = raw.get("status", "ok")
     if isinstance(status, str):
         status = status.strip() or "ok"
@@ -302,12 +308,29 @@ def _normalize_runtime_entry(
                         f"entry[{entry_index}] slots.next_steps ignored: expected list"
                     )
 
+    source_paths = _normalize_string_list(raw.get("source_paths"), normalize_paths=True)
+    target_paths = _normalize_string_list(raw.get("target_paths"), normalize_paths=True)
+    index_links = _normalize_string_list(raw.get("index_links"), normalize_paths=True)
+    if source_paths:
+        entry["source_paths"] = source_paths
+    if target_paths:
+        entry["target_paths"] = target_paths
+    if index_links:
+        entry["index_links"] = index_links
+
     content_raw = raw.get("content")
     statement_raw = raw.get("statement")
     has_split_outputs = isinstance(raw.get("split_outputs"), list) and bool(
         raw.get("split_outputs")
     )
-    if content_raw is None and statement_raw is None and not slots and not has_split_outputs:
+    has_navigation_targets = bool(target_paths or index_links)
+    if (
+        content_raw is None
+        and statement_raw is None
+        and not slots
+        and not has_split_outputs
+        and not has_navigation_targets
+    ):
         return None, [f"entry[{entry_index}] requires content or statement or slots"]
 
     content: str = ""
@@ -353,16 +376,6 @@ def _normalize_runtime_entry(
     risk_notes = _normalize_string_list(raw.get("risk_notes"), normalize_paths=False)
     if risk_notes:
         entry["risk_notes"] = risk_notes
-
-    source_paths = _normalize_string_list(raw.get("source_paths"), normalize_paths=True)
-    if source_paths:
-        entry["source_paths"] = source_paths
-    target_paths = _normalize_string_list(raw.get("target_paths"), normalize_paths=True)
-    if target_paths:
-        entry["target_paths"] = target_paths
-    index_links = _normalize_string_list(raw.get("index_links"), normalize_paths=True)
-    if index_links:
-        entry["index_links"] = index_links
 
     evidence_map_raw = raw.get("evidence_map")
     if evidence_map_raw is not None:
@@ -488,11 +501,26 @@ def select_runtime_entry(
     section_id = section_id_raw.strip() if isinstance(section_id_raw, str) and section_id_raw.strip() else None
     claim_id_raw = action.get("claim_id")
     claim_id = claim_id_raw.strip() if isinstance(claim_id_raw, str) and claim_id_raw.strip() else None
+    source_path_raw = action.get("source_path")
+    source_path = (
+        normalize_rel(source_path_raw.strip())
+        if isinstance(source_path_raw, str) and source_path_raw.strip()
+        else None
+    )
 
     best_score: int | None = None
     best_entry: dict[str, Any] | None = None
     for entry in entries:
-        if entry.get("path") != path:
+        entry_path = (
+            normalize_rel(str(entry.get("path", "")).strip())
+            if isinstance(entry.get("path"), str)
+            else ""
+        )
+        if entry_path == path:
+            path_score = 6
+        elif source_path and entry_path == source_path:
+            path_score = 2
+        else:
             continue
 
         entry_action = entry.get("action_type")
@@ -518,8 +546,27 @@ def select_runtime_entry(
         if claim_score is None:
             continue
 
+        source_score = _match_field_score(
+            source_path,
+            (
+                entry.get("source_path")
+                if isinstance(entry.get("source_path"), str)
+                else None
+            ),
+            weight=7,
+        )
+        if source_score is None:
+            continue
+
         status_score = 2 if entry.get("status") == "ok" else 0
-        score = action_score + section_score + claim_score + status_score
+        score = (
+            action_score
+            + path_score
+            + section_score
+            + claim_score
+            + source_score
+            + status_score
+        )
         if best_score is None or score > best_score:
             best_score = score
             best_entry = entry

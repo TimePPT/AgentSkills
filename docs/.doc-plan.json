@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at": "2026-02-26T10:44:12.174001+00:00",
+    "generated_at": "2026-02-26T12:09:08.421172+00:00",
     "root": "/Users/tompoet/AgentSkills",
     "mode": "audit",
     "policy_path": "docs/.doc-policy.json",
@@ -30,6 +30,8 @@
           "docs/exec-plans/active/docs-sor-roadmap-v2.7-m3-acceptance-report.md",
           "docs/exec-plans/active/docs-sor-roadmap-v2.7-m4-acceptance-report.md",
           "docs/exec-plans/active/docs-sor-roadmap-v2.7-m4-test-matrix.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.7.1-acceptance-report.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.7.1-semantic-first-coverage-closure.md",
           "docs/exec-plans/active/docs-sor-roadmap-v2.md",
           "docs/exec-plans/completed/README.md",
           "docs/exec-plans/completed/docs-sor-legacy-migration-automation-closeout-2026-02-22.md",
@@ -39,6 +41,7 @@
           "docs/exec-plans/completed/docs-sor-roadmap-v2.5-remediation-closeout-2026-02-24.md",
           "docs/exec-plans/completed/docs-sor-roadmap-v2.6-closeout-2026-02-24.md",
           "docs/exec-plans/completed/docs-sor-roadmap-v2.7-closeout-2026-02-26.md",
+          "docs/exec-plans/completed/docs-sor-roadmap-v2.7.1-closeout-2026-02-26.md",
           "docs/index.md",
           "docs/references/doc_spec_schema.md",
           "docs/references/doc_topology_schema.md",
@@ -67,7 +70,7 @@
       "archive_dir": "docs/archive"
     },
     "manifest_reasoning": [
-      "include_files=16"
+      "include_files=18"
     ],
     "capability_decisions": [
       {
@@ -133,7 +136,7 @@
         "enabled": true,
         "source": "signal",
         "evidence": [
-          "docs_markdown_count=40"
+          "docs_markdown_count=43"
         ],
         "required_files": [],
         "required_dirs": [],
@@ -195,8 +198,8 @@
       "errors": [],
       "warnings": [],
       "metrics": {
-        "node_count": 37,
-        "managed_markdown_count": 37,
+        "node_count": 40,
+        "managed_markdown_count": 40,
         "topology_reachable_ratio": 1.0,
         "topology_orphan_count": 0,
         "topology_unreachable_count": 0,

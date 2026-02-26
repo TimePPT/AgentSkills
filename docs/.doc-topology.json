@@ -124,6 +124,18 @@
       "domain": "planning"
     },
     {
+      "path": "docs/exec-plans/active/docs-sor-roadmap-v2.7.1-semantic-first-coverage-closure.md",
+      "layer": "leaf",
+      "parent": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+      "domain": "planning"
+    },
+    {
+      "path": "docs/exec-plans/active/docs-sor-roadmap-v2.7.1-acceptance-report.md",
+      "layer": "leaf",
+      "parent": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
+      "domain": "evidence"
+    },
+    {
       "path": "docs/exec-plans/active/docs-sor-roadmap-v2.7-m1-acceptance-report.md",
       "layer": "leaf",
       "parent": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
@@ -221,6 +233,12 @@
     },
     {
       "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.7-closeout-2026-02-26.md",
+      "layer": "leaf",
+      "parent": "docs/exec-plans/completed/README.md",
+      "domain": "history"
+    },
+    {
+      "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.7.1-closeout-2026-02-26.md",
       "layer": "leaf",
       "parent": "docs/exec-plans/completed/README.md",
       "domain": "history"

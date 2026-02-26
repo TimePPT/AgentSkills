@@ -56,6 +56,19 @@ fi
 "$PYTHON_BIN" "$SKILL_DIR/scripts/doc_validate.py" --root "$REPO_ROOT" --facts "$REPO_ROOT/docs/.repo-facts.json" --fail-on-drift --fail-on-freshness --output "$REPO_ROOT/docs/.doc-validate-report.json"
 ```
 
+双副本一致性检查（`skills` vs `.agents`）：
+
+```bash
+if [ -d "$REPO_ROOT/skills/docs-sor-maintainer" ] && [ -d "$REPO_ROOT/.agents/skills/docs-sor-maintainer" ]; then
+  diff -qr \
+    --exclude='.DS_Store' \
+    --exclude='__pycache__' \
+    --exclude='*.pyc' \
+    "$REPO_ROOT/skills/docs-sor-maintainer" \
+    "$REPO_ROOT/.agents/skills/docs-sor-maintainer"
+fi
+```
+
 质量门槛评估（可独立运行）：
 
 ```bash

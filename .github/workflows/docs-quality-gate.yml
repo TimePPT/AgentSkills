@@ -42,6 +42,14 @@ jobs:
             echo "docs-sor-maintainer not found. Set SKILL_DIR or install under skills, .agents/skills or \$HOME/.codex/skills." >&2
             exit 2
           fi
+          if [ -d "$REPO_ROOT/skills/docs-sor-maintainer" ] && [ -d "$REPO_ROOT/.agents/skills/docs-sor-maintainer" ]; then
+            diff -qr \
+              --exclude='.DS_Store' \
+              --exclude='__pycache__' \
+              --exclude='*.pyc' \
+              "$REPO_ROOT/skills/docs-sor-maintainer" \
+              "$REPO_ROOT/.agents/skills/docs-sor-maintainer"
+          fi
           "$PYTHON_BIN" "$SKILL_DIR/scripts/repo_scan.py" --root "$REPO_ROOT" --output "$REPO_ROOT/docs/.repo-facts.json"
           "$PYTHON_BIN" "$SKILL_DIR/scripts/doc_plan.py" --root "$REPO_ROOT" --mode audit --facts "$REPO_ROOT/docs/.repo-facts.json" --output "$REPO_ROOT/docs/.doc-plan.json"
           "$PYTHON_BIN" "$SKILL_DIR/scripts/doc_synthesize.py" --root "$REPO_ROOT" --plan "$REPO_ROOT/docs/.doc-plan.json" --facts "$REPO_ROOT/docs/.repo-facts.json" --output "$REPO_ROOT/docs/.doc-evidence-map.json"
