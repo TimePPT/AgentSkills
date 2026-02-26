@@ -676,6 +676,64 @@ class DocApplySectionActionTests(unittest.TestCase):
         self.assertIn("docs/history/part-a.md", index_text)
         self.assertIn("docs/history/part-b.md", index_text)
 
+    def test_split_doc_runtime_dry_run_handles_missing_index_file(self) -> None:
+        (self.root / "docs/history").mkdir(parents=True, exist_ok=True)
+        (self.root / "docs/history/merged.md").write_text("# merged\n", encoding="utf-8")
+        semantic_settings = dsr.resolve_semantic_generation_settings(
+            {"semantic_generation": {"enabled": True, "mode": "hybrid"}}
+        )
+        runtime_entries = [
+            {
+                "entry_id": "split-history-dry-run",
+                "path": "docs/history/merged.md",
+                "action_type": "split_doc",
+                "status": "ok",
+                "split_outputs": [
+                    {
+                        "path": "docs/history/part-a.md",
+                        "content": "# part-a",
+                        "source_paths": ["docs/history/merged.md"],
+                    }
+                ],
+                "index_links": ["docs/history/part-a.md"],
+            }
+        ]
+        runtime_state = {
+            "enabled": True,
+            "mode": "hybrid",
+            "source": "invoking_agent",
+            "available": True,
+            "entry_count": 1,
+            "error": None,
+            "warnings": [],
+        }
+
+        result = doc_apply.apply_action(
+            self.root,
+            {
+                "id": "A010B",
+                "type": "split_doc",
+                "path": "docs/history/merged.md",
+                "source_path": "docs/history/merged.md",
+                "target_paths": ["docs/history/part-a.md"],
+                "index_path": "docs/index-generated.md",
+            },
+            dry_run=True,
+            language_settings=self.language,
+            template_profile=self.profile,
+            metadata_policy=self.metadata_policy,
+            semantic_settings=semantic_settings,
+            semantic_runtime_entries=runtime_entries,
+            semantic_runtime_state=runtime_state,
+        )
+
+        self.assertNotEqual(result.get("status"), "error")
+        self.assertEqual(result.get("status"), "applied")
+        semantic_runtime = result.get("semantic_runtime") or {}
+        self.assertEqual(semantic_runtime.get("status"), "split_doc_runtime_applied")
+        self.assertEqual(semantic_runtime.get("gate", {}).get("status"), "passed")
+        self.assertFalse((self.root / "docs/index-generated.md").exists())
+
     def test_merge_docs_hybrid_fallback_generates_traceable_content(self) -> None:
         (self.root / "docs/history").mkdir(parents=True, exist_ok=True)
         (self.root / "docs/history/a.md").write_text("# A\n\ncontent-a\n", encoding="utf-8")

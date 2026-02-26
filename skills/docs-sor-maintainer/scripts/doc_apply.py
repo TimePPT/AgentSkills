@@ -1212,14 +1212,16 @@ def _upsert_index_links(
 ) -> bool:
     index_rel = normalize(index_path)
     index_abs = root / index_rel
+    base = (
+        "# 文档索引\n\n## 结构化拆分产物\n"
+        if template_profile == "zh-CN"
+        else "# Documentation Index\n\n## Split Artifacts\n"
+    )
     if not index_abs.exists():
-        base = (
-            "# 文档索引\n\n## 结构化拆分产物\n"
-            if template_profile == "zh-CN"
-            else "# Documentation Index\n\n## Split Artifacts\n"
-        )
         write_text(index_abs, base + "\n", dry_run)
-    text = index_abs.read_text(encoding="utf-8")
+        text = base + "\n"
+    else:
+        text = index_abs.read_text(encoding="utf-8")
     lines_to_add: list[str] = []
     for target_rel in target_paths:
         rel_link = os.path.relpath(target_rel, start=str(Path(index_rel).parent))

@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at": "2026-02-26T13:57:01.695714+00:00",
+    "generated_at": "2026-02-26T14:35:21.765958+00:00",
     "root": "/Users/tompoet/AgentSkills",
     "mode": "audit",
     "policy_path": "docs/.doc-policy.json",
@@ -32,6 +32,7 @@
           "docs/exec-plans/active/docs-sor-roadmap-v2.7-m4-test-matrix.md",
           "docs/exec-plans/active/docs-sor-roadmap-v2.7.1-acceptance-report.md",
           "docs/exec-plans/active/docs-sor-roadmap-v2.7.1-semantic-first-coverage-closure.md",
+          "docs/exec-plans/active/docs-sor-roadmap-v2.7.3-acceptance-report.md",
           "docs/exec-plans/active/docs-sor-roadmap-v2.7.3-semantic-input-quality-and-scoped-validate.md",
           "docs/exec-plans/active/docs-sor-roadmap-v2.md",
           "docs/exec-plans/completed/README.md",
@@ -43,6 +44,7 @@
           "docs/exec-plans/completed/docs-sor-roadmap-v2.6-closeout-2026-02-24.md",
           "docs/exec-plans/completed/docs-sor-roadmap-v2.7-closeout-2026-02-26.md",
           "docs/exec-plans/completed/docs-sor-roadmap-v2.7.1-closeout-2026-02-26.md",
+          "docs/exec-plans/completed/docs-sor-roadmap-v2.7.3-closeout-2026-02-26.md",
           "docs/index.md",
           "docs/references/doc_spec_schema.md",
           "docs/references/doc_topology_schema.md",
@@ -71,7 +73,7 @@
       "archive_dir": "docs/archive"
     },
     "manifest_reasoning": [
-      "include_files=19"
+      "include_files=21"
     ],
     "capability_decisions": [
       {
@@ -106,7 +108,7 @@
         "enabled": true,
         "source": "goal_include",
         "evidence": [
-          "file_count=158",
+          "file_count=164",
           "enabled by doc_goals.include"
         ],
         "required_files": [
@@ -121,7 +123,7 @@
         "source": "goal_include",
         "evidence": [
           "ci_configs=1",
-          "file_count=158",
+          "file_count=164",
           "enabled by doc_goals.include"
         ],
         "required_files": [],
@@ -137,7 +139,7 @@
         "enabled": true,
         "source": "signal",
         "evidence": [
-          "docs_markdown_count=44"
+          "docs_markdown_count=46"
         ],
         "required_files": [],
         "required_dirs": [],
@@ -199,8 +201,8 @@
       "errors": [],
       "warnings": [],
       "metrics": {
-        "node_count": 41,
-        "managed_markdown_count": 41,
+        "node_count": 43,
+        "managed_markdown_count": 43,
         "topology_reachable_ratio": 1.0,
         "topology_orphan_count": 0,
         "topology_unreachable_count": 0,
