@@ -104,12 +104,15 @@
       "docs/.doc-manifest.json",
       "docs/runbook.md"
     ],
+    "regenerate_on_semantic_actions": true,
     "sync_on_manifest_change": true,
     "fail_on_agents_drift": true
   },
   "semantic_generation": {
     "enabled": true,
     "mode": "hybrid",
+    "prefer_agent_semantic_first": true,
+    "require_semantic_attempt": true,
     "source": "invoking_agent",
     "runtime_report_path": "docs/.semantic-runtime-report.json",
     "fail_closed": true,
@@ -127,8 +130,17 @@
     "actions": {
       "update_section": true,
       "fill_claim": true,
+      "semantic_rewrite": true,
       "migrate_legacy": true,
+      "merge_docs": true,
+      "split_doc": true,
       "agents_generate": true
+    },
+    "observability": {
+      "enabled": true,
+      "large_unattempted_ratio": 0.5,
+      "large_unattempted_count": 3,
+      "fail_on_large_unattempted": true
     }
   },
   "legacy_sources": {
@@ -231,13 +243,22 @@
   - `min_structured_section_completeness`: minimum completeness ratio for structured migration sections.
   - `fail_on_semantic_gate`: when true, semantic gate failures are treated as errors.
 - `agents_generation`: dynamic AGENTS.md generation settings.
+  - `mode`: `dynamic` (default) consumes runtime semantic candidate first; `deterministic` skips runtime and renders deterministic template path.
+  - `regenerate_on_semantic_actions`: when true, semantic/structure actions can trigger AGENTS regeneration even without manifest drift.
 - `semantic_generation`: managed-doc semantic generation policy.
+  - `prefer_agent_semantic_first`: when true (default), apply flow attempts runtime semantic candidate before deterministic fallback.
+  - `require_semantic_attempt`: marks semantic-enabled actions as requiring a runtime attempt trace for audit visibility.
   - `mode`: `hybrid` (default), `deterministic`, or `agent_strict`.
   - `source`: semantic producer identifier; recommended `invoking_agent`.
   - `runtime_report_path`: runtime semantic report consumed by apply flow.
   - runtime report v2 entry for section actions supports `slots.summary/key_facts/next_steps`; `doc_apply` enforces slot completeness, verbosity budget, and citation prefix gate before write.
   - `allow_external_llm_api`: must stay `false` by default to avoid provider lock-in.
+  - `allow_fallback_template`: fallback is only valid for standardized reason codes (`runtime_unavailable` / `runtime_entry_not_found` / `runtime_gate_failed` / `path_denied`) and is always blocked in `agent_strict`.
   - `actions`: explicit allowlist of action types that may consume runtime semantics.
+  - `observability`: semantic-first observability gate thresholds consumed by `doc_validate.py`.
+    - `large_unattempted_ratio`: ratio threshold for classifying missing semantic attempts as "large gap".
+    - `large_unattempted_count`: absolute threshold for classifying missing semantic attempts as "large gap".
+    - `fail_on_large_unattempted`: when true, large gaps fail validate; otherwise emit warnings.
 - `legacy_sources`: legacy files discovery/migration policy for non-SoR historical files.
   - `legacy_sources.semantic`: semantic classifier policy for legacy candidates, including threshold routing and denylist.
   - `legacy_sources.semantic.provider`: use `agent_runtime` to consume runtime-injected semantic entries; keep `deterministic_mock` for local testing only.

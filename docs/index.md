@@ -1,5 +1,5 @@
 <!-- doc-owner: docs-maintainer -->
-<!-- doc-last-reviewed: 2026-02-24 -->
+<!-- doc-last-reviewed: 2026-02-26 -->
 <!-- doc-review-cycle-days: 90 -->
 
 # 文档索引
@@ -19,10 +19,13 @@
 
 ## 执行中计划（active）
 
-- 当前无进行中计划（下一阶段待立项）
+- 当前无进行中计划。
 
 ## 已完成但保留在 active 的历史计划（标记 completed）
 
+- [docs/exec-plans/active/docs-sor-roadmap-v2.7.3-semantic-input-quality-and-scoped-validate.md](./exec-plans/active/docs-sor-roadmap-v2.7.3-semantic-input-quality-and-scoped-validate.md)
+- [docs/exec-plans/active/docs-sor-roadmap-v2.7.1-semantic-first-coverage-closure.md](./exec-plans/active/docs-sor-roadmap-v2.7.1-semantic-first-coverage-closure.md)
+- [docs/exec-plans/active/docs-sor-roadmap-v2.7-agent-first-semantic-priority-governance.md](./exec-plans/active/docs-sor-roadmap-v2.7-agent-first-semantic-priority-governance.md)
 - [docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md](./exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md)
 - [docs/exec-plans/active/docs-sor-roadmap-v2.5-hybrid-template-llm-governance.md](./exec-plans/active/docs-sor-roadmap-v2.5-hybrid-template-llm-governance.md)
 - [docs/exec-plans/active/docs-sor-roadmap-v2.5-remediation-agent-strict-policy-enforcement.md](./exec-plans/active/docs-sor-roadmap-v2.5-remediation-agent-strict-policy-enforcement.md)
@@ -35,6 +38,13 @@
 
 ## 历史验收证据（active）
 
+- [docs/exec-plans/active/docs-sor-roadmap-v2.7.3-acceptance-report.md](./exec-plans/active/docs-sor-roadmap-v2.7.3-acceptance-report.md)
+- [docs/exec-plans/active/docs-sor-roadmap-v2.7.1-acceptance-report.md](./exec-plans/active/docs-sor-roadmap-v2.7.1-acceptance-report.md)
+- [docs/exec-plans/active/docs-sor-roadmap-v2.7-m4-acceptance-report.md](./exec-plans/active/docs-sor-roadmap-v2.7-m4-acceptance-report.md)
+- [docs/exec-plans/active/docs-sor-roadmap-v2.7-m4-test-matrix.md](./exec-plans/active/docs-sor-roadmap-v2.7-m4-test-matrix.md)
+- [docs/exec-plans/active/docs-sor-roadmap-v2.7-m3-acceptance-report.md](./exec-plans/active/docs-sor-roadmap-v2.7-m3-acceptance-report.md)
+- [docs/exec-plans/active/docs-sor-roadmap-v2.7-m2-acceptance-report.md](./exec-plans/active/docs-sor-roadmap-v2.7-m2-acceptance-report.md)
+- [docs/exec-plans/active/docs-sor-roadmap-v2.7-m1-acceptance-report.md](./exec-plans/active/docs-sor-roadmap-v2.7-m1-acceptance-report.md)
 - [docs/exec-plans/active/docs-sor-roadmap-v2.6-acceptance-report.md](./exec-plans/active/docs-sor-roadmap-v2.6-acceptance-report.md)
 - [docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-test-matrix.md](./exec-plans/active/docs-sor-roadmap-v2.1-phase-d-test-matrix.md)
 - [docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-acceptance-report.md](./exec-plans/active/docs-sor-roadmap-v2.1-phase-d-acceptance-report.md)
@@ -52,6 +62,9 @@
 - [docs/exec-plans/completed/docs-sor-roadmap-v2.5-closeout-2026-02-23.md](./exec-plans/completed/docs-sor-roadmap-v2.5-closeout-2026-02-23.md)
 - [docs/exec-plans/completed/docs-sor-roadmap-v2.5-remediation-closeout-2026-02-24.md](./exec-plans/completed/docs-sor-roadmap-v2.5-remediation-closeout-2026-02-24.md)
 - [docs/exec-plans/completed/docs-sor-roadmap-v2.6-closeout-2026-02-24.md](./exec-plans/completed/docs-sor-roadmap-v2.6-closeout-2026-02-24.md)
+- [docs/exec-plans/completed/docs-sor-roadmap-v2.7-closeout-2026-02-26.md](./exec-plans/completed/docs-sor-roadmap-v2.7-closeout-2026-02-26.md)
+- [docs/exec-plans/completed/docs-sor-roadmap-v2.7.1-closeout-2026-02-26.md](./exec-plans/completed/docs-sor-roadmap-v2.7.1-closeout-2026-02-26.md)
+- [docs/exec-plans/completed/docs-sor-roadmap-v2.7.3-closeout-2026-02-26.md](./exec-plans/completed/docs-sor-roadmap-v2.7.3-closeout-2026-02-26.md)
 
 ## 操作流程
 
@@ -63,12 +76,17 @@
 ## 当前仓库范围说明
 
 - 本仓库是 Skill 资产仓库，当前主模块为 `skills/docs-sor-maintainer`。
-- `.agents/skills/docs-sor-maintainer` 是阶段性人工同步副本，不作为开发阶段实时门禁依据。
+- `.agents/skills/docs-sor-maintainer` 是默认运行入口镜像；`skills/docs-sor-maintainer` 是开发主目录，两者必须保持一致。
 - 本轮文档目标：
+  - V2.7.3 已完成验收并收口：落地 semantic runtime 输入质量分级与 scoped validate 自动化。
+  - 双副本一致性继续按人工同步策略执行，不纳入 V2.7.3 自动化改造范围。
+  - V2.7.1 已完成验收并收口：补齐 semantic-first 在 topology/navigation/migrate_legacy 场景的执行闭环与验收闭环。
   - 固化当前 codebase 的结构与操作约束；
   - 历史计划（V2/V2.1/Phase E/F/F5）已补齐 completed 收口标记与收口文档。
   - V2.5（模板兜底 + Agent 语义增益）与 remediation（agent_strict + semantic policy 执行语义）均已完成收口。
   - V2.6（WP1-WP5）已完成验收并收口，详见：
     `docs/exec-plans/completed/docs-sor-roadmap-v2.6-closeout-2026-02-24.md`。
+  - V2.7（M1-M4）已完成验收并收口，详见：
+    `docs/exec-plans/completed/docs-sor-roadmap-v2.7-closeout-2026-02-26.md`。
   - V2.4 已按策略变更收口并废弃开发，详见：
     `docs/exec-plans/completed/docs-sor-roadmap-v2.4-closeout-2026-02-23.md`。

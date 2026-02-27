@@ -206,6 +206,36 @@ class DocGardenRepairLoopTests(unittest.TestCase):
         }
         self.assertTrue(doc_garden.is_repairable_drift(validate_report))
 
+    def test_collect_semantic_observability_and_render(self) -> None:
+        apply_summary = {
+            "semantic_action_count": 4,
+            "semantic_attempt_count": 3,
+            "semantic_success_count": 2,
+            "fallback_count": 1,
+            "fallback_reason_breakdown": {"runtime_gate_failed": 1},
+            "semantic_unattempted_without_exemption": 1,
+        }
+        metrics = doc_garden.collect_semantic_observability(apply_summary, {})
+        self.assertEqual(metrics.get("semantic_action_count"), 4)
+        self.assertEqual(metrics.get("semantic_attempt_count"), 3)
+        self.assertEqual(metrics.get("semantic_success_count"), 2)
+        self.assertEqual(metrics.get("fallback_count"), 1)
+        self.assertEqual(metrics.get("semantic_hit_rate"), 0.6667)
+        self.assertEqual(
+            metrics.get("fallback_reason_breakdown"), {"runtime_gate_failed": 1}
+        )
+
+        report = {
+            "generated_at": "2026-02-26T00:00:00+00:00",
+            "root": str(self.root),
+            "summary": {"status": "passed", "apply_mode": "apply-safe"},
+            "steps": [],
+            "semantic_observability": metrics,
+        }
+        markdown = doc_garden.render_report_markdown(report)
+        self.assertIn("## Semantic Observability", markdown)
+        self.assertIn("Semantic path hit rate: 0.6667", markdown)
+
 
 if __name__ == "__main__":
     unittest.main()

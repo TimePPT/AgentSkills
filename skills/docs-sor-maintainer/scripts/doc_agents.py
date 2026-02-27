@@ -69,6 +69,12 @@ def resolve_agents_settings(policy: dict[str, Any] | None) -> dict[str, Any]:
             "sync_on_manifest_change", base.get("sync_on_manifest_change", True)
         )
     )
+    regenerate_on_semantic_actions = bool(
+        raw.get(
+            "regenerate_on_semantic_actions",
+            base.get("regenerate_on_semantic_actions", True),
+        )
+    )
     fail_on_agents_drift = bool(
         raw.get("fail_on_agents_drift", base.get("fail_on_agents_drift", True))
     )
@@ -82,6 +88,7 @@ def resolve_agents_settings(policy: dict[str, Any] | None) -> dict[str, Any]:
         "mode": mode,
         "max_lines": max_lines,
         "required_links": [normalize(str(v)) for v in required_links if isinstance(v, str)],
+        "regenerate_on_semantic_actions": regenerate_on_semantic_actions,
         "sync_on_manifest_change": sync_on_manifest_change,
         "fail_on_agents_drift": fail_on_agents_drift,
         "max_overlap_ratio": overlap_threshold,

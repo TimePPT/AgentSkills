@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-02-25T02:55:15.395594+00:00",
+  "generated_at": "2026-02-27T16:01:05.094423+00:00",
   "root": "/Users/tompoet/AgentSkills",
   "mode": "apply-safe",
   "dry_run": false,
@@ -14,13 +14,27 @@
     "total_actions": 0,
     "applied": 0,
     "skipped": 0,
-    "errors": 0
+    "errors": 0,
+    "semantic_action_count": 0,
+    "semantic_attempt_count": 0,
+    "semantic_success_count": 0,
+    "fallback_count": 0,
+    "fallback_reason_breakdown": {},
+    "runtime_quality_grade_distribution": {},
+    "runtime_quality_decision_breakdown": {},
+    "runtime_quality_degraded_count": 0,
+    "semantic_hit_rate": 0.0,
+    "semantic_unattempted_count": 0,
+    "semantic_exempt_count": 0,
+    "semantic_unattempted_without_exemption": 0
   },
   "results": [],
   "semantic_runtime": {
     "settings": {
       "enabled": true,
       "mode": "hybrid",
+      "prefer_agent_semantic_first": true,
+      "require_semantic_attempt": true,
       "source": "invoking_agent",
       "runtime_report_path": "docs/.semantic-runtime-report.json",
       "fail_closed": true,
@@ -38,8 +52,23 @@
       "actions": {
         "update_section": true,
         "fill_claim": true,
+        "semantic_rewrite": true,
+        "topology_repair": true,
+        "navigation_repair": true,
         "migrate_legacy": true,
+        "merge_docs": true,
+        "split_doc": true,
         "agents_generate": true
+      },
+      "input_quality": {
+        "enabled": true,
+        "grade_thresholds": {
+          "A": 90,
+          "B": 75,
+          "C": 60
+        },
+        "agent_strict_min_grade": "B",
+        "c_grade_decision": "fallback"
       }
     },
     "runtime": {
@@ -50,8 +79,28 @@
       "available": false,
       "entry_count": 0,
       "error": "runtime report not found: docs/.semantic-runtime-report.json",
-      "warnings": []
+      "warnings": [],
+      "quality": {
+        "enabled": true,
+        "grade_distribution": {},
+        "decision_breakdown": {}
+      }
     }
+  },
+  "semantic_observability": {
+    "semantic_action_count": 0,
+    "semantic_attempt_count": 0,
+    "semantic_success_count": 0,
+    "fallback_count": 0,
+    "fallback_reason_breakdown": {},
+    "runtime_quality_grade_distribution": {},
+    "runtime_quality_decision_breakdown": {},
+    "runtime_quality_degraded_count": 0,
+    "semantic_exempt_count": 0,
+    "semantic_unattempted_count": 0,
+    "semantic_unattempted_without_exemption": 0,
+    "semantic_hit_rate": 0.0,
+    "semantic_unattempted_samples": []
   },
   "agents_generation": {
     "status": "skipped",

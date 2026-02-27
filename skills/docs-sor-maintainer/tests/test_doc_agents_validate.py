@@ -36,6 +36,7 @@ class DocAgentsValidateTests(unittest.TestCase):
                     "docs/.doc-manifest.json",
                     "docs/runbook.md",
                 ],
+                "regenerate_on_semantic_actions": True,
                 "sync_on_manifest_change": True,
                 "fail_on_agents_drift": True,
                 "max_overlap_ratio": 0.95,

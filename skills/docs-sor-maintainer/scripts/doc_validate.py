@@ -18,6 +18,7 @@ import doc_agents_validate  # noqa: E402
 import doc_legacy as dl  # noqa: E402
 import doc_plan  # noqa: E402
 import doc_quality  # noqa: E402
+import doc_semantic_runtime as dsr  # noqa: E402
 import doc_spec  # noqa: E402
 import doc_topology as dt  # noqa: E402
 
@@ -28,6 +29,14 @@ EXEC_PLAN_STATUS_PATTERN = re.compile(
 EXEC_PLAN_CLOSEOUT_PATTERN = re.compile(
     r"<!--\s*exec-plan-closeout:\s*([^\s][^>]*)\s*-->"
 )
+SCOPED_VALIDATE_HIGH_RISK_PATHS = {
+    "docs/.doc-policy.json",
+    "docs/.doc-manifest.json",
+    "docs/.doc-topology.json",
+    "skills/docs-sor-maintainer/scripts/doc_validate.py",
+    ".agents/skills/docs-sor-maintainer/scripts/doc_validate.py",
+}
+SCOPED_VALIDATE_SCOPE_MODES = {"changed", "explicit"}
 
 
 def utc_now() -> str:
@@ -36,6 +45,213 @@ def utc_now() -> str:
 
 def normalize(path_str: str) -> str:
     return str(Path(path_str)).replace("\\", "/")
+
+
+def _normalize_rel_path_list(values: list[str] | None) -> list[str]:
+    if not isinstance(values, list):
+        return []
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for item in values:
+        if not isinstance(item, str):
+            continue
+        text = item.strip()
+        if not text:
+            continue
+        rel = normalize(text)
+        if rel in seen:
+            continue
+        seen.add(rel)
+        normalized.append(rel)
+    return normalized
+
+
+def _parse_scope_files_arg(value: str | None) -> list[str]:
+    if not isinstance(value, str) or not value.strip():
+        return []
+    parts = [item.strip() for item in value.split(",")]
+    return _normalize_rel_path_list([item for item in parts if item])
+
+
+def _parse_scope_file_list(root: Path, scope_file_list: str | None) -> list[str]:
+    if not isinstance(scope_file_list, str) or not scope_file_list.strip():
+        return []
+    candidate = Path(scope_file_list.strip())
+    file_path = candidate if candidate.is_absolute() else (root / candidate).resolve()
+    if not file_path.exists():
+        raise ValueError(f"scope file list not found: {scope_file_list}")
+    values: list[str] = []
+    for line in file_path.read_text(encoding="utf-8").splitlines():
+        text = line.strip()
+        if not text or text.startswith("#"):
+            continue
+        values.append(normalize(text))
+    return _normalize_rel_path_list(values)
+
+
+def _should_upgrade_to_full_for_scope(changed_files: list[str]) -> tuple[bool, str | None]:
+    for rel in changed_files:
+        normalized = normalize(rel)
+        if normalized in SCOPED_VALIDATE_HIGH_RISK_PATHS:
+            return True, f"high_risk_change:{normalized}"
+        for high_risk in SCOPED_VALIDATE_HIGH_RISK_PATHS:
+            if normalized.endswith(high_risk):
+                return True, f"high_risk_change:{high_risk}"
+    return False, None
+
+
+def _build_docs_link_maps(
+    root: Path,
+) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
+    outbound: dict[str, set[str]] = {}
+    inbound: dict[str, set[str]] = {}
+    for file_path in iter_docs_markdown(root):
+        rel = normalize(str(file_path.relative_to(root)))
+        outbound.setdefault(rel, set())
+        content = file_path.read_text(encoding="utf-8", errors="replace")
+        for match in LINK_PATTERN.finditer(content):
+            link = match.group(1).strip()
+            if not link or link.startswith(("http://", "https://", "mailto:", "#")):
+                continue
+            target = link.split("#", 1)[0].strip()
+            if not target:
+                continue
+            target_abs = (file_path.parent / target).resolve()
+            try:
+                target_rel = normalize(str(target_abs.relative_to(root)))
+            except ValueError:
+                continue
+            if not target_rel.startswith("docs/"):
+                continue
+            if not target_rel.endswith(".md"):
+                continue
+            outbound.setdefault(rel, set()).add(target_rel)
+            inbound.setdefault(target_rel, set()).add(rel)
+    return outbound, inbound
+
+
+def _load_topology_parent_children(
+    root: Path,
+    policy: dict[str, Any],
+) -> tuple[dict[str, str], dict[str, set[str]]]:
+    settings = dt.resolve_topology_settings(policy)
+    contract, report = dt.load_topology_contract(root, settings)
+    if not report.get("enabled", False) or not report.get("loaded", False):
+        return {}, {}
+    if not isinstance(contract, dict):
+        return {}, {}
+    nodes = contract.get("nodes")
+    if not isinstance(nodes, list):
+        return {}, {}
+    parent_map: dict[str, str] = {}
+    children_map: dict[str, set[str]] = {}
+    for node in nodes:
+        if not isinstance(node, dict):
+            continue
+        path = node.get("path")
+        if not isinstance(path, str) or not path.strip():
+            continue
+        node_path = normalize(path.strip())
+        if not node_path.endswith(".md"):
+            continue
+        parent = node.get("parent")
+        if isinstance(parent, str) and parent.strip():
+            parent_path = normalize(parent.strip())
+            if parent_path.endswith(".md"):
+                parent_map[node_path] = parent_path
+                children_map.setdefault(parent_path, set()).add(node_path)
+    return parent_map, children_map
+
+
+def resolve_validation_scope(
+    root: Path,
+    policy: dict[str, Any],
+    manifest: dict[str, Any],
+    *,
+    scope_mode: str,
+    scope_files: list[str] | None,
+) -> dict[str, Any]:
+    requested_mode = (
+        scope_mode if isinstance(scope_mode, str) and scope_mode in SCOPED_VALIDATE_SCOPE_MODES else "explicit"
+    )
+    changed_files = _normalize_rel_path_list(scope_files or [])
+    context: dict[str, Any] = {
+        "requested_mode": requested_mode,
+        "effective_mode": "full",
+        "scope_input_files": changed_files,
+        "scope_expanded_files": [],
+        "scope_docs": [],
+        "upgrade_reason": None,
+        "dependency_evidence": [],
+    }
+    if not changed_files:
+        return context
+
+    should_upgrade, reason = _should_upgrade_to_full_for_scope(changed_files)
+    if should_upgrade:
+        context["upgrade_reason"] = reason
+        return context
+
+    outbound, inbound = _build_docs_link_maps(root)
+    parent_map, children_map = _load_topology_parent_children(root, policy)
+    managed_docs = set(get_managed_markdown_files(manifest))
+    scope_docs: set[str] = set()
+    expanded_files: set[str] = set(changed_files)
+    dependency_evidence: list[str] = []
+
+    for rel in changed_files:
+        if rel == "docs/.doc-spec.json":
+            for path in sorted(managed_docs):
+                if path not in scope_docs:
+                    scope_docs.add(path)
+                    expanded_files.add(path)
+                    dependency_evidence.append(f"spec_impact:{path}")
+            continue
+        if rel.startswith("docs/") and rel.endswith(".md"):
+            scope_docs.add(rel)
+            continue
+
+    queue = list(scope_docs)
+    seen = set(queue)
+    while queue:
+        current = queue.pop(0)
+        linked_targets = sorted(outbound.get(current, set()))
+        linked_sources = sorted(inbound.get(current, set()))
+        parent = parent_map.get(current)
+        children = sorted(children_map.get(current, set()))
+        for target in linked_targets:
+            if target not in seen:
+                seen.add(target)
+                queue.append(target)
+                scope_docs.add(target)
+                expanded_files.add(target)
+                dependency_evidence.append(f"link_out:{current}->{target}")
+        for source in linked_sources:
+            if source not in seen:
+                seen.add(source)
+                queue.append(source)
+                scope_docs.add(source)
+                expanded_files.add(source)
+                dependency_evidence.append(f"link_in:{source}->{current}")
+        if isinstance(parent, str) and parent not in seen:
+            seen.add(parent)
+            queue.append(parent)
+            scope_docs.add(parent)
+            expanded_files.add(parent)
+            dependency_evidence.append(f"topology_parent:{current}->{parent}")
+        for child in children:
+            if child not in seen:
+                seen.add(child)
+                queue.append(child)
+                scope_docs.add(child)
+                expanded_files.add(child)
+                dependency_evidence.append(f"topology_child:{current}->{child}")
+
+    context["effective_mode"] = "scoped"
+    context["scope_docs"] = sorted(scope_docs)
+    context["scope_expanded_files"] = sorted(expanded_files)
+    context["dependency_evidence"] = dependency_evidence
+    return context
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -93,19 +309,33 @@ def check_required(root: Path, manifest: dict[str, Any]) -> tuple[list[str], lis
     return errors, warnings
 
 
-def iter_docs_markdown(root: Path):
+def iter_docs_markdown(
+    root: Path, scope_docs: set[str] | None = None
+) -> list[Path]:
     docs = root / "docs"
     if not docs.exists():
         return []
-    return [p for p in docs.rglob("*.md") if p.is_file()]
+    files: list[Path] = []
+    for file_path in docs.rglob("*.md"):
+        if not file_path.is_file():
+            continue
+        if scope_docs is not None:
+            rel = normalize(str(file_path.relative_to(root)))
+            if rel not in scope_docs:
+                continue
+        files.append(file_path)
+    return files
 
 
-def check_internal_links(root: Path) -> tuple[list[str], list[str], int]:
+def check_internal_links(
+    root: Path,
+    scope_docs: set[str] | None = None,
+) -> tuple[list[str], list[str], int]:
     errors: list[str] = []
     warnings: list[str] = []
     checked = 0
 
-    for file_path in iter_docs_markdown(root):
+    for file_path in iter_docs_markdown(root, scope_docs=scope_docs):
         content = file_path.read_text(encoding="utf-8")
         for match in LINK_PATTERN.finditer(content):
             link = match.group(1).strip()
@@ -128,12 +358,16 @@ def check_internal_links(root: Path) -> tuple[list[str], list[str], int]:
 
 
 def check_index_coverage(
-    root: Path, manifest: dict[str, Any]
+    root: Path,
+    manifest: dict[str, Any],
+    scope_docs: set[str] | None = None,
 ) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
 
     index_path = root / "docs/index.md"
+    if scope_docs is not None and "docs/index.md" not in scope_docs:
+        return errors, warnings
     if not index_path.exists():
         errors.append("docs/index.md not found for coverage check")
         return errors, warnings
@@ -155,6 +389,7 @@ def check_doc_metadata(
     root: Path,
     manifest: dict[str, Any],
     metadata_policy: dict[str, Any],
+    scope_docs: set[str] | None = None,
 ) -> tuple[list[str], list[str], dict[str, int], list[dict[str, Any]]]:
     errors: list[str] = []
     warnings: list[str] = []
@@ -170,6 +405,8 @@ def check_doc_metadata(
     stale_count = 0
 
     for rel in managed_files:
+        if scope_docs is not None and rel not in scope_docs:
+            continue
         if not dm.should_enforce_for_path(rel, metadata_policy):
             continue
         abs_path = root / rel
@@ -214,6 +451,7 @@ def check_topology_contract(
     root: Path,
     policy: dict[str, Any],
     manifest: dict[str, Any] | None = None,
+    scope_docs: set[str] | None = None,
 ) -> tuple[list[str], list[str], dict[str, Any]]:
     settings = dt.resolve_topology_settings(policy)
     contract, topology_report = dt.load_topology_contract(root, settings)
@@ -241,7 +479,11 @@ def check_topology_contract(
         and topology_report.get("loaded", False)
         and isinstance(contract, dict)
     ):
-        managed_markdown = get_managed_markdown_files(manifest or {})
+        managed_markdown = (
+            sorted(scope_docs)
+            if scope_docs is not None
+            else get_managed_markdown_files(manifest or {})
+        )
         topology_analysis = dt.evaluate_topology(
             root,
             contract,
@@ -318,15 +560,65 @@ def load_facts(path: Path) -> dict[str, Any] | None:
     return data
 
 
+def _action_touches_scope(action: dict[str, Any], scope_docs: set[str]) -> bool:
+    direct_fields = ("path", "source_path", "parent_path", "index_path")
+    for field in direct_fields:
+        value = action.get(field)
+        if isinstance(value, str) and normalize(value) in scope_docs:
+            return True
+    list_fields = (
+        "source_paths",
+        "target_paths",
+        "missing_children",
+        "orphan_docs",
+        "unreachable_docs",
+        "over_depth_docs",
+    )
+    for field in list_fields:
+        value = action.get(field)
+        if not isinstance(value, list):
+            continue
+        for item in value:
+            if isinstance(item, str) and normalize(item) in scope_docs:
+                return True
+    return False
+
+
+def _sync_manifest_touches_scope(action: dict[str, Any], scope_docs: set[str]) -> bool:
+    if str(action.get("type", "")).strip() != "sync_manifest":
+        return False
+    snapshot = action.get("manifest_snapshot")
+    if not isinstance(snapshot, dict):
+        # Manifest sync is a global SoR contract update; keep it in scoped drift checks.
+        return True
+    managed_docs = set(get_managed_markdown_files(snapshot))
+    if not managed_docs:
+        return True
+    return bool(managed_docs & scope_docs)
+
+
 def check_drift(
     root: Path,
     policy_path: Path,
     manifest_path: Path,
     facts: dict[str, Any] | None,
+    scope_docs: set[str] | None = None,
 ) -> tuple[bool, int, list[str]]:
+    if scope_docs is not None and not scope_docs:
+        return False, 0, []
     plan = doc_plan.build_plan(root, "audit", facts, policy_path, manifest_path)
     actions = plan.get("actions") or []
     actionable = [a for a in actions if a.get("type") in doc_plan.ACTIONABLE_TYPES]
+    if scope_docs is not None:
+        actionable = [
+            action
+            for action in actionable
+            if isinstance(action, dict)
+            and (
+                _action_touches_scope(action, scope_docs)
+                or _sync_manifest_touches_scope(action, scope_docs)
+            )
+        ]
     notes = [f"{a.get('id')} {a.get('type')} {a.get('path')}" for a in actionable]
     return len(actionable) > 0, len(actionable), notes
 
@@ -657,6 +949,411 @@ def resolve_agents_gate_settings(policy: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+SEMANTIC_OBSERVABILITY_EXEMPT_STATUSES = {
+    "deterministic_mode",
+    "semantic_disabled",
+    "action_disabled",
+    "semantic_not_enabled",
+}
+DEFAULT_SEMANTIC_OBSERVABILITY_SETTINGS = {
+    "enabled": True,
+    "large_unattempted_ratio": 0.5,
+    "large_unattempted_count": 3,
+    "fail_on_large_unattempted": True,
+}
+
+
+def _safe_int(value: Any, default: int = 0) -> int:
+    if isinstance(value, bool):
+        return default
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        return default
+
+
+def _safe_float(value: Any, default: float = 0.0) -> float:
+    if isinstance(value, bool):
+        return default
+    if isinstance(value, (int, float)):
+        return float(value)
+    try:
+        return float(str(value).strip())
+    except (TypeError, ValueError):
+        return default
+
+
+def resolve_semantic_observability_settings(policy: dict[str, Any]) -> dict[str, Any]:
+    settings = dict(DEFAULT_SEMANTIC_OBSERVABILITY_SETTINGS)
+    if not isinstance(policy, dict):
+        return settings
+    semantic_raw = policy.get("semantic_generation")
+    if not isinstance(semantic_raw, dict):
+        return settings
+    observability_raw = semantic_raw.get("observability")
+    if not isinstance(observability_raw, dict):
+        return settings
+
+    settings["enabled"] = bool(observability_raw.get("enabled", settings["enabled"]))
+    ratio = _safe_float(
+        observability_raw.get(
+            "large_unattempted_ratio",
+            settings["large_unattempted_ratio"],
+        ),
+        settings["large_unattempted_ratio"],
+    )
+    settings["large_unattempted_ratio"] = min(max(ratio, 0.0), 1.0)
+    count = _safe_int(
+        observability_raw.get(
+            "large_unattempted_count",
+            settings["large_unattempted_count"],
+        ),
+        settings["large_unattempted_count"],
+    )
+    settings["large_unattempted_count"] = max(count, 0)
+    settings["fail_on_large_unattempted"] = bool(
+        observability_raw.get(
+            "fail_on_large_unattempted",
+            settings["fail_on_large_unattempted"],
+        )
+    )
+    return settings
+
+
+def _normalize_reason_breakdown(value: Any) -> dict[str, int]:
+    if not isinstance(value, dict):
+        return {}
+    normalized: dict[str, int] = {}
+    for key, raw_value in value.items():
+        reason = str(key).strip()
+        if not reason:
+            continue
+        normalized[reason] = max(_safe_int(raw_value, 0), 0)
+    return dict(sorted(normalized.items()))
+
+
+def _derive_semantic_observability_from_results(
+    apply_report: dict[str, Any],
+    semantic_settings: dict[str, Any],
+) -> dict[str, Any]:
+    actions = semantic_settings.get("actions")
+    enabled_actions = (
+        {
+            str(action_type).strip()
+            for action_type, enabled in actions.items()
+            if isinstance(action_type, str) and bool(enabled)
+        }
+        if isinstance(actions, dict)
+        else set()
+    )
+    metrics = {
+        "semantic_action_count": 0,
+        "semantic_attempt_count": 0,
+        "semantic_success_count": 0,
+        "fallback_count": 0,
+        "fallback_reason_breakdown": {},
+        "runtime_quality_grade_distribution": {},
+        "runtime_quality_decision_breakdown": {},
+        "runtime_quality_degraded_count": 0,
+        "semantic_exempt_count": 0,
+        "semantic_unattempted_count": 0,
+        "semantic_unattempted_without_exemption": 0,
+        "semantic_hit_rate": 0.0,
+        "semantic_unattempted_samples": [],
+    }
+    if not enabled_actions:
+        return metrics
+
+    fallback_reason_breakdown: dict[str, int] = {}
+    quality_grade_distribution: dict[str, int] = {}
+    quality_decision_breakdown: dict[str, int] = {}
+    results = apply_report.get("results")
+    if not isinstance(results, list):
+        return metrics
+    for item in results:
+        if not isinstance(item, dict):
+            continue
+        action_type = str(item.get("type", "")).strip()
+        if action_type not in enabled_actions:
+            continue
+        metrics["semantic_action_count"] += 1
+        semantic_runtime = item.get("semantic_runtime")
+        if not isinstance(semantic_runtime, dict):
+            metrics["semantic_unattempted_without_exemption"] += 1
+            if len(metrics["semantic_unattempted_samples"]) < 20:
+                metrics["semantic_unattempted_samples"].append(
+                    {
+                        "id": item.get("id"),
+                        "type": action_type,
+                        "path": normalize(str(item.get("path", ""))),
+                        "reason": "missing_semantic_runtime_trace",
+                    }
+                )
+            continue
+
+        attempted = bool(semantic_runtime.get("attempted"))
+        if attempted:
+            metrics["semantic_attempt_count"] += 1
+        if bool(semantic_runtime.get("consumed")):
+            metrics["semantic_success_count"] += 1
+        if bool(semantic_runtime.get("fallback_used")):
+            metrics["fallback_count"] += 1
+            fallback_reason = (
+                str(semantic_runtime.get("fallback_reason", "")).strip() or "unknown"
+            )
+            fallback_reason_breakdown[fallback_reason] = (
+                fallback_reason_breakdown.get(fallback_reason, 0) + 1
+            )
+        quality_grade = str(semantic_runtime.get("quality_grade", "")).strip().upper()
+        if quality_grade in dsr.SUPPORTED_RUNTIME_QUALITY_GRADES:
+            quality_grade_distribution[quality_grade] = (
+                quality_grade_distribution.get(quality_grade, 0) + 1
+            )
+        quality_decision = str(semantic_runtime.get("quality_decision", "")).strip()
+        if quality_decision:
+            quality_decision_breakdown[quality_decision] = (
+                quality_decision_breakdown.get(quality_decision, 0) + 1
+            )
+            if quality_decision in {"fallback", "manual_review", "block"}:
+                metrics["runtime_quality_degraded_count"] += 1
+        if not attempted:
+            exemption_reason = semantic_runtime.get("exemption_reason")
+            status = str(semantic_runtime.get("status", "")).strip()
+            if (
+                isinstance(exemption_reason, str)
+                and exemption_reason.strip()
+                or status in SEMANTIC_OBSERVABILITY_EXEMPT_STATUSES
+            ):
+                metrics["semantic_exempt_count"] += 1
+            else:
+                metrics["semantic_unattempted_without_exemption"] += 1
+                if len(metrics["semantic_unattempted_samples"]) < 20:
+                    metrics["semantic_unattempted_samples"].append(
+                        {
+                            "id": item.get("id"),
+                            "type": action_type,
+                            "path": normalize(str(item.get("path", ""))),
+                            "reason": "attempt_missing_without_exemption",
+                            "status": status or "unknown",
+                        }
+                    )
+
+    action_count = metrics["semantic_action_count"]
+    attempt_count = metrics["semantic_attempt_count"]
+    metrics["fallback_reason_breakdown"] = dict(sorted(fallback_reason_breakdown.items()))
+    metrics["runtime_quality_grade_distribution"] = dict(
+        sorted(quality_grade_distribution.items())
+    )
+    metrics["runtime_quality_decision_breakdown"] = dict(
+        sorted(quality_decision_breakdown.items())
+    )
+    metrics["semantic_unattempted_count"] = max(action_count - attempt_count, 0)
+    metrics["semantic_hit_rate"] = (
+        round(metrics["semantic_success_count"] / attempt_count, 4)
+        if attempt_count > 0
+        else 0.0
+    )
+    return metrics
+
+
+def check_semantic_observability(
+    root: Path,
+    policy: dict[str, Any],
+    apply_report_path: Path,
+) -> tuple[list[str], list[str], dict[str, Any]]:
+    errors: list[str] = []
+    warnings: list[str] = []
+    semantic_settings = dsr.resolve_semantic_generation_settings(policy)
+    observability_settings = resolve_semantic_observability_settings(policy)
+    semantic_first_required = bool(
+        semantic_settings.get("enabled", False)
+        and semantic_settings.get("mode") != "deterministic"
+        and semantic_settings.get("prefer_agent_semantic_first", True)
+        and semantic_settings.get("require_semantic_attempt", True)
+    )
+
+    try:
+        apply_report_rel = normalize(str(apply_report_path.relative_to(root)))
+    except ValueError:
+        apply_report_rel = normalize(str(apply_report_path))
+
+    report: dict[str, Any] = {
+        "enabled": bool(observability_settings.get("enabled", True)),
+        "semantic_first_required": semantic_first_required,
+        "settings": observability_settings,
+        "apply_report_path": apply_report_rel,
+        "apply_report_exists": apply_report_path.exists(),
+        "gate": {"status": "skipped", "failed_checks": []},
+        "metrics": {
+            "semantic_action_count": 0,
+            "semantic_attempt_count": 0,
+            "semantic_success_count": 0,
+            "fallback_count": 0,
+            "fallback_reason_breakdown": {},
+            "runtime_quality_grade_distribution": {},
+            "runtime_quality_decision_breakdown": {},
+            "runtime_quality_degraded_count": 0,
+            "semantic_exempt_count": 0,
+            "semantic_unattempted_count": 0,
+            "semantic_unattempted_without_exemption": 0,
+            "semantic_hit_rate": 0.0,
+        },
+        "samples": [],
+    }
+
+    if not observability_settings.get("enabled", True):
+        report["gate"]["status"] = "skipped"
+        return errors, warnings, report
+    if not semantic_first_required:
+        report["gate"]["status"] = "not_required"
+        return errors, warnings, report
+    if not apply_report_path.exists():
+        warnings.append(
+            "semantic gate warning: apply report missing; cannot evaluate semantic attempt coverage"
+        )
+        report["gate"]["status"] = "warn"
+        return errors, warnings, report
+
+    apply_report = load_json(apply_report_path)
+    summary = apply_report.get("summary") if isinstance(apply_report, dict) else {}
+    metrics_from_summary = {
+        "semantic_action_count": _safe_int(
+            (summary or {}).get("semantic_action_count", -1), -1
+        ),
+        "semantic_attempt_count": _safe_int(
+            (summary or {}).get("semantic_attempt_count", -1), -1
+        ),
+        "semantic_success_count": _safe_int(
+            (summary or {}).get("semantic_success_count", -1), -1
+        ),
+        "fallback_count": _safe_int((summary or {}).get("fallback_count", -1), -1),
+        "semantic_exempt_count": _safe_int(
+            (summary or {}).get("semantic_exempt_count", -1), -1
+        ),
+        "semantic_unattempted_count": _safe_int(
+            (summary or {}).get("semantic_unattempted_count", -1), -1
+        ),
+        "semantic_unattempted_without_exemption": _safe_int(
+            (summary or {}).get("semantic_unattempted_without_exemption", -1), -1
+        ),
+        "semantic_hit_rate": _safe_float(
+            (summary or {}).get("semantic_hit_rate", -1.0), -1.0
+        ),
+        "fallback_reason_breakdown": _normalize_reason_breakdown(
+            (summary or {}).get("fallback_reason_breakdown")
+        ),
+        "runtime_quality_grade_distribution": _normalize_reason_breakdown(
+            (summary or {}).get("runtime_quality_grade_distribution")
+        ),
+        "runtime_quality_decision_breakdown": _normalize_reason_breakdown(
+            (summary or {}).get("runtime_quality_decision_breakdown")
+        ),
+        "runtime_quality_degraded_count": _safe_int(
+            (summary or {}).get("runtime_quality_degraded_count", -1), -1
+        ),
+    }
+    summary_complete = all(
+        metrics_from_summary[key] >= 0
+        for key in (
+            "semantic_action_count",
+            "semantic_attempt_count",
+            "semantic_success_count",
+            "fallback_count",
+            "semantic_exempt_count",
+            "semantic_unattempted_count",
+            "semantic_unattempted_without_exemption",
+        )
+    )
+    if summary_complete and metrics_from_summary["semantic_hit_rate"] >= 0:
+        metrics = dict(metrics_from_summary)
+    else:
+        metrics = _derive_semantic_observability_from_results(apply_report, semantic_settings)
+
+    report["metrics"] = {
+        "semantic_action_count": max(_safe_int(metrics.get("semantic_action_count", 0), 0), 0),
+        "semantic_attempt_count": max(
+            _safe_int(metrics.get("semantic_attempt_count", 0), 0), 0
+        ),
+        "semantic_success_count": max(
+            _safe_int(metrics.get("semantic_success_count", 0), 0), 0
+        ),
+        "fallback_count": max(_safe_int(metrics.get("fallback_count", 0), 0), 0),
+        "fallback_reason_breakdown": _normalize_reason_breakdown(
+            metrics.get("fallback_reason_breakdown")
+        ),
+        "runtime_quality_grade_distribution": _normalize_reason_breakdown(
+            metrics.get("runtime_quality_grade_distribution")
+        ),
+        "runtime_quality_decision_breakdown": _normalize_reason_breakdown(
+            metrics.get("runtime_quality_decision_breakdown")
+        ),
+        "runtime_quality_degraded_count": max(
+            _safe_int(metrics.get("runtime_quality_degraded_count", 0), 0),
+            0,
+        ),
+        "semantic_exempt_count": max(
+            _safe_int(metrics.get("semantic_exempt_count", 0), 0), 0
+        ),
+        "semantic_unattempted_count": max(
+            _safe_int(metrics.get("semantic_unattempted_count", 0), 0), 0
+        ),
+        "semantic_unattempted_without_exemption": max(
+            _safe_int(metrics.get("semantic_unattempted_without_exemption", 0), 0), 0
+        ),
+        "semantic_hit_rate": max(
+            min(_safe_float(metrics.get("semantic_hit_rate", 0.0), 0.0), 1.0), 0.0
+        ),
+    }
+    samples = metrics.get("semantic_unattempted_samples")
+    if isinstance(samples, list):
+        report["samples"] = [item for item in samples if isinstance(item, dict)][:20]
+
+    semantic_action_count = report["metrics"]["semantic_action_count"]
+    unattempted_without_exemption = report["metrics"][
+        "semantic_unattempted_without_exemption"
+    ]
+    if semantic_action_count <= 0:
+        report["gate"]["status"] = "passed"
+        return errors, warnings, report
+
+    unattempted_ratio = unattempted_without_exemption / semantic_action_count
+    report["metrics"]["semantic_unattempted_ratio"] = round(unattempted_ratio, 4)
+
+    large_ratio_threshold = float(observability_settings["large_unattempted_ratio"])
+    large_count_threshold = int(observability_settings["large_unattempted_count"])
+    large_gap = (
+        unattempted_without_exemption >= large_count_threshold
+        or unattempted_ratio >= large_ratio_threshold
+    )
+
+    if unattempted_without_exemption > 0:
+        message = (
+            "semantic gate warning: semantic-first actions missing runtime attempts: "
+            f"count={unattempted_without_exemption}/{semantic_action_count} "
+            f"ratio={round(unattempted_ratio, 4)}"
+        )
+        if large_gap and observability_settings.get("fail_on_large_unattempted", True):
+            errors.append(message)
+            report["gate"] = {
+                "status": "failed",
+                "failed_checks": ["semantic_unattempted_large_gap"],
+            }
+        else:
+            warnings.append(message)
+            report["gate"] = {
+                "status": "warn" if large_gap else "passed_with_warning",
+                "failed_checks": ["semantic_unattempted_large_gap"] if large_gap else [],
+            }
+    else:
+        report["gate"]["status"] = "passed"
+
+    return errors, warnings, report
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Validate repository docs consistency and drift."
@@ -671,6 +1368,11 @@ def parse_args() -> argparse.Namespace:
         "--facts", default="docs/.repo-facts.json", help="Facts JSON path"
     )
     parser.add_argument(
+        "--apply-report",
+        default="docs/.doc-apply-report.json",
+        help="Doc apply JSON report path for semantic observability gate",
+    )
+    parser.add_argument(
         "--output",
         default="docs/.doc-validate-report.json",
         help="Output JSON report path",
@@ -682,6 +1384,20 @@ def parse_args() -> argparse.Namespace:
         "--fail-on-freshness",
         action="store_true",
         help="Exit non-zero when stale doc metadata exists",
+    )
+    parser.add_argument(
+        "--scope-files",
+        help="Comma-separated changed files for scoped validation",
+    )
+    parser.add_argument(
+        "--scope-file-list",
+        help="Path to newline-delimited changed files for scoped validation",
+    )
+    parser.add_argument(
+        "--scope-mode",
+        default="explicit",
+        choices=sorted(SCOPED_VALIDATE_SCOPE_MODES),
+        help="Scoped validation mode label",
     )
     return parser.parse_args()
 
@@ -713,6 +1429,11 @@ def main() -> int:
         if not Path(args.facts).is_absolute()
         else Path(args.facts)
     )
+    apply_report_path = (
+        (root / args.apply_report).resolve()
+        if not Path(args.apply_report).is_absolute()
+        else Path(args.apply_report)
+    )
     output_path = (
         (root / args.output).resolve()
         if not Path(args.output).is_absolute()
@@ -723,24 +1444,42 @@ def main() -> int:
     policy = load_json(policy_path)
     metadata_policy = dm.resolve_metadata_policy(policy)
     facts = load_facts(facts_path)
+    scope_files = _parse_scope_files_arg(args.scope_files)
+    scope_files.extend(_parse_scope_file_list(root, args.scope_file_list))
+    scope_context = resolve_validation_scope(
+        root,
+        policy,
+        manifest,
+        scope_mode=args.scope_mode,
+        scope_files=_normalize_rel_path_list(scope_files),
+    )
+    scope_docs = (
+        set(scope_context.get("scope_docs") or [])
+        if scope_context.get("effective_mode") == "scoped"
+        else None
+    )
 
     errors: list[str] = []
     warnings: list[str] = []
+    if scope_context.get("effective_mode") == "scoped" and not scope_docs:
+        warnings.append(
+            "scoped validate: resolved scope has no managed markdown docs; doc checks reduced"
+        )
 
     req_errors, req_warnings = check_required(root, manifest)
     errors.extend(req_errors)
     warnings.extend(req_warnings)
 
-    link_errors, link_warnings, link_count = check_internal_links(root)
+    link_errors, link_warnings, link_count = check_internal_links(root, scope_docs=scope_docs)
     errors.extend(link_errors)
     warnings.extend(link_warnings)
 
-    idx_errors, idx_warnings = check_index_coverage(root, manifest)
+    idx_errors, idx_warnings = check_index_coverage(root, manifest, scope_docs=scope_docs)
     errors.extend(idx_errors)
     warnings.extend(idx_warnings)
 
     metadata_errors, metadata_warnings, metadata_metrics, metadata_findings = (
-        check_doc_metadata(root, manifest, metadata_policy)
+        check_doc_metadata(root, manifest, metadata_policy, scope_docs=scope_docs)
     )
     errors.extend(metadata_errors)
     warnings.extend(metadata_warnings)
@@ -750,7 +1489,7 @@ def main() -> int:
     warnings.extend([f"doc-spec: {message}" for message in spec_warnings])
 
     topology_errors, topology_warnings, topology_report = check_topology_contract(
-        root, policy, manifest
+        root, policy, manifest, scope_docs=scope_docs
     )
     errors.extend(topology_errors)
     warnings.extend(topology_warnings)
@@ -798,13 +1537,19 @@ def main() -> int:
     warnings.extend(legacy_warnings)
 
     has_drift, drift_count, drift_notes = check_drift(
-        root, policy_path, manifest_path, facts
+        root, policy_path, manifest_path, facts, scope_docs=scope_docs
     )
     exec_plan_errors, exec_plan_warnings, exec_plan_metrics = check_exec_plan_closeout(
         root
     )
     errors.extend(exec_plan_errors)
     warnings.extend(exec_plan_warnings)
+
+    semantic_obs_errors, semantic_obs_warnings, semantic_obs_report = (
+        check_semantic_observability(root, policy, apply_report_path)
+    )
+    errors.extend(semantic_obs_errors)
+    warnings.extend(semantic_obs_warnings)
 
     has_stale_metadata = metadata_metrics.get("stale_docs", 0) > 0
     passed = (
@@ -824,6 +1569,12 @@ def main() -> int:
         "metrics": {
             "errors": len(errors),
             "warnings": len(warnings),
+            "validation_mode": scope_context.get("effective_mode", "full"),
+            "scope_input_count": len(scope_context.get("scope_input_files") or []),
+            "scope_expanded_count": len(scope_context.get("scope_expanded_files") or []),
+            "scope_doc_count": len(scope_context.get("scope_docs") or []),
+            "scope_upgraded_to_full": bool(scope_context.get("upgrade_reason")),
+            "scope_upgrade_reason": scope_context.get("upgrade_reason"),
             "checked_links": link_count,
             "drift_action_count": drift_count,
             "facts_loaded": facts is not None,
@@ -889,6 +1640,54 @@ def main() -> int:
             "structured_section_completeness": legacy_report.get("metrics", {}).get(
                 "structured_section_completeness", 1.0
             ),
+            "semantic_observability_enabled": semantic_obs_report.get("enabled", False),
+            "semantic_observability_required": semantic_obs_report.get(
+                "semantic_first_required", False
+            ),
+            "semantic_observability_gate_status": (
+                (semantic_obs_report.get("gate") or {}).get("status", "skipped")
+            ),
+            "semantic_action_count": (semantic_obs_report.get("metrics") or {}).get(
+                "semantic_action_count", 0
+            ),
+            "semantic_attempt_count": (semantic_obs_report.get("metrics") or {}).get(
+                "semantic_attempt_count", 0
+            ),
+            "semantic_success_count": (semantic_obs_report.get("metrics") or {}).get(
+                "semantic_success_count", 0
+            ),
+            "fallback_count": (semantic_obs_report.get("metrics") or {}).get(
+                "fallback_count", 0
+            ),
+            "fallback_reason_breakdown": (semantic_obs_report.get("metrics") or {}).get(
+                "fallback_reason_breakdown", {}
+            ),
+            "runtime_quality_grade_distribution": (
+                (semantic_obs_report.get("metrics") or {}).get(
+                    "runtime_quality_grade_distribution", {}
+                )
+            ),
+            "runtime_quality_decision_breakdown": (
+                (semantic_obs_report.get("metrics") or {}).get(
+                    "runtime_quality_decision_breakdown", {}
+                )
+            ),
+            "runtime_quality_degraded_count": (
+                (semantic_obs_report.get("metrics") or {}).get(
+                    "runtime_quality_degraded_count", 0
+                )
+            ),
+            "semantic_hit_rate": (semantic_obs_report.get("metrics") or {}).get(
+                "semantic_hit_rate", 0.0
+            ),
+            "semantic_unattempted_count": (semantic_obs_report.get("metrics") or {}).get(
+                "semantic_unattempted_count", 0
+            ),
+            "semantic_unattempted_without_exemption": (
+                (semantic_obs_report.get("metrics") or {}).get(
+                    "semantic_unattempted_without_exemption", 0
+                )
+            ),
             "active_exec_plan_files": exec_plan_metrics.get(
                 "active_exec_plan_files", 0
             ),
@@ -907,6 +1706,15 @@ def main() -> int:
         "drift": {
             "has_drift": has_drift,
             "actions": drift_notes,
+        },
+        "validation_scope": {
+            "requested_mode": scope_context.get("requested_mode", "explicit"),
+            "effective_mode": scope_context.get("effective_mode", "full"),
+            "scope_input_files": scope_context.get("scope_input_files") or [],
+            "scope_expanded_files": scope_context.get("scope_expanded_files") or [],
+            "scope_docs": scope_context.get("scope_docs") or [],
+            "upgrade_reason": scope_context.get("upgrade_reason"),
+            "dependency_evidence": scope_context.get("dependency_evidence") or [],
         },
         "doc_spec": {
             "path": normalize(spec_path.relative_to(root)),
@@ -939,6 +1747,7 @@ def main() -> int:
             "metrics": {},
         },
         "legacy": legacy_report,
+        "semantic_observability": semantic_obs_report,
         "exec_plan_closeout": {
             "errors": exec_plan_errors,
             "warnings": exec_plan_warnings,

@@ -329,6 +329,70 @@ class DocPlanSectionActionTests(unittest.TestCase):
         self.assertEqual(rewrite.get("source_path"), "legacy/a.md")
         self.assertEqual(rewrite.get("backlog_reason"), "semantic_conflict")
 
+    def test_plan_emits_merge_and_split_actions_from_quality_backlog(self) -> None:
+        (self.root / "docs/runbook.md").write_text(
+            lp.get_managed_template("docs/runbook.md", "zh-CN"), encoding="utf-8"
+        )
+        facts = {
+            "generated_at": utc_now(),
+            "modules": ["skills"],
+            "manifests": {"go.mod": False, "package.json": False, "pyproject.toml": False},
+        }
+        mocked_quality_report = {
+            "gate": {
+                "status": "failed",
+                "failed_checks": ["max_semantic_conflicts"],
+            },
+            "metrics": {
+                "evidence_coverage": 1.0,
+                "unknown_claims": 0,
+                "unresolved_todo": 0,
+                "conflicts": 0,
+                "citation_issues": 0,
+            },
+            "semantic": {
+                "backlog": [
+                    {
+                        "action_type": "merge_docs",
+                        "source_paths": [
+                            "docs/exec-plans/active/legacy-a.md",
+                            "docs/exec-plans/active/legacy-b.md",
+                        ],
+                        "target_path": "docs/exec-plans/active/merged.md",
+                        "reason": "reduce_fragmentation",
+                    },
+                    {
+                        "action_type": "split_doc",
+                        "source_path": "docs/exec-plans/active/merged.md",
+                        "split_rules": [
+                            {"target_path": "docs/exec-plans/active/split-a.md"},
+                            {"target_path": "docs/exec-plans/active/split-b.md"},
+                        ],
+                        "index_path": "docs/index.md",
+                        "reason": "improve_navigation",
+                    },
+                ]
+            },
+        }
+
+        with mock.patch.object(
+            doc_plan.doc_quality, "evaluate_quality", return_value=mocked_quality_report
+        ):
+            plan = self._build_plan(facts)
+
+        actions = plan.get("actions") or []
+        merge_actions = [action for action in actions if action.get("type") == "merge_docs"]
+        split_actions = [action for action in actions if action.get("type") == "split_doc"]
+        self.assertEqual(len(merge_actions), 1)
+        self.assertEqual(len(split_actions), 1)
+        self.assertEqual(
+            merge_actions[0].get("source_paths"),
+            ["docs/exec-plans/active/legacy-a.md", "docs/exec-plans/active/legacy-b.md"],
+        )
+        self.assertEqual(merge_actions[0].get("path"), "docs/exec-plans/active/merged.md")
+        self.assertEqual(split_actions[0].get("source_path"), "docs/exec-plans/active/merged.md")
+        self.assertEqual(split_actions[0].get("index_path"), "docs/index.md")
+
 
 if __name__ == "__main__":
     unittest.main()

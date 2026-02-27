@@ -28,28 +28,47 @@ class DocSemanticRuntimeTests(unittest.TestCase):
         settings = dsr.resolve_semantic_generation_settings({})
         self.assertTrue(settings["enabled"])
         self.assertEqual(settings["mode"], "hybrid")
+        self.assertTrue(settings["prefer_agent_semantic_first"])
+        self.assertTrue(settings["require_semantic_attempt"])
         self.assertEqual(
             settings["runtime_report_path"], "docs/.semantic-runtime-report.json"
         )
         self.assertFalse(settings["allow_external_llm_api"])
         self.assertTrue(settings["actions"]["fill_claim"])
+        self.assertTrue(settings["actions"]["semantic_rewrite"])
+        self.assertTrue(settings["actions"]["topology_repair"])
+        self.assertTrue(settings["actions"]["navigation_repair"])
+        self.assertTrue(settings["actions"]["merge_docs"])
+        self.assertTrue(settings["actions"]["split_doc"])
+        self.assertTrue(settings["input_quality"]["enabled"])
+        self.assertEqual(settings["input_quality"]["agent_strict_min_grade"], "B")
+        self.assertEqual(settings["input_quality"]["c_grade_decision"], "fallback")
 
     def test_resolve_semantic_generation_settings_normalizes_fields(self) -> None:
         policy = {
             "semantic_generation": {
                 "enabled": True,
                 "mode": "hybrid",
+                "prefer_agent_semantic_first": False,
+                "require_semantic_attempt": False,
                 "source": "  invoking_agent  ",
                 "runtime_report_path": "./docs/.semantic-runtime-report.json",
                 "max_output_chars_per_section": "1024",
                 "required_evidence_prefixes": ["repo_scan.", "", "semantic_report."],
                 "deny_paths": ["docs/adr/**", "  "],
-                "actions": {"fill_claim": True, "agents_generate": False},
+                "actions": {
+                    "fill_claim": True,
+                    "agents_generate": False,
+                    "semantic_rewrite": False,
+                    "merge_docs": False,
+                },
             }
         }
         settings = dsr.resolve_semantic_generation_settings(policy)
         self.assertTrue(settings["enabled"])
         self.assertEqual(settings["mode"], "hybrid")
+        self.assertFalse(settings["prefer_agent_semantic_first"])
+        self.assertFalse(settings["require_semantic_attempt"])
         self.assertEqual(settings["source"], "invoking_agent")
         self.assertEqual(
             settings["runtime_report_path"], "docs/.semantic-runtime-report.json"
@@ -59,6 +78,27 @@ class DocSemanticRuntimeTests(unittest.TestCase):
         self.assertIn("docs/adr/**", settings["deny_paths"])
         self.assertTrue(settings["actions"]["fill_claim"])
         self.assertFalse(settings["actions"]["agents_generate"])
+        self.assertFalse(settings["actions"]["semantic_rewrite"])
+        self.assertFalse(settings["actions"]["merge_docs"])
+        self.assertTrue(settings["actions"]["split_doc"])
+        self.assertTrue(settings["actions"]["topology_repair"])
+        self.assertTrue(settings["actions"]["navigation_repair"])
+        self.assertEqual(settings["input_quality"]["grade_thresholds"]["A"], 90)
+
+    def test_should_attempt_runtime_semantics_respects_semantic_first_flag(self) -> None:
+        settings = dsr.resolve_semantic_generation_settings(
+            {
+                "semantic_generation": {
+                    "enabled": True,
+                    "mode": "hybrid",
+                    "prefer_agent_semantic_first": False,
+                    "actions": {"update_section": True},
+                }
+            }
+        )
+        self.assertFalse(
+            dsr.should_attempt_runtime_semantics("update_section", settings)
+        )
 
     def test_load_runtime_report_and_select_best_entry(self) -> None:
         report = {
@@ -197,6 +237,144 @@ class DocSemanticRuntimeTests(unittest.TestCase):
         self.assertEqual(slots.get("key_facts"), ["facts from docs/.repo-facts.json"])
         self.assertEqual(slots.get("next_steps"), ["run doc_validate --fail-on-drift"])
 
+    def test_load_runtime_report_accepts_split_outputs_entry(self) -> None:
+        report_path = self.root / "docs/.semantic-runtime-report.json"
+        report_path.write_text(
+            json.dumps(
+                {
+                    "version": 2,
+                    "entries": [
+                        {
+                            "entry_id": "split-runtime",
+                            "path": "docs/history/merged.md",
+                            "action_type": "split_doc",
+                            "status": "ok",
+                            "split_outputs": [
+                                {
+                                    "path": "docs/history/part-a.md",
+                                    "content": "# part-a",
+                                    "source_paths": ["docs/history/merged.md"],
+                                },
+                                {
+                                    "path": "docs/history/part-b.md",
+                                    "content": "# part-b",
+                                },
+                            ],
+                            "index_links": [
+                                "docs/history/part-a.md",
+                                "docs/history/part-b.md",
+                            ],
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        settings = dsr.resolve_semantic_generation_settings(
+            {
+                "semantic_generation": {
+                    "enabled": True,
+                    "mode": "hybrid",
+                }
+            }
+        )
+        entries, metadata = dsr.load_runtime_report(self.root, settings)
+        self.assertTrue(metadata["available"])
+        self.assertEqual(metadata["entry_count"], 1)
+        split_outputs = entries[0].get("split_outputs") or []
+        self.assertEqual(len(split_outputs), 2)
+        self.assertEqual(split_outputs[0].get("path"), "docs/history/part-a.md")
+        self.assertEqual(entries[0].get("index_links"), ["docs/history/part-a.md", "docs/history/part-b.md"])
+
+    def test_load_runtime_report_accepts_navigation_targets_entry(self) -> None:
+        report_path = self.root / "docs/.semantic-runtime-report.json"
+        report_path.write_text(
+            json.dumps(
+                {
+                    "version": 2,
+                    "entries": [
+                        {
+                            "entry_id": "nav-runtime",
+                            "path": "docs/index.md",
+                            "action_type": "navigation_repair",
+                            "status": "ok",
+                            "target_paths": [
+                                "docs/runbook.md",
+                                "docs/architecture.md",
+                            ],
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        settings = dsr.resolve_semantic_generation_settings(
+            {
+                "semantic_generation": {
+                    "enabled": True,
+                    "mode": "hybrid",
+                }
+            }
+        )
+        entries, metadata = dsr.load_runtime_report(self.root, settings)
+        self.assertTrue(metadata["available"])
+        self.assertEqual(metadata["entry_count"], 1)
+        self.assertEqual(
+            entries[0].get("target_paths"),
+            ["docs/runbook.md", "docs/architecture.md"],
+        )
+
+    def test_select_runtime_entry_uses_source_path_for_migrate_legacy(self) -> None:
+        report = {
+            "version": 1,
+            "entries": [
+                {
+                    "entry_id": "target-only",
+                    "path": "docs/history/legacy/legacy/a.md",
+                    "action_type": "migrate_legacy",
+                    "status": "ok",
+                    "content": "generic",
+                },
+                {
+                    "entry_id": "source-aware",
+                    "path": "legacy/a.md",
+                    "source_path": "legacy/a.md",
+                    "action_type": "migrate_legacy",
+                    "status": "ok",
+                    "content": "from source",
+                },
+            ],
+        }
+        report_path = self.root / "docs/.semantic-runtime-report.json"
+        report_path.write_text(
+            json.dumps(report, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        settings = dsr.resolve_semantic_generation_settings(
+            {
+                "semantic_generation": {
+                    "enabled": True,
+                    "mode": "hybrid",
+                }
+            }
+        )
+        entries, metadata = dsr.load_runtime_report(self.root, settings)
+        self.assertTrue(metadata["available"])
+        action = {
+            "type": "migrate_legacy",
+            "path": "docs/history/legacy/legacy/a.md",
+            "source_path": "legacy/a.md",
+        }
+        candidate = dsr.select_runtime_entry(action, entries, settings)
+        self.assertIsNotNone(candidate)
+        self.assertEqual(candidate.get("entry_id"), "source-aware")
+
     def test_load_runtime_report_fails_when_entries_not_list(self) -> None:
         report_path = self.root / "docs/.semantic-runtime-report.json"
         report_path.write_text(
@@ -217,6 +395,93 @@ class DocSemanticRuntimeTests(unittest.TestCase):
         self.assertEqual(entries, [])
         self.assertFalse(metadata["available"])
         self.assertIn("entries must be list", metadata["error"])
+
+    def test_runtime_quality_grade_controls_select_priority(self) -> None:
+        report_path = self.root / "docs/.semantic-runtime-report.json"
+        report_path.write_text(
+            json.dumps(
+                {
+                    "version": 2,
+                    "entries": [
+                        {
+                            "entry_id": "low-grade",
+                            "path": "docs/runbook.md",
+                            "action_type": "fill_claim",
+                            "claim_id": "runbook.dev_commands",
+                            "status": "manual_review",
+                            "content": "fallback-only",
+                            "citations": [],
+                        },
+                        {
+                            "entry_id": "high-grade",
+                            "path": "docs/runbook.md",
+                            "action_type": "fill_claim",
+                            "claim_id": "runbook.dev_commands",
+                            "status": "ok",
+                            "statement": "stable claim",
+                            "citations": ["evidence://runbook.dev_commands"],
+                        },
+                    ],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        settings = dsr.resolve_semantic_generation_settings(
+            {"semantic_generation": {"enabled": True, "mode": "hybrid"}}
+        )
+        entries, _ = dsr.load_runtime_report(self.root, settings)
+        candidate = dsr.select_runtime_entry(
+            {
+                "type": "fill_claim",
+                "path": "docs/runbook.md",
+                "claim_id": "runbook.dev_commands",
+            },
+            entries,
+            settings,
+        )
+        self.assertIsNotNone(candidate)
+        self.assertEqual(candidate.get("entry_id"), "high-grade")
+
+    def test_runtime_quality_decision_blocks_below_agent_strict_threshold(self) -> None:
+        settings = dsr.resolve_semantic_generation_settings(
+            {
+                "semantic_generation": {
+                    "enabled": True,
+                    "mode": "agent_strict",
+                    "input_quality": {
+                        "enabled": True,
+                        "agent_strict_min_grade": "B",
+                        "c_grade_decision": "fallback",
+                    },
+                }
+            }
+        )
+        decision = dsr.resolve_runtime_quality_decision("C", settings)
+        self.assertEqual(decision.get("decision"), "block")
+        self.assertEqual(
+            decision.get("reason"),
+            "quality_below_agent_strict_min_grade",
+        )
+
+    def test_runtime_quality_decision_allows_c_grade_fallback_in_hybrid(self) -> None:
+        settings = dsr.resolve_semantic_generation_settings(
+            {
+                "semantic_generation": {
+                    "enabled": True,
+                    "mode": "hybrid",
+                    "input_quality": {
+                        "enabled": True,
+                        "c_grade_decision": "fallback",
+                    },
+                }
+            }
+        )
+        decision = dsr.resolve_runtime_quality_decision("C", settings)
+        self.assertEqual(decision.get("decision"), "fallback")
+        self.assertEqual(decision.get("reason"), "quality_grade_c_fallback")
 
 
 if __name__ == "__main__":
