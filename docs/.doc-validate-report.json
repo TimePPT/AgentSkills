@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-02-26T14:40:30.715972+00:00",
+  "generated_at": "2026-02-27T16:01:05.357275+00:00",
   "root": "/Users/tompoet/AgentSkills",
   "passed": true,
   "fail_on_drift": true,
@@ -435,7 +435,7 @@
     }
   },
   "doc_quality": {
-    "generated_at": "2026-02-26T14:40:30.600765+00:00",
+    "generated_at": "2026-02-27T16:01:05.250008+00:00",
     "root": "/Users/tompoet/AgentSkills",
     "enabled": true,
     "doc_spec": {
@@ -559,7 +559,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 5
+        "age_days": 7
       },
       {
         "path": "docs/exec-plans/active/docs-sor-legacy-migration-automation-plan.md",
@@ -571,7 +571,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 4
+        "age_days": 6
       },
       {
         "path": "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-acceptance-report.md",
@@ -583,7 +583,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 4
+        "age_days": 6
       },
       {
         "path": "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-d-test-matrix.md",
@@ -595,7 +595,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 4
+        "age_days": 6
       },
       {
         "path": "docs/exec-plans/active/docs-sor-roadmap-v2.1-phase-e-delivery-preacceptance-anti-drift.md",
@@ -607,7 +607,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 4
+        "age_days": 6
       },
       {
         "path": "docs/exec-plans/active/docs-sor-roadmap-v2.1-semantic-structured-generation.md",
@@ -619,7 +619,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 4
+        "age_days": 6
       },
       {
         "path": "docs/exec-plans/active/docs-sor-roadmap-v2.2-phase-f-agent-runtime-semantic-hardening.md",
@@ -631,7 +631,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 4
+        "age_days": 6
       },
       {
         "path": "docs/exec-plans/active/docs-sor-roadmap-v2.4-dual-replica-sync-ci-convergence.md",
@@ -643,7 +643,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 4
+        "age_days": 6
       },
       {
         "path": "docs/exec-plans/active/docs-sor-roadmap-v2.5-hybrid-template-llm-governance.md",
@@ -655,7 +655,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 3
+        "age_days": 5
       },
       {
         "path": "docs/exec-plans/active/docs-sor-roadmap-v2.5-remediation-agent-strict-policy-enforcement.md",
@@ -667,7 +667,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 2
+        "age_days": 4
       },
       {
         "path": "docs/exec-plans/active/docs-sor-roadmap-v2.6-acceptance-report.md",
@@ -679,7 +679,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 2
+        "age_days": 4
       },
       {
         "path": "docs/exec-plans/active/docs-sor-roadmap-v2.6-topology-progressive-disclosure-governance.md",
@@ -691,7 +691,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 2
+        "age_days": 4
       },
       {
         "path": "docs/exec-plans/active/docs-sor-roadmap-v2.7-agent-first-semantic-priority-governance.md",
@@ -703,7 +703,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 0
+        "age_days": 2
       },
       {
         "path": "docs/exec-plans/active/docs-sor-roadmap-v2.7-m1-acceptance-report.md",
@@ -715,7 +715,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 0
+        "age_days": 2
       },
       {
         "path": "docs/exec-plans/active/docs-sor-roadmap-v2.7-m2-acceptance-report.md",
@@ -727,7 +727,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 0
+        "age_days": 2
       },
       {
         "path": "docs/exec-plans/active/docs-sor-roadmap-v2.7-m3-acceptance-report.md",
@@ -739,7 +739,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 0
+        "age_days": 2
       },
       {
         "path": "docs/exec-plans/active/docs-sor-roadmap-v2.7-m4-acceptance-report.md",
@@ -751,7 +751,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 0
+        "age_days": 2
       },
       {
         "path": "docs/exec-plans/active/docs-sor-roadmap-v2.7-m4-test-matrix.md",
@@ -763,7 +763,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 0
+        "age_days": 2
       },
       {
         "path": "docs/exec-plans/active/docs-sor-roadmap-v2.7.1-acceptance-report.md",
@@ -775,7 +775,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 0
+        "age_days": 2
       },
       {
         "path": "docs/exec-plans/active/docs-sor-roadmap-v2.7.1-semantic-first-coverage-closure.md",
@@ -787,7 +787,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 0
+        "age_days": 2
       },
       {
         "path": "docs/exec-plans/active/docs-sor-roadmap-v2.7.3-acceptance-report.md",
@@ -799,7 +799,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 0
+        "age_days": 2
       },
       {
         "path": "docs/exec-plans/active/docs-sor-roadmap-v2.7.3-semantic-input-quality-and-scoped-validate.md",
@@ -811,7 +811,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 0
+        "age_days": 2
       },
       {
         "path": "docs/exec-plans/active/docs-sor-roadmap-v2.md",
@@ -823,7 +823,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 4
+        "age_days": 6
       },
       {
         "path": "docs/exec-plans/completed/README.md",
@@ -835,7 +835,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 4
+        "age_days": 6
       },
       {
         "path": "docs/exec-plans/completed/docs-sor-legacy-migration-automation-closeout-2026-02-22.md",
@@ -847,7 +847,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 4
+        "age_days": 6
       },
       {
         "path": "docs/exec-plans/completed/docs-sor-roadmap-v2-closeout-2026-02-22.md",
@@ -859,7 +859,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 4
+        "age_days": 6
       },
       {
         "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.1-closeout-2026-02-22.md",
@@ -871,7 +871,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 4
+        "age_days": 6
       },
       {
         "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.1-phase-e-closeout-2026-02-22.md",
@@ -883,7 +883,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 4
+        "age_days": 6
       },
       {
         "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.2-phase-f-closeout-2026-02-22.md",
@@ -895,7 +895,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 4
+        "age_days": 6
       },
       {
         "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.3-phase-f5-closeout-2026-02-22.md",
@@ -907,7 +907,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 4
+        "age_days": 6
       },
       {
         "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.4-closeout-2026-02-23.md",
@@ -919,7 +919,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 3
+        "age_days": 5
       },
       {
         "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.5-closeout-2026-02-23.md",
@@ -931,7 +931,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 2
+        "age_days": 4
       },
       {
         "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.5-remediation-closeout-2026-02-24.md",
@@ -943,7 +943,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 2
+        "age_days": 4
       },
       {
         "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.6-closeout-2026-02-24.md",
@@ -955,7 +955,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 2
+        "age_days": 4
       },
       {
         "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.7-closeout-2026-02-26.md",
@@ -967,7 +967,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 0
+        "age_days": 2
       },
       {
         "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.7.1-closeout-2026-02-26.md",
@@ -979,7 +979,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 0
+        "age_days": 2
       },
       {
         "path": "docs/exec-plans/completed/docs-sor-roadmap-v2.7.3-closeout-2026-02-26.md",
@@ -991,7 +991,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 0
+        "age_days": 2
       },
       {
         "path": "docs/index.md",
@@ -1003,7 +1003,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 0
+        "age_days": 2
       },
       {
         "path": "docs/references/doc_spec_schema.md",
@@ -1015,7 +1015,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 5
+        "age_days": 7
       },
       {
         "path": "docs/references/doc_topology_schema.md",
@@ -1027,7 +1027,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 2
+        "age_days": 4
       },
       {
         "path": "docs/references/exec-plan-closeout-template.md",
@@ -1039,7 +1039,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 2
+        "age_days": 4
       },
       {
         "path": "docs/references/legacy-semantic-migration-acceptance-template.md",
@@ -1051,7 +1051,7 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 4
+        "age_days": 6
       },
       {
         "path": "docs/runbook.md",
@@ -1063,12 +1063,12 @@
         "missing": [],
         "invalid": [],
         "stale": false,
-        "age_days": 0
+        "age_days": 2
       }
     ]
   },
   "agents": {
-    "generated_at": "2026-02-26T14:40:30.601665+00:00",
+    "generated_at": "2026-02-27T16:01:05.250821+00:00",
     "root": "/Users/tompoet/AgentSkills",
     "enabled": true,
     "settings": {
