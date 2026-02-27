@@ -58,6 +58,8 @@ fi
 
 PR scoped gate（可选，命中高风险会自动升级 full）：
 
+- 说明：scoped drift 会保留与作用域文档相关的 `sync_manifest` 漂移动作；若出现该动作，需按常规执行 manifest 同步，不可忽略。
+
 ```bash
 "$PYTHON_BIN" "$SKILL_DIR/scripts/doc_validate.py" \
   --root "$REPO_ROOT" \
@@ -67,6 +69,15 @@ PR scoped gate（可选，命中高风险会自动升级 full）：
   --fail-on-drift \
   --fail-on-freshness \
   --output "$REPO_ROOT/docs/.doc-validate-report-scoped.json"
+```
+
+CI 固定回归（防止 scoped manifest drift 与 split_doc 路径越界回归）：
+
+```bash
+python3 -m unittest -v \
+  skills.docs-sor-maintainer.tests.test_doc_validate_scoped.ScopedValidateTests.test_check_drift_scoped_keeps_sync_manifest_action \
+  skills.docs-sor-maintainer.tests.test_doc_apply_section_actions.DocApplySectionActionTests.test_split_doc_runtime_rejects_escape_targets_and_falls_back \
+  skills.docs-sor-maintainer.tests.test_doc_apply_section_actions.DocApplySectionActionTests.test_split_doc_runtime_rejects_undeclared_extra_targets
 ```
 
 双副本一致性检查（`skills` vs `.agents`）：
@@ -327,3 +338,7 @@ python3 -m py_compile "$SKILL_DIR"/scripts/*.py
 7. 若 validate 报告出现 `denylist_migration_count>0`，视为误迁移阻断，必须先修复策略或数据，不允许放行。
 8. 若 plan 出现 `semantic_rewrite`，需补充 runtime 候选或转人工审查；不得绕过 gate 直接改写 SoR 文档。
 9. 若 active 计划声明 `completed`，必须同时提供 `exec-plan-closeout` marker 且目标文档可达，否则 validate 会阻断。
+10. 若 `split_doc` runtime gate 报 `path_denied` 或 `undeclared_split_targets`，需检查 `split_outputs`：
+    - 目标必须受限于声明的 `target_paths`；
+    - 仅允许 `docs/*.md` 管控路径；
+    - 禁止 `..` 等越界路径。

@@ -734,6 +734,140 @@ class DocApplySectionActionTests(unittest.TestCase):
         self.assertEqual(semantic_runtime.get("gate", {}).get("status"), "passed")
         self.assertFalse((self.root / "docs/index-generated.md").exists())
 
+    def test_split_doc_runtime_rejects_escape_targets_and_falls_back(self) -> None:
+        (self.root / "docs/history").mkdir(parents=True, exist_ok=True)
+        (self.root / "docs/history/merged.md").write_text(
+            "# merged\n\nruntime-source\n", encoding="utf-8"
+        )
+        (self.root / "docs/index.md").write_text("# 文档索引\n", encoding="utf-8")
+        escape_target = self.root.parent / "split-escape-target.md"
+        if escape_target.exists():
+            escape_target.unlink()
+        semantic_settings = dsr.resolve_semantic_generation_settings(
+            {"semantic_generation": {"enabled": True, "mode": "hybrid"}}
+        )
+        runtime_entries = [
+            {
+                "entry_id": "split-runtime-escape",
+                "path": "docs/history/merged.md",
+                "action_type": "split_doc",
+                "status": "ok",
+                "split_outputs": [
+                    {
+                        "path": "docs/history/part-a.md",
+                        "content": "# part-a",
+                    },
+                    {
+                        "path": "../split-escape-target.md",
+                        "content": "# escaped",
+                    },
+                ],
+                "index_links": ["docs/history/part-a.md"],
+            }
+        ]
+        runtime_state = {
+            "enabled": True,
+            "mode": "hybrid",
+            "source": "invoking_agent",
+            "available": True,
+            "entry_count": 1,
+            "error": None,
+            "warnings": [],
+        }
+
+        result = doc_apply.apply_action(
+            self.root,
+            {
+                "id": "A010C",
+                "type": "split_doc",
+                "path": "docs/history/merged.md",
+                "source_path": "docs/history/merged.md",
+                "target_paths": ["docs/history/part-a.md"],
+                "index_path": "docs/index.md",
+            },
+            dry_run=False,
+            language_settings=self.language,
+            template_profile=self.profile,
+            metadata_policy=self.metadata_policy,
+            semantic_settings=semantic_settings,
+            semantic_runtime_entries=runtime_entries,
+            semantic_runtime_state=runtime_state,
+        )
+
+        self.assertEqual(result.get("status"), "applied")
+        semantic_runtime = result.get("semantic_runtime") or {}
+        self.assertEqual(semantic_runtime.get("status"), "split_doc_runtime_gate_failed")
+        self.assertTrue(semantic_runtime.get("fallback_used"))
+        self.assertEqual(semantic_runtime.get("fallback_reason"), "path_denied")
+        self.assertEqual(semantic_runtime.get("gate", {}).get("status"), "failed")
+        self.assertIn("path_denied", semantic_runtime.get("gate", {}).get("failed_checks", []))
+        self.assertTrue((self.root / "docs/history/part-a.md").exists())
+        self.assertFalse(escape_target.exists())
+
+    def test_split_doc_runtime_rejects_undeclared_extra_targets(self) -> None:
+        (self.root / "docs/history").mkdir(parents=True, exist_ok=True)
+        (self.root / "docs/history/merged.md").write_text(
+            "# merged\n\nruntime-source\n", encoding="utf-8"
+        )
+        (self.root / "docs/index.md").write_text("# 文档索引\n", encoding="utf-8")
+        semantic_settings = dsr.resolve_semantic_generation_settings(
+            {"semantic_generation": {"enabled": True, "mode": "hybrid"}}
+        )
+        runtime_entries = [
+            {
+                "entry_id": "split-runtime-extra",
+                "path": "docs/history/merged.md",
+                "action_type": "split_doc",
+                "status": "ok",
+                "split_outputs": [
+                    {"path": "docs/history/part-a.md", "content": "# part-a"},
+                    {"path": "docs/history/part-b.md", "content": "# part-b"},
+                ],
+                "index_links": ["docs/history/part-a.md", "docs/history/part-b.md"],
+            }
+        ]
+        runtime_state = {
+            "enabled": True,
+            "mode": "hybrid",
+            "source": "invoking_agent",
+            "available": True,
+            "entry_count": 1,
+            "error": None,
+            "warnings": [],
+        }
+
+        result = doc_apply.apply_action(
+            self.root,
+            {
+                "id": "A010D",
+                "type": "split_doc",
+                "path": "docs/history/merged.md",
+                "source_path": "docs/history/merged.md",
+                "target_paths": ["docs/history/part-a.md"],
+                "index_path": "docs/index.md",
+            },
+            dry_run=False,
+            language_settings=self.language,
+            template_profile=self.profile,
+            metadata_policy=self.metadata_policy,
+            semantic_settings=semantic_settings,
+            semantic_runtime_entries=runtime_entries,
+            semantic_runtime_state=runtime_state,
+        )
+
+        self.assertEqual(result.get("status"), "applied")
+        semantic_runtime = result.get("semantic_runtime") or {}
+        self.assertEqual(semantic_runtime.get("status"), "split_doc_runtime_gate_failed")
+        self.assertTrue(semantic_runtime.get("fallback_used"))
+        self.assertEqual(semantic_runtime.get("fallback_reason"), "runtime_gate_failed")
+        self.assertEqual(semantic_runtime.get("gate", {}).get("status"), "failed")
+        self.assertIn(
+            "undeclared_split_targets",
+            semantic_runtime.get("gate", {}).get("failed_checks", []),
+        )
+        self.assertTrue((self.root / "docs/history/part-a.md").exists())
+        self.assertFalse((self.root / "docs/history/part-b.md").exists())
+
     def test_merge_docs_hybrid_fallback_generates_traceable_content(self) -> None:
         (self.root / "docs/history").mkdir(parents=True, exist_ok=True)
         (self.root / "docs/history/a.md").write_text("# A\n\ncontent-a\n", encoding="utf-8")

@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 import sys
+from unittest.mock import patch
 
 
 SCRIPT_DIR = Path(__file__).resolve().parents[1] / "scripts"
@@ -122,6 +123,30 @@ class ScopedValidateTests(unittest.TestCase):
         )
         self.assertEqual(scope.get("effective_mode"), "full")
         self.assertTrue(str(scope.get("upgrade_reason", "")).startswith("high_risk_change"))
+
+    def test_check_drift_scoped_keeps_sync_manifest_action(self) -> None:
+        fake_plan = {
+            "actions": [
+                {
+                    "id": "A001",
+                    "type": "sync_manifest",
+                    "path": "docs/.doc-manifest.json",
+                    "manifest_snapshot": self._manifest(),
+                }
+            ]
+        }
+        with patch.object(doc_validate.doc_plan, "build_plan", return_value=fake_plan):
+            has_drift, drift_count, drift_notes = doc_validate.check_drift(
+                self.root,
+                self.root / "docs/.doc-policy.json",
+                self.root / "docs/.doc-manifest.json",
+                facts=None,
+                scope_docs={"docs/runbook.md"},
+            )
+        self.assertTrue(has_drift)
+        self.assertEqual(drift_count, 1)
+        self.assertEqual(len(drift_notes), 1)
+        self.assertIn("sync_manifest", drift_notes[0])
 
 
 if __name__ == "__main__":

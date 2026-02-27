@@ -584,6 +584,19 @@ def _action_touches_scope(action: dict[str, Any], scope_docs: set[str]) -> bool:
     return False
 
 
+def _sync_manifest_touches_scope(action: dict[str, Any], scope_docs: set[str]) -> bool:
+    if str(action.get("type", "")).strip() != "sync_manifest":
+        return False
+    snapshot = action.get("manifest_snapshot")
+    if not isinstance(snapshot, dict):
+        # Manifest sync is a global SoR contract update; keep it in scoped drift checks.
+        return True
+    managed_docs = set(get_managed_markdown_files(snapshot))
+    if not managed_docs:
+        return True
+    return bool(managed_docs & scope_docs)
+
+
 def check_drift(
     root: Path,
     policy_path: Path,
@@ -600,7 +613,11 @@ def check_drift(
         actionable = [
             action
             for action in actionable
-            if isinstance(action, dict) and _action_touches_scope(action, scope_docs)
+            if isinstance(action, dict)
+            and (
+                _action_touches_scope(action, scope_docs)
+                or _sync_manifest_touches_scope(action, scope_docs)
+            )
         ]
     notes = [f"{a.get('id')} {a.get('type')} {a.get('path')}" for a in actionable]
     return len(actionable) > 0, len(actionable), notes

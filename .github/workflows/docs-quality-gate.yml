@@ -54,4 +54,8 @@ jobs:
           "$PYTHON_BIN" "$SKILL_DIR/scripts/doc_plan.py" --root "$REPO_ROOT" --mode audit --facts "$REPO_ROOT/docs/.repo-facts.json" --output "$REPO_ROOT/docs/.doc-plan.json"
           "$PYTHON_BIN" "$SKILL_DIR/scripts/doc_synthesize.py" --root "$REPO_ROOT" --plan "$REPO_ROOT/docs/.doc-plan.json" --facts "$REPO_ROOT/docs/.repo-facts.json" --output "$REPO_ROOT/docs/.doc-evidence-map.json"
           "$PYTHON_BIN" "$SKILL_DIR/scripts/doc_validate.py" --root "$REPO_ROOT" --facts "$REPO_ROOT/docs/.repo-facts.json" --fail-on-drift --fail-on-freshness --output "$REPO_ROOT/docs/.doc-validate-report.json"
+          "$PYTHON_BIN" -m unittest -v \
+            skills.docs-sor-maintainer.tests.test_doc_validate_scoped.ScopedValidateTests.test_check_drift_scoped_keeps_sync_manifest_action \
+            skills.docs-sor-maintainer.tests.test_doc_apply_section_actions.DocApplySectionActionTests.test_split_doc_runtime_rejects_escape_targets_and_falls_back \
+            skills.docs-sor-maintainer.tests.test_doc_apply_section_actions.DocApplySectionActionTests.test_split_doc_runtime_rejects_undeclared_extra_targets
           "$PYTHON_BIN" -m unittest discover -s "$REPO_ROOT/skills/docs-sor-maintainer/tests" -p "test_*.py"

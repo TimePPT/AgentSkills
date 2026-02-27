@@ -979,6 +979,25 @@ def _normalize_rel_list(value: Any) -> list[str]:
     return paths
 
 
+def _resolve_docs_markdown_target(root: Path, target_path: str) -> str | None:
+    root_abs = root.resolve()
+    normalized = normalize(target_path.strip())
+    if not normalized:
+        return None
+    if Path(normalized).is_absolute():
+        return None
+    target_abs = (root_abs / normalized).resolve()
+    try:
+        target_rel = normalize(str(target_abs.relative_to(root_abs)))
+    except ValueError:
+        return None
+    if not target_rel.startswith("docs/"):
+        return None
+    if not target_rel.endswith(".md"):
+        return None
+    return target_rel
+
+
 def _write_if_changed(path: Path, content: str, dry_run: bool) -> bool:
     normalized = content.rstrip() + "\n"
     if path.exists():
@@ -1097,6 +1116,9 @@ def _normalize_split_outputs(value: Any) -> list[dict[str, Any]]:
 def resolve_split_doc_runtime_payload(
     action: dict[str, Any],
     runtime_entry: dict[str, Any] | None,
+    *,
+    root: Path | None = None,
+    semantic_settings: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any] | None, list[str]]:
     if not isinstance(runtime_entry, dict):
         return None, ["runtime_entry_not_found"]
@@ -1109,15 +1131,80 @@ def resolve_split_doc_runtime_payload(
         failed_checks.append("missing_split_outputs")
 
     action_target_paths = _normalize_rel_list(action.get("target_paths"))
+    if root is not None and action_target_paths:
+        canonical_action_targets: list[str] = []
+        for target in action_target_paths:
+            canonical = _resolve_docs_markdown_target(root, target)
+            if canonical is None:
+                failed_checks.append("path_denied")
+                continue
+            canonical_action_targets.append(canonical)
+        action_target_paths = canonical_action_targets
+
+    if root is not None:
+        canonical_outputs: list[dict[str, Any]] = []
+        for item in split_outputs:
+            path_value = item.get("path")
+            if not isinstance(path_value, str) or not path_value.strip():
+                continue
+            canonical = _resolve_docs_markdown_target(root, path_value)
+            if canonical is None:
+                failed_checks.append("path_denied")
+                continue
+            if isinstance(semantic_settings, dict) and is_runtime_path_denied(
+                canonical, semantic_settings
+            ):
+                failed_checks.append("path_denied")
+                continue
+            updated_item = dict(item)
+            updated_item["path"] = canonical
+            canonical_outputs.append(updated_item)
+        split_outputs = canonical_outputs
+        if not split_outputs:
+            failed_checks.append("missing_split_outputs")
+
     output_paths = {str(item.get("path")) for item in split_outputs}
     if action_target_paths:
+        action_targets_set = set(action_target_paths)
         missing_targets = [path for path in action_target_paths if path not in output_paths]
         if missing_targets:
             failed_checks.append("missing_declared_split_targets")
+        undeclared_targets = sorted(output_paths - action_targets_set)
+        if undeclared_targets:
+            failed_checks.append("undeclared_split_targets")
 
     index_links = _normalize_rel_list(runtime_entry.get("index_links"))
+    index_path = normalize(str(action.get("index_path") or "docs/index.md").strip())
+    if root is not None:
+        canonical_index_path = _resolve_docs_markdown_target(root, index_path)
+        if canonical_index_path is None:
+            failed_checks.append("path_denied")
+        elif isinstance(semantic_settings, dict) and is_runtime_path_denied(
+            canonical_index_path, semantic_settings
+        ):
+            failed_checks.append("path_denied")
+        else:
+            index_path = canonical_index_path
+        if index_links:
+            canonical_index_links: list[str] = []
+            for link in index_links:
+                canonical = _resolve_docs_markdown_target(root, link)
+                if canonical is None:
+                    failed_checks.append("path_denied")
+                    continue
+                if isinstance(semantic_settings, dict) and is_runtime_path_denied(
+                    canonical, semantic_settings
+                ):
+                    failed_checks.append("path_denied")
+                    continue
+                canonical_index_links.append(canonical)
+            index_links = canonical_index_links
     if not index_links:
         index_links = [str(item.get("path")) for item in split_outputs if isinstance(item.get("path"), str)]
+    if action_target_paths and index_links:
+        action_targets_set = set(action_target_paths)
+        if any(link not in action_targets_set for link in index_links):
+            failed_checks.append("undeclared_split_targets")
 
     deduped_failures = _dedupe_failures(failed_checks)
     if deduped_failures:
@@ -1125,6 +1212,7 @@ def resolve_split_doc_runtime_payload(
     return {
         "split_outputs": split_outputs,
         "index_links": index_links,
+        "index_path": index_path,
     }, []
 
 
@@ -2333,7 +2421,10 @@ def apply_action(
             runtime_gate_failures: list[str] = list(runtime_candidate_failures)
             if isinstance(runtime_candidate, dict):
                 runtime_payload, runtime_gate_failures = resolve_split_doc_runtime_payload(
-                    action, runtime_candidate
+                    action,
+                    runtime_candidate,
+                    root=root,
+                    semantic_settings=semantic_cfg,
                 )
                 runtime_gate_failures = list(runtime_candidate_failures) + runtime_gate_failures
                 semantic_runtime = result.get("semantic_runtime")
@@ -2359,13 +2450,17 @@ def apply_action(
                         continue
                     if not isinstance(content, str) or not content.strip():
                         continue
-                    target_rel = normalize(target_path.strip())
+                    target_rel = _resolve_docs_markdown_target(root, target_path)
+                    if not isinstance(target_rel, str):
+                        continue
+                    if is_runtime_path_denied(target_rel, semantic_cfg):
+                        continue
                     target_abs = root / target_rel
                     if _write_if_changed(target_abs, content, dry_run):
                         changed_count += 1
                     created_targets.append(target_rel)
                 index_path = normalize(
-                    str(action.get("index_path") or "docs/index.md").strip()
+                    str(runtime_payload.get("index_path") or "docs/index.md").strip()
                 )
                 index_changed = _upsert_index_links(
                     root,
@@ -2438,6 +2533,8 @@ def apply_action(
                 return result
             changed_count = 0
             created_targets: list[str] = []
+            safe_outputs: list[tuple[str, str]] = []
+            invalid_targets: list[str] = []
             for output in fallback_payload.get("split_outputs") or []:
                 if not isinstance(output, dict):
                     continue
@@ -2447,14 +2544,33 @@ def apply_action(
                     continue
                 if not isinstance(content, str) or not content.strip():
                     continue
-                target_rel = normalize(target_path.strip())
+                target_rel = _resolve_docs_markdown_target(root, target_path)
+                if not isinstance(target_rel, str):
+                    invalid_targets.append(str(target_path))
+                    continue
+                if is_runtime_path_denied(target_rel, semantic_cfg):
+                    invalid_targets.append(target_rel)
+                    continue
+                safe_outputs.append((target_rel, content))
+            if invalid_targets:
+                result["status"] = "skipped"
+                result["details"] = "split doc fallback skipped: path denied in split outputs"
+                return result
+            for target_rel, content in safe_outputs:
                 if _write_if_changed(root / target_rel, content, dry_run):
                     changed_count += 1
                 created_targets.append(target_rel)
             index_path = normalize(str(action.get("index_path") or "docs/index.md").strip())
+            canonical_index_path = _resolve_docs_markdown_target(root, index_path)
+            if not isinstance(canonical_index_path, str) or is_runtime_path_denied(
+                canonical_index_path, semantic_cfg
+            ):
+                result["status"] = "skipped"
+                result["details"] = "split doc fallback skipped: path denied in index target"
+                return result
             index_changed = _upsert_index_links(
                 root,
-                index_path,
+                canonical_index_path,
                 _normalize_rel_list(fallback_payload.get("index_links")),
                 dry_run,
                 template_profile,
